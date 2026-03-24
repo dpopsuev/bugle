@@ -1,4 +1,4 @@
-package dispatch
+package guard
 
 import (
 	"context"
@@ -6,13 +6,15 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
 type countingDispatcher struct {
 	calls atomic.Int64
 }
 
-func (d *countingDispatcher) Dispatch(_ context.Context, _ Context) ([]byte, error) { //nolint:gocritic
+func (d *countingDispatcher) Dispatch(_ context.Context, _ bd.Context) ([]byte, error) { //nolint:gocritic
 	d.calls.Add(1)
 	return []byte(`ok`), nil
 }
@@ -24,7 +26,7 @@ func TestRateLimiter_BurstAllowed(t *testing.T) {
 		Burst: 5,
 	})
 
-	ctx := Context{Step: "test"}
+	ctx := bd.Context{Step: "test"}
 	for i := 0; i < 5; i++ {
 		_, err := rl.Dispatch(context.Background(), ctx)
 		if err != nil {
@@ -48,7 +50,7 @@ func TestRateLimiter_DelaysBeyondBurst(t *testing.T) {
 		},
 	})
 
-	ctx := Context{Step: "test"}
+	ctx := bd.Context{Step: "test"}
 	start := time.Now()
 
 	var wg sync.WaitGroup
@@ -82,7 +84,7 @@ func TestRateLimiter_DelaysBeyondBurst(t *testing.T) {
 func TestRateLimiter_Unwrapper(t *testing.T) {
 	inner := &countingDispatcher{}
 	rl := NewRateLimitDispatcher(inner, RateLimitConfig{Rate: 10, Burst: 1})
-	if rl.Inner() != inner {
+	if rl.Inner() != bd.Dispatcher(inner) {
 		t.Error("Inner() should return the wrapped dispatcher")
 	}
 }

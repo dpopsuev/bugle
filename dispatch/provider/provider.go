@@ -1,14 +1,16 @@
-package dispatch
+package provider
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
-// ProviderRouter selects a Dispatcher based on the provider name carried
-// in the Context. This enables per-step LLM routing: one node uses
+// Router selects a bd.Dispatcher based on the provider name carried
+// in the bd.Context. This enables per-step LLM routing: one node uses
 // Cursor (MuxDispatcher), another uses Codex (CLIDispatcher), a third
 // calls OpenAI directly (HTTPDispatcher).
 //
@@ -19,27 +21,27 @@ import (
 //
 // When Fallbacks are configured for a provider and the primary dispatch fails,
 // the router iterates through the fallback chain until one succeeds or all fail.
-type ProviderRouter struct {
-	Default           Dispatcher
-	Routes            map[string]Dispatcher
+type Router struct {
+	Default           bd.Dispatcher
+	Routes            map[string]bd.Dispatcher
 	StepProviderHints map[string]string   // step name → provider (populated by auto-routing)
 	Fallbacks         map[string][]string // provider → ordered fallback provider names
 	Logger            *slog.Logger
 	OnFallback        func(primary, fallback string, err error) // optional callback on fallback activation
 }
 
-// ProviderRouterOption configures a ProviderRouter.
-type ProviderRouterOption func(*ProviderRouter)
+// RouterOption configures a Router.
+type RouterOption func(*Router)
 
-// NewProviderRouter creates a router with a default dispatcher and optional routes.
-func NewProviderRouter(defaultDispatcher Dispatcher, routes map[string]Dispatcher, opts ...ProviderRouterOption) *ProviderRouter {
+// NewRouter creates a router with a default dispatcher and optional routes.
+func NewRouter(defaultDispatcher bd.Dispatcher, routes map[string]bd.Dispatcher, opts ...RouterOption) *Router {
 	if routes == nil {
-		routes = make(map[string]Dispatcher)
+		routes = make(map[string]bd.Dispatcher)
 	}
-	r := &ProviderRouter{
+	r := &Router{
 		Default: defaultDispatcher,
 		Routes:  routes,
-		Logger:  discardLogger(),
+		Logger:  bd.DiscardLogger(),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -48,28 +50,28 @@ func NewProviderRouter(defaultDispatcher Dispatcher, routes map[string]Dispatche
 }
 
 // WithProviderLogger sets a structured logger.
-func WithProviderLogger(l *slog.Logger) ProviderRouterOption {
-	return func(r *ProviderRouter) { r.Logger = l }
+func WithProviderLogger(l *slog.Logger) RouterOption {
+	return func(r *Router) { r.Logger = l }
 }
 
 // WithFallbacks configures fallback chains for providers.
-func WithFallbacks(fallbacks map[string][]string) ProviderRouterOption {
-	return func(r *ProviderRouter) { r.Fallbacks = fallbacks }
+func WithFallbacks(fallbacks map[string][]string) RouterOption {
+	return func(r *Router) { r.Fallbacks = fallbacks }
 }
 
 // WithFallbackCallback sets a callback invoked when a fallback provider is used.
-func WithFallbackCallback(fn func(primary, fallback string, err error)) ProviderRouterOption {
-	return func(r *ProviderRouter) { r.OnFallback = fn }
+func WithFallbackCallback(fn func(primary, fallback string, err error)) RouterOption {
+	return func(r *Router) { r.OnFallback = fn }
 }
 
 // Register adds a named provider route. Overwrites if the name already exists.
-func (r *ProviderRouter) Register(provider string, d Dispatcher) {
+func (r *Router) Register(provider string, d bd.Dispatcher) {
 	r.Routes[provider] = d
 }
 
 // Dispatch selects the appropriate dispatcher and delegates.
 // On failure, iterates through the fallback chain if configured.
-func (r *ProviderRouter) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
+func (r *Router) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	if dc.Provider == "" && r.StepProviderHints != nil {
 		if hint, ok := r.StepProviderHints[dc.Step]; ok {
 			if d, found := r.Routes[hint]; found {
@@ -106,7 +108,7 @@ func (r *ProviderRouter) Dispatch(ctx context.Context, dc Context) ([]byte, erro
 
 // dispatchWithFallback tries the primary dispatcher, then iterates through
 // fallbacks on failure. Returns the first successful result or an aggregated error.
-func (r *ProviderRouter) dispatchWithFallback(ctx context.Context, providerName string, primary Dispatcher, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
+func (r *Router) dispatchWithFallback(ctx context.Context, providerName string, primary bd.Dispatcher, dc bd.Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	result, err := primary.Dispatch(ctx, dc)
 	if err == nil {
 		return result, nil
@@ -146,7 +148,7 @@ func (r *ProviderRouter) dispatchWithFallback(ctx context.Context, providerName 
 	return nil, fmt.Errorf("all providers failed: %w", errors.Join(errs...))
 }
 
-func (r *ProviderRouter) providerNames() []string {
+func (r *Router) providerNames() []string {
 	names := make([]string, 0, len(r.Routes))
 	for k := range r.Routes {
 		names = append(names, k)

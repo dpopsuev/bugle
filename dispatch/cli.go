@@ -59,7 +59,7 @@ func NewCLIDispatcher(command string, opts ...CLIOption) (*CLIDispatcher, error)
 	d := &CLIDispatcher{
 		Command: resolved,
 		Timeout: 5 * time.Minute,
-		Logger:  discardLogger(),
+		Logger:  DiscardLogger(),
 	}
 	for _, o := range opts {
 		o(d)

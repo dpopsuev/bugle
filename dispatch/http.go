@@ -65,7 +65,7 @@ func NewHTTPDispatcher(baseURL string, opts ...HTTPOption) (*HTTPDispatcher, err
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Model:      "gpt-4",
 		HTTPClient: http.DefaultClient,
-		Logger:     discardLogger(),
+		Logger:     DiscardLogger(),
 		apiKeyEnv:  "OPENAI_API_KEY",
 	}
 	for _, o := range opts {

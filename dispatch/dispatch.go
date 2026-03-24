@@ -16,7 +16,7 @@ import (
 )
 
 // discardLogger returns a logger that discards all output.
-func discardLogger() *slog.Logger {
+func DiscardLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 

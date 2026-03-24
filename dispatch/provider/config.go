@@ -1,40 +1,42 @@
-package dispatch
+package provider
 
 import (
 	"fmt"
 	"os"
 	"time"
 
+	bd "github.com/dpopsuev/bugle/dispatch"
+
 	"gopkg.in/yaml.v3"
 )
 
-// ProviderConfig is the YAML-loadable specification for a dispatch topology:
+// Config is the YAML-loadable specification for a dispatch topology:
 // named providers with their type and configuration, plus fallback chains.
-type ProviderConfig struct {
-	Providers []ProviderDef       `yaml:"providers"`
+type Config struct {
+	Providers []Def               `yaml:"providers"`
 	Fallbacks map[string][]string `yaml:"fallbacks,omitempty"`
 }
 
-// ProviderDef describes a single named provider.
+// Def describes a single named provider.
 // Type selects the dispatcher factory; Config carries type-specific parameters.
-type ProviderDef struct {
+type Def struct {
 	Name   string         `yaml:"name"`
 	Type   string         `yaml:"type"`
 	Config map[string]any `yaml:"config,omitempty"`
 }
 
-// LoadProviderConfig parses a YAML file into a ProviderConfig.
-func LoadProviderConfig(path string) (*ProviderConfig, error) {
+// LoadConfig parses a YAML file into a Config.
+func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("dispatch/config: read %s: %w", path, err)
 	}
-	return ParseProviderConfig(data)
+	return ParseConfig(data)
 }
 
-// ParseProviderConfig parses raw YAML bytes into a ProviderConfig.
-func ParseProviderConfig(data []byte) (*ProviderConfig, error) {
-	var cfg ProviderConfig
+// ParseConfig parses raw YAML bytes into a Config.
+func ParseConfig(data []byte) (*Config, error) {
+	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("dispatch/config: parse YAML: %w", err)
 	}
@@ -52,24 +54,24 @@ func ParseProviderConfig(data []byte) (*ProviderConfig, error) {
 	return &cfg, nil
 }
 
-// DispatcherFactory creates a Dispatcher from a ProviderDef's config map.
-type DispatcherFactory func(config map[string]any) (Dispatcher, error)
+// DispatcherFactory creates a bd.Dispatcher from a Def's config map.
+type DispatcherFactory func(config map[string]any) (bd.Dispatcher, error)
 
-// BuildRouter constructs a ProviderRouter from a ProviderConfig.
+// BuildRouter constructs a Router from a Config.
 //
 // Built-in types ("http", "cli", "stdin", "static") are resolved automatically.
 // For types that require runtime wiring (e.g. "mux", "file"), register a factory
 // via the extraFactories parameter or replace the route entry after construction.
 //
 // The first provider in the list becomes the default dispatcher.
-func BuildRouter(cfg *ProviderConfig, extraFactories map[string]DispatcherFactory) (*ProviderRouter, error) {
+func BuildRouter(cfg *Config, extraFactories map[string]DispatcherFactory) (*Router, error) {
 	factories := builtinFactories()
 	for k, v := range extraFactories {
 		factories[k] = v
 	}
 
-	routes := make(map[string]Dispatcher, len(cfg.Providers))
-	var defaultDisp Dispatcher
+	routes := make(map[string]bd.Dispatcher, len(cfg.Providers))
+	var defaultDisp bd.Dispatcher
 
 	for i, pdef := range cfg.Providers {
 		factory, ok := factories[pdef.Type]
@@ -86,7 +88,7 @@ func BuildRouter(cfg *ProviderConfig, extraFactories map[string]DispatcherFactor
 		}
 	}
 
-	router := NewProviderRouter(defaultDisp, routes, WithFallbacks(cfg.Fallbacks))
+	router := NewRouter(defaultDisp, routes, WithFallbacks(cfg.Fallbacks))
 	return router, nil
 }
 
@@ -99,53 +101,53 @@ func builtinFactories() map[string]DispatcherFactory {
 	}
 }
 
-func staticFactory(config map[string]any) (Dispatcher, error) {
+func staticFactory(config map[string]any) (bd.Dispatcher, error) {
 	dir, _ := config["dir"].(string)
-	return NewStaticDispatcher(dir), nil
+	return bd.NewStaticDispatcher(dir), nil
 }
 
-func httpFactory(config map[string]any) (Dispatcher, error) {
+func httpFactory(config map[string]any) (bd.Dispatcher, error) {
 	baseURL, _ := config["base_url"].(string)
 	if baseURL == "" {
 		return nil, fmt.Errorf("http provider requires config.base_url")
 	}
 
-	var opts []HTTPOption
+	var opts []bd.HTTPOption
 	if model, ok := config["model"].(string); ok && model != "" {
-		opts = append(opts, WithModel(model))
+		opts = append(opts, bd.WithModel(model))
 	}
 	if keyEnv, ok := config["api_key_env"].(string); ok && keyEnv != "" {
-		opts = append(opts, WithAPIKeyEnv(keyEnv))
+		opts = append(opts, bd.WithAPIKeyEnv(keyEnv))
 	}
 
-	return NewHTTPDispatcher(baseURL, opts...)
+	return bd.NewHTTPDispatcher(baseURL, opts...)
 }
 
-func cliFactory(config map[string]any) (Dispatcher, error) {
+func cliFactory(config map[string]any) (bd.Dispatcher, error) {
 	command, _ := config["command"].(string)
 	if command == "" {
 		return nil, fmt.Errorf("cli provider requires config.command")
 	}
 
-	var opts []CLIOption
+	var opts []bd.CLIOption
 	if args, ok := config["args"].([]any); ok {
 		strArgs := make([]string, 0, len(args))
 		for _, a := range args {
 			strArgs = append(strArgs, fmt.Sprintf("%v", a))
 		}
-		opts = append(opts, WithCLIArgs(strArgs...))
+		opts = append(opts, bd.WithCLIArgs(strArgs...))
 	}
 	if timeoutStr, ok := config["timeout"].(string); ok {
 		dur, err := time.ParseDuration(timeoutStr)
 		if err != nil {
 			return nil, fmt.Errorf("cli provider: invalid timeout %q: %w", timeoutStr, err)
 		}
-		opts = append(opts, WithCLITimeout(dur))
+		opts = append(opts, bd.WithCLITimeout(dur))
 	}
 
-	return NewCLIDispatcher(command, opts...)
+	return bd.NewCLIDispatcher(command, opts...)
 }
 
-func stdinFactory(_ map[string]any) (Dispatcher, error) {
-	return NewStdinDispatcher(), nil
+func stdinFactory(_ map[string]any) (bd.Dispatcher, error) {
+	return bd.NewStdinDispatcher(), nil
 }

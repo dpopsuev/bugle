@@ -1,9 +1,11 @@
-package dispatch
+package guard
 
 import (
 	"context"
 	"os"
 	"time"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 
 	"github.com/dpopsuev/bugle/billing"
 )
@@ -11,18 +13,18 @@ import (
 // Hook is called after each dispatch with timing and error info.
 type Hook func(provider, step string, duration time.Duration, err error)
 
-// TokenTrackingDispatcher wraps any Dispatcher and records token usage
+// TokenTrackingDispatcher wraps any bd.Dispatcher and records token usage
 // for each dispatch call. Optional Hooks receive timing/error data
 // for bridging with metrics systems.
 type TokenTrackingDispatcher struct {
-	inner         Dispatcher
+	inner         bd.Dispatcher
 	tracker       billing.Tracker
 	provider      string
 	dispatchHooks []Hook
 }
 
 // NewTokenTrackingDispatcher wraps a dispatcher with token tracking.
-func NewTokenTrackingDispatcher(inner Dispatcher, tracker billing.Tracker) *TokenTrackingDispatcher {
+func NewTokenTrackingDispatcher(inner bd.Dispatcher, tracker billing.Tracker) *TokenTrackingDispatcher {
 	return &TokenTrackingDispatcher{inner: inner, tracker: tracker}
 }
 
@@ -37,7 +39,7 @@ func (d *TokenTrackingDispatcher) OnDispatch(hook Hook) {
 }
 
 // Dispatch delegates to the inner dispatcher while recording token metrics.
-func (d *TokenTrackingDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
+func (d *TokenTrackingDispatcher) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	promptBytes := 0
 	if info, err := os.Stat(dc.PromptPath); err == nil {
 		promptBytes = int(info.Size())
@@ -77,6 +79,6 @@ func (d *TokenTrackingDispatcher) Dispatch(ctx context.Context, dc Context) ([]b
 }
 
 // Inner returns the wrapped dispatcher for type-specific operations.
-func (d *TokenTrackingDispatcher) Inner() Dispatcher {
+func (d *TokenTrackingDispatcher) Inner() bd.Dispatcher {
 	return d.inner
 }

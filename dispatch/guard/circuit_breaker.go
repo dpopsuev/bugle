@@ -1,10 +1,12 @@
-package dispatch
+package guard
 
 import (
 	"context"
 	"errors"
 	"sync"
 	"time"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
 // CircuitState represents the current state of a circuit breaker.
@@ -43,12 +45,12 @@ type CircuitBreakerConfig struct {
 	OnChange  CircuitBreakerHook
 }
 
-// CircuitBreakerDispatcher wraps a Dispatcher with circuit breaker protection.
+// CircuitBreakerDispatcher wraps a bd.Dispatcher with circuit breaker protection.
 // After Threshold consecutive failures the circuit opens, rejecting all calls
 // immediately with ErrCircuitOpen. After Cooldown elapses, one probe call is
 // allowed (half-open): success closes, failure re-opens.
 type CircuitBreakerDispatcher struct {
-	inner     Dispatcher
+	inner     bd.Dispatcher
 	threshold int
 	cooldown  time.Duration
 	onChange  CircuitBreakerHook
@@ -60,7 +62,7 @@ type CircuitBreakerDispatcher struct {
 }
 
 // NewCircuitBreakerDispatcher wraps inner with circuit breaker protection.
-func NewCircuitBreakerDispatcher(inner Dispatcher, cfg CircuitBreakerConfig) *CircuitBreakerDispatcher {
+func NewCircuitBreakerDispatcher(inner bd.Dispatcher, cfg CircuitBreakerConfig) *CircuitBreakerDispatcher {
 	threshold := cfg.Threshold
 	if threshold <= 0 {
 		threshold = 5
@@ -88,7 +90,7 @@ func (d *CircuitBreakerDispatcher) State() CircuitState {
 // Dispatch delegates to the inner dispatcher if the circuit is closed or
 // half-open (probe). Returns ErrCircuitOpen if the circuit is open and
 // cooldown has not elapsed.
-func (d *CircuitBreakerDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
+func (d *CircuitBreakerDispatcher) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	d.mu.Lock()
 	if d.state == CircuitOpen {
 		if time.Since(d.openedAt) >= d.cooldown {
@@ -125,7 +127,7 @@ func (d *CircuitBreakerDispatcher) Dispatch(ctx context.Context, dc Context) ([]
 }
 
 // Inner returns the wrapped dispatcher.
-func (d *CircuitBreakerDispatcher) Inner() Dispatcher { return d.inner }
+func (d *CircuitBreakerDispatcher) Inner() bd.Dispatcher { return d.inner }
 
 func (d *CircuitBreakerDispatcher) transition(to CircuitState) {
 	from := d.state

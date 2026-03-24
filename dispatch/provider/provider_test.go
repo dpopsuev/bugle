@@ -1,22 +1,24 @@
-package dispatch
+package provider
 
 import (
 	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
-var _ Dispatcher = (*ProviderRouter)(nil)
+var _ bd.Dispatcher = (*Router)(nil)
 
 type mockDispatcher struct {
 	name    string
 	called  bool
-	lastCtx Context
+	lastCtx bd.Context
 	err     error
 }
 
-func (m *mockDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, error) { //nolint:gocritic
+func (m *mockDispatcher) Dispatch(_ context.Context, ctx bd.Context) ([]byte, error) { //nolint:gocritic
 	m.called = true
 	m.lastCtx = ctx
 	if m.err != nil {
@@ -25,11 +27,11 @@ func (m *mockDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, error
 	return []byte(m.name + "-output"), nil
 }
 
-func TestProviderRouter_DefaultRoute(t *testing.T) {
+func TestRouter_DefaultRoute(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
-	router := NewProviderRouter(def, nil)
+	router := NewRouter(def, nil)
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0",
 	})
 	if err != nil {
@@ -43,17 +45,17 @@ func TestProviderRouter_DefaultRoute(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_NamedRoute(t *testing.T) {
+func TestRouter_NamedRoute(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	codex := &mockDispatcher{name: "codex"}
 	claude := &mockDispatcher{name: "claude"}
 
-	router := NewProviderRouter(def, map[string]Dispatcher{
+	router := NewRouter(def, map[string]bd.Dispatcher{
 		"codex":  codex,
 		"claude": claude,
 	})
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F1", Provider: "codex",
 	})
 	if err != nil {
@@ -70,11 +72,11 @@ func TestProviderRouter_NamedRoute(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_UnknownProvider(t *testing.T) {
+func TestRouter_UnknownProvider(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
-	router := NewProviderRouter(def, nil)
+	router := NewRouter(def, nil)
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "nonexistent",
 	})
 	if err == nil {
@@ -85,14 +87,14 @@ func TestProviderRouter_UnknownProvider(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_Register(t *testing.T) {
+func TestRouter_Register(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
-	router := NewProviderRouter(def, nil)
+	router := NewRouter(def, nil)
 
 	openai := &mockDispatcher{name: "openai"}
 	router.Register("openai", openai)
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F3", Provider: "openai",
 	})
 	if err != nil {
@@ -106,12 +108,12 @@ func TestProviderRouter_Register(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_EmptyProviderUsesDefault(t *testing.T) {
+func TestRouter_EmptyProviderUsesDefault(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	codex := &mockDispatcher{name: "codex"}
-	router := NewProviderRouter(def, map[string]Dispatcher{"codex": codex})
+	router := NewRouter(def, map[string]bd.Dispatcher{"codex": codex})
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "",
 	})
 	if err != nil {
@@ -125,12 +127,12 @@ func TestProviderRouter_EmptyProviderUsesDefault(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
+func TestRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	anthropic := &mockDispatcher{name: "anthropic"}
 	openai := &mockDispatcher{name: "openai"}
 
-	router := NewProviderRouter(def, map[string]Dispatcher{
+	router := NewRouter(def, map[string]bd.Dispatcher{
 		"anthropic": anthropic,
 		"openai":    openai,
 	})
@@ -139,7 +141,7 @@ func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 		"triage":      "openai",
 	}
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "investigate", Provider: "",
 	})
 	if err != nil {
@@ -155,7 +157,7 @@ func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 		t.Errorf("result = %q, want anthropic-output", result)
 	}
 
-	result, err = router.Dispatch(context.Background(), Context{
+	result, err = router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "triage", Provider: "",
 	})
 	if err != nil {
@@ -169,14 +171,14 @@ func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_AutoRoute_NoHint_FallsToDefault(t *testing.T) {
+func TestRouter_AutoRoute_NoHint_FallsToDefault(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
-	router := NewProviderRouter(def, nil)
+	router := NewRouter(def, nil)
 	router.StepProviderHints = map[string]string{
 		"investigate": "anthropic",
 	}
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "recall", Provider: "",
 	})
 	if err != nil {
@@ -187,12 +189,12 @@ func TestProviderRouter_AutoRoute_NoHint_FallsToDefault(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_ExplicitProvider_OverridesAutoRoute(t *testing.T) {
+func TestRouter_ExplicitProvider_OverridesAutoRoute(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	anthropic := &mockDispatcher{name: "anthropic"}
 	openai := &mockDispatcher{name: "openai"}
 
-	router := NewProviderRouter(def, map[string]Dispatcher{
+	router := NewRouter(def, map[string]bd.Dispatcher{
 		"anthropic": anthropic,
 		"openai":    openai,
 	})
@@ -200,7 +202,7 @@ func TestProviderRouter_ExplicitProvider_OverridesAutoRoute(t *testing.T) {
 		"investigate": "anthropic",
 	}
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "investigate", Provider: "openai",
 	})
 	if err != nil {
@@ -214,18 +216,18 @@ func TestProviderRouter_ExplicitProvider_OverridesAutoRoute(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_Fallback_PrimaryFails(t *testing.T) {
+func TestRouter_Fallback_PrimaryFails(t *testing.T) {
 	primary := &mockDispatcher{name: "primary", err: fmt.Errorf("rate limited")}
 	backup := &mockDispatcher{name: "backup"}
 
-	router := NewProviderRouter(primary, map[string]Dispatcher{
+	router := NewRouter(primary, map[string]bd.Dispatcher{
 		"primary": primary,
 		"backup":  backup,
 	}, WithFallbacks(map[string][]string{
 		"primary": {"backup"},
 	}))
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err != nil {
@@ -239,12 +241,12 @@ func TestProviderRouter_Fallback_PrimaryFails(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_Fallback_AllFail(t *testing.T) {
+func TestRouter_Fallback_AllFail(t *testing.T) {
 	primary := &mockDispatcher{name: "primary", err: fmt.Errorf("error 1")}
 	fb1 := &mockDispatcher{name: "fb1", err: fmt.Errorf("error 2")}
 	fb2 := &mockDispatcher{name: "fb2", err: fmt.Errorf("error 3")}
 
-	router := NewProviderRouter(primary, map[string]Dispatcher{
+	router := NewRouter(primary, map[string]bd.Dispatcher{
 		"primary": primary,
 		"fb1":     fb1,
 		"fb2":     fb2,
@@ -252,7 +254,7 @@ func TestProviderRouter_Fallback_AllFail(t *testing.T) {
 		"primary": {"fb1", "fb2"},
 	}))
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err == nil {
@@ -263,14 +265,14 @@ func TestProviderRouter_Fallback_AllFail(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_Fallback_NoFallbacks(t *testing.T) {
+func TestRouter_Fallback_NoFallbacks(t *testing.T) {
 	primary := &mockDispatcher{name: "primary", err: fmt.Errorf("fail")}
 
-	router := NewProviderRouter(primary, map[string]Dispatcher{
+	router := NewRouter(primary, map[string]bd.Dispatcher{
 		"primary": primary,
 	})
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err == nil {
@@ -281,17 +283,17 @@ func TestProviderRouter_Fallback_NoFallbacks(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_Fallback_DefaultProvider(t *testing.T) {
+func TestRouter_Fallback_DefaultProvider(t *testing.T) {
 	def := &mockDispatcher{name: "default", err: fmt.Errorf("default fail")}
 	backup := &mockDispatcher{name: "backup"}
 
-	router := NewProviderRouter(def, map[string]Dispatcher{
+	router := NewRouter(def, map[string]bd.Dispatcher{
 		"backup": backup,
 	}, WithFallbacks(map[string][]string{
 		"default": {"backup"},
 	}))
 
-	result, err := router.Dispatch(context.Background(), Context{
+	result, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0",
 	})
 	if err != nil {
@@ -302,12 +304,12 @@ func TestProviderRouter_Fallback_DefaultProvider(t *testing.T) {
 	}
 }
 
-func TestProviderRouter_FallbackCallback(t *testing.T) {
+func TestRouter_FallbackCallback(t *testing.T) {
 	primary := &mockDispatcher{name: "primary", err: fmt.Errorf("fail")}
 	backup := &mockDispatcher{name: "backup"}
 
 	var gotPrimary, gotFallback string
-	router := NewProviderRouter(primary, map[string]Dispatcher{
+	router := NewRouter(primary, map[string]bd.Dispatcher{
 		"primary": primary,
 		"backup":  backup,
 	},
@@ -318,7 +320,7 @@ func TestProviderRouter_FallbackCallback(t *testing.T) {
 		}),
 	)
 
-	_, err := router.Dispatch(context.Background(), Context{
+	_, err := router.Dispatch(context.Background(), bd.Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err != nil {

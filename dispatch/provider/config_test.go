@@ -1,12 +1,14 @@
-package dispatch
+package provider
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
-func TestParseProviderConfig_Valid(t *testing.T) {
+func TestParseConfig_Valid(t *testing.T) {
 	data := []byte(`
 providers:
   - name: openai
@@ -19,9 +21,9 @@ providers:
 fallbacks:
   openai: [fallback]
 `)
-	cfg, err := ParseProviderConfig(data)
+	cfg, err := ParseConfig(data)
 	if err != nil {
-		t.Fatalf("ParseProviderConfig: %v", err)
+		t.Fatalf("ParseConfig: %v", err)
 	}
 	if len(cfg.Providers) != 2 {
 		t.Fatalf("providers = %d, want 2", len(cfg.Providers))
@@ -40,15 +42,15 @@ fallbacks:
 	}
 }
 
-func TestParseProviderConfig_NoProviders(t *testing.T) {
-	_, err := ParseProviderConfig([]byte(`fallbacks: {}`))
+func TestParseConfig_NoProviders(t *testing.T) {
+	_, err := ParseConfig([]byte(`fallbacks: {}`))
 	if err == nil {
 		t.Fatal("expected error for empty providers")
 	}
 }
 
-func TestParseProviderConfig_MissingName(t *testing.T) {
-	_, err := ParseProviderConfig([]byte(`
+func TestParseConfig_MissingName(t *testing.T) {
+	_, err := ParseConfig([]byte(`
 providers:
   - type: http
 `))
@@ -57,8 +59,8 @@ providers:
 	}
 }
 
-func TestParseProviderConfig_MissingType(t *testing.T) {
-	_, err := ParseProviderConfig([]byte(`
+func TestParseConfig_MissingType(t *testing.T) {
+	_, err := ParseConfig([]byte(`
 providers:
   - name: foo
 `))
@@ -67,7 +69,7 @@ providers:
 	}
 }
 
-func TestLoadProviderConfig_FromFile(t *testing.T) {
+func TestLoadConfig_FromFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dispatch.yaml")
 	content := []byte(`
@@ -79,9 +81,9 @@ providers:
 		t.Fatalf("write: %v", err)
 	}
 
-	cfg, err := LoadProviderConfig(path)
+	cfg, err := LoadConfig(path)
 	if err != nil {
-		t.Fatalf("LoadProviderConfig: %v", err)
+		t.Fatalf("LoadConfig: %v", err)
 	}
 	if cfg.Providers[0].Name != "test" {
 		t.Errorf("name = %q", cfg.Providers[0].Name)
@@ -89,8 +91,8 @@ providers:
 }
 
 func TestBuildRouter_StdinProvider(t *testing.T) {
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{Name: "interactive", Type: "stdin"},
 		},
 	}
@@ -109,8 +111,8 @@ func TestBuildRouter_StdinProvider(t *testing.T) {
 }
 
 func TestBuildRouter_HTTPProvider(t *testing.T) {
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{
 				Name: "openai",
 				Type: "http",
@@ -132,9 +134,9 @@ func TestBuildRouter_HTTPProvider(t *testing.T) {
 	if !ok {
 		t.Fatal("openai route not registered")
 	}
-	httpD, ok := d.(*HTTPDispatcher)
+	httpD, ok := d.(*bd.HTTPDispatcher)
 	if !ok {
-		t.Fatalf("expected *HTTPDispatcher, got %T", d)
+		t.Fatalf("expected *bd.HTTPDispatcher, got %T", d)
 	}
 	if httpD.Model != "gpt-4o" {
 		t.Errorf("model = %q, want gpt-4o", httpD.Model)
@@ -142,8 +144,8 @@ func TestBuildRouter_HTTPProvider(t *testing.T) {
 }
 
 func TestBuildRouter_FallbackChains(t *testing.T) {
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{Name: "primary", Type: "stdin"},
 			{Name: "secondary", Type: "stdin"},
 		},
@@ -164,13 +166,13 @@ func TestBuildRouter_FallbackChains(t *testing.T) {
 
 func TestBuildRouter_ExtraFactory(t *testing.T) {
 	called := false
-	mockFactory := func(_ map[string]any) (Dispatcher, error) {
+	mockFactory := func(_ map[string]any) (bd.Dispatcher, error) {
 		called = true
-		return NewStdinDispatcher(), nil
+		return bd.NewStdinDispatcher(), nil
 	}
 
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{Name: "custom", Type: "custom-type"},
 		},
 	}
@@ -190,8 +192,8 @@ func TestBuildRouter_ExtraFactory(t *testing.T) {
 }
 
 func TestBuildRouter_UnknownType(t *testing.T) {
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{Name: "bad", Type: "unknown"},
 		},
 	}
@@ -203,8 +205,8 @@ func TestBuildRouter_UnknownType(t *testing.T) {
 }
 
 func TestBuildRouter_FirstProviderIsDefault(t *testing.T) {
-	cfg := &ProviderConfig{
-		Providers: []ProviderDef{
+	cfg := &Config{
+		Providers: []Def{
 			{Name: "first", Type: "stdin"},
 			{Name: "second", Type: "stdin"},
 		},

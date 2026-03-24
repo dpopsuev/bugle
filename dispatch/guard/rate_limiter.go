@@ -1,8 +1,10 @@
-package dispatch
+package guard
 
 import (
 	"context"
 	"sync/atomic"
+
+	bd "github.com/dpopsuev/bugle/dispatch"
 
 	"golang.org/x/time/rate"
 )
@@ -17,18 +19,18 @@ type RateLimitConfig struct {
 	OnLimit RateLimitHook
 }
 
-// RateLimitDispatcher wraps a Dispatcher with token bucket rate limiting.
+// RateLimitDispatcher wraps a bd.Dispatcher with token bucket rate limiting.
 // Dispatch calls block until a token is available, protecting downstream
 // providers from burst traffic.
 type RateLimitDispatcher struct {
-	inner   Dispatcher
+	inner   bd.Dispatcher
 	limiter *rate.Limiter
 	onLimit RateLimitHook
 	waits   atomic.Int64
 }
 
 // NewRateLimitDispatcher wraps inner with rate limiting.
-func NewRateLimitDispatcher(inner Dispatcher, cfg RateLimitConfig) *RateLimitDispatcher {
+func NewRateLimitDispatcher(inner bd.Dispatcher, cfg RateLimitConfig) *RateLimitDispatcher {
 	r := cfg.Rate
 	if r <= 0 {
 		r = 10
@@ -45,7 +47,7 @@ func NewRateLimitDispatcher(inner Dispatcher, cfg RateLimitConfig) *RateLimitDis
 }
 
 // Dispatch waits for a rate limit token, then delegates to the inner dispatcher.
-func (d *RateLimitDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
+func (d *RateLimitDispatcher) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	if !d.limiter.Allow() {
 		d.waits.Add(1)
 		if d.onLimit != nil {
@@ -62,4 +64,4 @@ func (d *RateLimitDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte,
 func (d *RateLimitDispatcher) Waits() int64 { return d.waits.Load() }
 
 // Inner returns the wrapped dispatcher.
-func (d *RateLimitDispatcher) Inner() Dispatcher { return d.inner }
+func (d *RateLimitDispatcher) Inner() bd.Dispatcher { return d.inner }

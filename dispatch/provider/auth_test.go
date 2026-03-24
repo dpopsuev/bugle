@@ -1,4 +1,4 @@
-package dispatch
+package provider
 
 import (
 	"net/http"
