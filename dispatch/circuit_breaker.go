@@ -88,7 +88,7 @@ func (d *CircuitBreakerDispatcher) State() CircuitState {
 // Dispatch delegates to the inner dispatcher if the circuit is closed or
 // half-open (probe). Returns ErrCircuitOpen if the circuit is open and
 // cooldown has not elapsed.
-func (d *CircuitBreakerDispatcher) Dispatch(ctx context.Context, dc *Context) ([]byte, error) {
+func (d *CircuitBreakerDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	d.mu.Lock()
 	if d.state == CircuitOpen {
 		if time.Since(d.openedAt) >= d.cooldown {

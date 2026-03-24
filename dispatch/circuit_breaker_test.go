@@ -14,7 +14,7 @@ type failingDispatcher struct {
 	mu    sync.Mutex
 }
 
-func (d *failingDispatcher) Dispatch(_ context.Context, _ *Context) ([]byte, error) {
+func (d *failingDispatcher) Dispatch(_ context.Context, _ Context) ([]byte, error) { //nolint:gocritic
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.calls++
@@ -35,7 +35,7 @@ func TestCircuitBreaker_OpensAfterThreshold(t *testing.T) {
 		},
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	for i := 0; i < 3; i++ {
 		_, _ = cb.Dispatch(context.Background(), ctx)
 	}
@@ -61,7 +61,7 @@ func TestCircuitBreaker_HalfOpenProbeSuccess(t *testing.T) {
 		Cooldown:  1 * time.Millisecond,
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	for i := 0; i < 3; i++ {
 		_, _ = cb.Dispatch(context.Background(), ctx)
 	}
@@ -91,7 +91,7 @@ func TestCircuitBreaker_HalfOpenProbeFailure(t *testing.T) {
 		Cooldown:  1 * time.Millisecond,
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	for i := 0; i < 2; i++ {
 		_, _ = cb.Dispatch(context.Background(), ctx)
 	}
@@ -111,7 +111,7 @@ func TestCircuitBreaker_ClosedOnSuccess(t *testing.T) {
 	inner := &failingDispatcher{failN: 0}
 	cb := NewCircuitBreakerDispatcher(inner, CircuitBreakerConfig{Threshold: 5})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	data, err := cb.Dispatch(context.Background(), ctx)
 	if err != nil {
 		t.Fatalf("expected success: %v", err)
@@ -139,7 +139,7 @@ func TestCircuitBreaker_ConcurrentAccess(t *testing.T) {
 		Cooldown:  time.Hour,
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
 		wg.Add(1)

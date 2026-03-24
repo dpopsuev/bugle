@@ -12,11 +12,11 @@ var _ Dispatcher = (*ProviderRouter)(nil)
 type mockDispatcher struct {
 	name    string
 	called  bool
-	lastCtx *Context
+	lastCtx Context
 	err     error
 }
 
-func (m *mockDispatcher) Dispatch(_ context.Context, ctx *Context) ([]byte, error) {
+func (m *mockDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, error) { //nolint:gocritic
 	m.called = true
 	m.lastCtx = ctx
 	if m.err != nil {
@@ -29,7 +29,7 @@ func TestProviderRouter_DefaultRoute(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	router := NewProviderRouter(def, nil)
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0",
 	})
 	if err != nil {
@@ -53,7 +53,7 @@ func TestProviderRouter_NamedRoute(t *testing.T) {
 		"claude": claude,
 	})
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F1", Provider: "codex",
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func TestProviderRouter_UnknownProvider(t *testing.T) {
 	def := &mockDispatcher{name: "default"}
 	router := NewProviderRouter(def, nil)
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "nonexistent",
 	})
 	if err == nil {
@@ -92,7 +92,7 @@ func TestProviderRouter_Register(t *testing.T) {
 	openai := &mockDispatcher{name: "openai"}
 	router.Register("openai", openai)
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F3", Provider: "openai",
 	})
 	if err != nil {
@@ -111,7 +111,7 @@ func TestProviderRouter_EmptyProviderUsesDefault(t *testing.T) {
 	codex := &mockDispatcher{name: "codex"}
 	router := NewProviderRouter(def, map[string]Dispatcher{"codex": codex})
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "",
 	})
 	if err != nil {
@@ -139,7 +139,7 @@ func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 		"triage":      "openai",
 	}
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "investigate", Provider: "",
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func TestProviderRouter_AutoRouteFromPersonaSheet(t *testing.T) {
 		t.Errorf("result = %q, want anthropic-output", result)
 	}
 
-	result, err = router.Dispatch(context.Background(), &Context{
+	result, err = router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "triage", Provider: "",
 	})
 	if err != nil {
@@ -176,7 +176,7 @@ func TestProviderRouter_AutoRoute_NoHint_FallsToDefault(t *testing.T) {
 		"investigate": "anthropic",
 	}
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "recall", Provider: "",
 	})
 	if err != nil {
@@ -200,7 +200,7 @@ func TestProviderRouter_ExplicitProvider_OverridesAutoRoute(t *testing.T) {
 		"investigate": "anthropic",
 	}
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "investigate", Provider: "openai",
 	})
 	if err != nil {
@@ -225,7 +225,7 @@ func TestProviderRouter_Fallback_PrimaryFails(t *testing.T) {
 		"primary": {"backup"},
 	}))
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err != nil {
@@ -252,7 +252,7 @@ func TestProviderRouter_Fallback_AllFail(t *testing.T) {
 		"primary": {"fb1", "fb2"},
 	}))
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err == nil {
@@ -270,7 +270,7 @@ func TestProviderRouter_Fallback_NoFallbacks(t *testing.T) {
 		"primary": primary,
 	})
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err == nil {
@@ -291,7 +291,7 @@ func TestProviderRouter_Fallback_DefaultProvider(t *testing.T) {
 		"default": {"backup"},
 	}))
 
-	result, err := router.Dispatch(context.Background(), &Context{
+	result, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0",
 	})
 	if err != nil {
@@ -318,7 +318,7 @@ func TestProviderRouter_FallbackCallback(t *testing.T) {
 		}),
 	)
 
-	_, err := router.Dispatch(context.Background(), &Context{
+	_, err := router.Dispatch(context.Background(), Context{
 		CaseID: "C1", Step: "F0", Provider: "primary",
 	})
 	if err != nil {

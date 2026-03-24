@@ -43,7 +43,7 @@ func (d *StaticDispatcher) Set(caseID, step string, data json.RawMessage) {
 }
 
 // Dispatch returns the pre-authored artifact for the given case and step.
-func (d *StaticDispatcher) Dispatch(_ context.Context, ctx *Context) ([]byte, error) {
+func (d *StaticDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	key := staticKey(ctx.CaseID, ctx.Step)
 
 	if data, ok := d.artifacts[key]; ok {

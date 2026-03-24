@@ -104,7 +104,7 @@ func TestHTTPDispatcher_Dispatch_Integration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := d.Dispatch(context.Background(), &Context{
+	result, err := d.Dispatch(context.Background(), Context{
 		DispatchID:   1,
 		CaseID:       "C01",
 		Step:         "F1_TRIAGE",
@@ -138,7 +138,7 @@ func TestHTTPDispatcher_Dispatch_MissingAPIKey(t *testing.T) {
 	}
 
 	d, _ := NewHTTPDispatcher("http://localhost:9999", WithAPIKeyEnv("MISSING_KEY_VAR"))
-	_, err := d.Dispatch(context.Background(), &Context{PromptPath: promptPath})
+	_, err := d.Dispatch(context.Background(), Context{PromptPath: promptPath})
 	if err == nil {
 		t.Fatal("expected error for missing API key")
 	}
@@ -162,7 +162,7 @@ func TestHTTPDispatcher_Dispatch_ServerError(t *testing.T) {
 	}
 
 	d, _ := NewHTTPDispatcher(srv.URL, WithAPIKeyEnv("TEST_ERR_KEY"), WithHTTPClient(srv.Client()))
-	_, err := d.Dispatch(context.Background(), &Context{
+	_, err := d.Dispatch(context.Background(), Context{
 		PromptPath:   promptPath,
 		ArtifactPath: filepath.Join(tmpDir, "out.json"),
 	})
@@ -188,7 +188,7 @@ func TestHTTPDispatcher_Dispatch_EmptyChoices(t *testing.T) {
 	}
 
 	d, _ := NewHTTPDispatcher(srv.URL, WithAPIKeyEnv("TEST_EMPTY_KEY"), WithHTTPClient(srv.Client()))
-	_, err := d.Dispatch(context.Background(), &Context{
+	_, err := d.Dispatch(context.Background(), Context{
 		PromptPath:   promptPath,
 		ArtifactPath: filepath.Join(tmpDir, "out.json"),
 	})

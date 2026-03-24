@@ -27,7 +27,7 @@ type Dispatcher interface {
 	// blocks until the artifact appears at ArtifactPath.
 	// The context controls cancellation and deadlines for this dispatch call.
 	// Returns the raw artifact bytes or an error (e.g. timeout).
-	Dispatch(ctx context.Context, dc *Context) ([]byte, error)
+	Dispatch(ctx context.Context, dc Context) ([]byte, error)
 }
 
 // Context carries all the metadata a dispatcher needs to deliver
@@ -56,8 +56,8 @@ type PullHints struct {
 // Any external agent (MCP server, CLI AI, HTTP API) uses this interface
 // to pull circuit steps and submit artifacts with correct routing.
 type ExternalDispatcher interface {
-	GetNextStep(ctx context.Context) (*Context, error)
-	GetNextStepWithHints(ctx context.Context, hints PullHints) (*Context, error)
+	GetNextStep(ctx context.Context) (Context, error)
+	GetNextStepWithHints(ctx context.Context, hints PullHints) (Context, error)
 	SubmitArtifact(ctx context.Context, dispatchID int64, data []byte) error
 }
 
@@ -137,7 +137,7 @@ func NewStdinDispatcherWithTemplate(t StdinTemplate) *StdinDispatcher {
 
 // Dispatch prints a banner with case/step/paths, blocks on stdin, then reads
 // and validates the artifact file.
-func (d *StdinDispatcher) Dispatch(_ context.Context, ctx *Context) ([]byte, error) {
+func (d *StdinDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	fmt.Println()
 	fmt.Println("================================================================")
 	fmt.Printf("  Case: %-6s  Step: %s\n", ctx.CaseID, ctx.Step)

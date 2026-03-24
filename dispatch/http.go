@@ -92,7 +92,7 @@ type chatChoice struct {
 	Message chatMessage `json:"message"`
 }
 
-func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx *Context) ([]byte, error) {
+func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	prompt, err := os.ReadFile(dctx.PromptPath)
 	if err != nil {
 		return nil, fmt.Errorf("dispatch/http: read prompt: %w", err)

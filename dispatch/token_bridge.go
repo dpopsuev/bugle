@@ -37,7 +37,7 @@ func (d *TokenTrackingDispatcher) OnDispatch(hook Hook) {
 }
 
 // Dispatch delegates to the inner dispatcher while recording token metrics.
-func (d *TokenTrackingDispatcher) Dispatch(ctx context.Context, dc *Context) ([]byte, error) {
+func (d *TokenTrackingDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	promptBytes := 0
 	if info, err := os.Stat(dc.PromptPath); err == nil {
 		promptBytes = int(info.Size())

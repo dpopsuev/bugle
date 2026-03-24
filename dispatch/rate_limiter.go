@@ -45,7 +45,7 @@ func NewRateLimitDispatcher(inner Dispatcher, cfg RateLimitConfig) *RateLimitDis
 }
 
 // Dispatch waits for a rate limit token, then delegates to the inner dispatcher.
-func (d *RateLimitDispatcher) Dispatch(ctx context.Context, dc *Context) ([]byte, error) {
+func (d *RateLimitDispatcher) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	if !d.limiter.Allow() {
 		d.waits.Add(1)
 		if d.onLimit != nil {

@@ -12,7 +12,7 @@ type countingDispatcher struct {
 	calls atomic.Int64
 }
 
-func (d *countingDispatcher) Dispatch(_ context.Context, _ *Context) ([]byte, error) {
+func (d *countingDispatcher) Dispatch(_ context.Context, _ Context) ([]byte, error) { //nolint:gocritic
 	d.calls.Add(1)
 	return []byte(`ok`), nil
 }
@@ -24,7 +24,7 @@ func TestRateLimiter_BurstAllowed(t *testing.T) {
 		Burst: 5,
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	for i := 0; i < 5; i++ {
 		_, err := rl.Dispatch(context.Background(), ctx)
 		if err != nil {
@@ -48,7 +48,7 @@ func TestRateLimiter_DelaysBeyondBurst(t *testing.T) {
 		},
 	})
 
-	ctx := &Context{Step: "test"}
+	ctx := Context{Step: "test"}
 	start := time.Now()
 
 	var wg sync.WaitGroup

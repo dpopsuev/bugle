@@ -69,7 +69,7 @@ func NewCLIDispatcher(command string, opts ...CLIOption) (*CLIDispatcher, error)
 
 // Dispatch reads the prompt from PromptPath, pipes it to the CLI command's
 // stdin, captures stdout as the artifact, and writes it to ArtifactPath.
-func (d *CLIDispatcher) Dispatch(ctx context.Context, dctx *Context) ([]byte, error) {
+func (d *CLIDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	prompt, err := os.ReadFile(dctx.PromptPath)
 	if err != nil {
 		return nil, fmt.Errorf("dispatch/cli: read prompt: %w", err)

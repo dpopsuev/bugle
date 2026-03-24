@@ -69,7 +69,7 @@ func (r *ProviderRouter) Register(provider string, d Dispatcher) {
 
 // Dispatch selects the appropriate dispatcher and delegates.
 // On failure, iterates through the fallback chain if configured.
-func (r *ProviderRouter) Dispatch(ctx context.Context, dc *Context) ([]byte, error) {
+func (r *ProviderRouter) Dispatch(ctx context.Context, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	if dc.Provider == "" && r.StepProviderHints != nil {
 		if hint, ok := r.StepProviderHints[dc.Step]; ok {
 			if d, found := r.Routes[hint]; found {
@@ -106,7 +106,7 @@ func (r *ProviderRouter) Dispatch(ctx context.Context, dc *Context) ([]byte, err
 
 // dispatchWithFallback tries the primary dispatcher, then iterates through
 // fallbacks on failure. Returns the first successful result or an aggregated error.
-func (r *ProviderRouter) dispatchWithFallback(ctx context.Context, providerName string, primary Dispatcher, dc *Context) ([]byte, error) {
+func (r *ProviderRouter) dispatchWithFallback(ctx context.Context, providerName string, primary Dispatcher, dc Context) ([]byte, error) { //nolint:gocritic // value receiver for API compat
 	result, err := primary.Dispatch(ctx, dc)
 	if err == nil {
 		return result, nil
