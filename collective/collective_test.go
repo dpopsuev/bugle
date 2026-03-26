@@ -275,3 +275,173 @@ func TestDebateRound_Tracking(t *testing.T) {
 		t.Fatal("round 2 should be converged")
 	}
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Gate wiring tests — RED
+// ═══════════════════════════════════════════════════════════════════════
+
+type rejectGate struct{ reason string }
+
+func (g *rejectGate) Pass(_ context.Context, _ string) (bool, string, error) {
+	return false, g.reason, nil
+}
+
+type passGate struct{}
+
+func (g *passGate) Pass(_ context.Context, _ string) (bool, string, error) {
+	return true, "ok", nil
+}
+
+func TestCollective_IngressRejects(t *testing.T) {
+	staff := facade.NewStaff(newMockLauncher())
+	ctx := context.Background()
+
+	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+
+	strategy := &echoStrategy{}
+	coll := NewAgentCollective(a1.ID(), "debater", strategy, []*facade.AgentHandle{a1, a2},
+		WithIngress(&rejectGate{reason: "destructive request"}),
+	)
+
+	_, err := coll.Ask(ctx, "delete everything")
+	if err == nil {
+		t.Fatal("ingress should reject")
+	}
+	if !strings.Contains(err.Error(), "ingress rejected") {
+		t.Fatalf("err = %v", err)
+	}
+	if strategy.orchestrateCalled {
+		t.Fatal("strategy should NOT be called when ingress rejects")
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Gate wiring tests — GREEN
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestCollective_NoGates_BackwardCompat(t *testing.T) {
+	staff := facade.NewStaff(newMockLauncher())
+	ctx := context.Background()
+
+	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+
+	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+
+	result, err := coll.Ask(ctx, "test")
+	if err != nil {
+		t.Fatalf("no gates should pass: %v", err)
+	}
+	if result != "synthesized: test" {
+		t.Fatalf("result = %q", result)
+	}
+}
+
+func TestCollective_BothGatesPass(t *testing.T) {
+	staff := facade.NewStaff(newMockLauncher())
+	ctx := context.Background()
+
+	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+
+	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2},
+		WithIngress(&passGate{}),
+		WithEgress(&passGate{}),
+	)
+
+	result, err := coll.Ask(ctx, "test")
+	if err != nil {
+		t.Fatalf("both gates pass: %v", err)
+	}
+	if result != "synthesized: test" {
+		t.Fatalf("result = %q", result)
+	}
+}
+
+func TestCollective_EgressRejects(t *testing.T) {
+	staff := facade.NewStaff(newMockLauncher())
+	ctx := context.Background()
+
+	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+
+	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2},
+		WithEgress(&rejectGate{reason: "low confidence"}),
+	)
+
+	_, err := coll.Ask(ctx, "test")
+	if err == nil {
+		t.Fatal("egress should reject")
+	}
+	if !strings.Contains(err.Error(), "egress rejected") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BudgetGate tests — RED
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestBudgetGate_ZeroIsUnlimited(t *testing.T) {
+	gate := &BudgetGate{MaxTokens: 0}
+	ok, _, err := gate.Pass(context.Background(), "anything")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("zero maxTokens should always pass")
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BudgetGate tests — GREEN
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestBudgetGate_UnderBudget(t *testing.T) {
+	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 500 }}
+	ok, _, err := gate.Pass(context.Background(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("under budget should pass")
+	}
+}
+
+func TestBudgetGate_OverBudget(t *testing.T) {
+	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 1500 }}
+	ok, reason, err := gate.Pass(context.Background(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("over budget should reject")
+	}
+	if !strings.Contains(reason, "budget exceeded") {
+		t.Fatalf("reason = %q", reason)
+	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BudgetGate tests — BLUE
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestBudgetGate_ExactBoundary(t *testing.T) {
+	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 1000 }}
+	ok, _, _ := gate.Pass(context.Background(), "test")
+	if ok {
+		t.Fatal("exact boundary (spent == max) should reject")
+	}
+}
+
+func TestBudgetGate_NilSpentCallback(t *testing.T) {
+	gate := &BudgetGate{MaxTokens: 1000, Spent: nil}
+	ok, _, err := gate.Pass(context.Background(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("nil Spent should default to 0 (under budget)")
+	}
+}

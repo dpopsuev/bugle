@@ -34,19 +34,38 @@ type AgentCollective struct {
 	role     string
 	agents   []*facade.AgentHandle
 	strategy CollectiveStrategy
+	ingress  Gate // optional bouncer (nil = pass-through)
+	egress   Gate // optional reviewer (nil = pass-through)
 	handler  func(content string) string
 	mu       sync.RWMutex
 	rounds   []DebateRound
 }
 
+// CollectiveOption configures an AgentCollective.
+type CollectiveOption func(*AgentCollective)
+
+// WithIngress sets the ingress gate (bouncer).
+func WithIngress(g Gate) CollectiveOption {
+	return func(c *AgentCollective) { c.ingress = g }
+}
+
+// WithEgress sets the egress gate (reviewer).
+func WithEgress(g Gate) CollectiveOption {
+	return func(c *AgentCollective) { c.egress = g }
+}
+
 // NewAgentCollective creates a collective from existing agent handles.
-func NewAgentCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []*facade.AgentHandle) *AgentCollective {
-	return &AgentCollective{
+func NewAgentCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []*facade.AgentHandle, opts ...CollectiveOption) *AgentCollective {
+	c := &AgentCollective{
 		id:       id,
 		role:     role,
 		strategy: strategy,
 		agents:   agents,
 	}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
 }
 
 // --- Identity ---
@@ -58,11 +77,36 @@ func (c *AgentCollective) String() string      { return fmt.Sprintf("%s(collecti
 // --- Messaging ---
 
 // Ask runs the collective strategy and returns the synthesized response.
+// Applies ingress gate before entry and egress gate before exit.
 func (c *AgentCollective) Ask(ctx context.Context, content string) (string, error) {
+	// Ingress gate — bouncer decides if prompt enters the room.
+	if c.ingress != nil {
+		ok, reason, err := c.ingress.Pass(ctx, content)
+		if err != nil {
+			return "", fmt.Errorf("collective %s ingress: %w", c.role, err)
+		}
+		if !ok {
+			return "", fmt.Errorf("collective %s ingress rejected: %s", c.role, reason)
+		}
+	}
+
+	// The room — agents debate/collaborate.
 	result, err := c.strategy.Orchestrate(ctx, content, c.agents)
 	if err != nil {
 		return "", fmt.Errorf("collective %s: %w", c.role, err)
 	}
+
+	// Egress gate — reviewer decides if response exits the room.
+	if c.egress != nil {
+		ok, reason, err := c.egress.Pass(ctx, result)
+		if err != nil {
+			return "", fmt.Errorf("collective %s egress: %w", c.role, err)
+		}
+		if !ok {
+			return "", fmt.Errorf("collective %s egress rejected: %s", c.role, reason)
+		}
+	}
+
 	return result, nil
 }
 

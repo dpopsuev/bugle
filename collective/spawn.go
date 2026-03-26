@@ -14,6 +14,8 @@ type CollectiveConfig struct {
 	Role     string              // collective's external role name
 	Strategy CollectiveStrategy  // how agents collaborate
 	Agents   []pool.LaunchConfig // one config per internal agent
+	Ingress  *pool.LaunchConfig  // optional ingress gate agent (bouncer)
+	Egress   *pool.LaunchConfig  // optional egress gate agent (reviewer)
 }
 
 // SpawnCollective creates an AgentCollective by spawning N agents via Staff.
@@ -40,7 +42,29 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 		agents = append(agents, a)
 	}
 
-	// Use the first agent's ID as the collective's ID (for identification).
+	// Spawn gate agents if configured.
+	var opts []CollectiveOption
+	if cfg.Ingress != nil {
+		gateAgent, err := staff.Spawn(ctx, "ingress", *cfg.Ingress)
+		if err != nil {
+			for _, a := range agents {
+				a.Kill(ctx) //nolint:errcheck
+			}
+			return nil, fmt.Errorf("spawn ingress gate for %q: %w", cfg.Role, err)
+		}
+		opts = append(opts, WithIngress(&AgentGate{Agent: gateAgent}))
+	}
+	if cfg.Egress != nil {
+		gateAgent, err := staff.Spawn(ctx, "egress", *cfg.Egress)
+		if err != nil {
+			for _, a := range agents {
+				a.Kill(ctx) //nolint:errcheck
+			}
+			return nil, fmt.Errorf("spawn egress gate for %q: %w", cfg.Role, err)
+		}
+		opts = append(opts, WithEgress(&AgentGate{Agent: gateAgent}))
+	}
+
 	id := agents[0].ID()
-	return NewAgentCollective(id, cfg.Role, cfg.Strategy, agents), nil
+	return NewAgentCollective(id, cfg.Role, cfg.Strategy, agents, opts...), nil
 }
