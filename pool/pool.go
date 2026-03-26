@@ -90,6 +90,7 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config LaunchConfig, 
 	p.transport.Register(agentID, func(ctx context.Context, msg transport.Message) (transport.Message, error) {
 		return transport.Message{From: agentID, Content: "ack"}, nil
 	})
+	p.transport.Roles().Register(agentID, role)
 
 	// 5. Track with parent.
 	p.mu.Lock()
@@ -163,6 +164,7 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 
 	// Unregister transport.
 	agentID := agentTransportID(id)
+	p.transport.Roles().Unregister(agentID)
 	p.transport.Unregister(agentID)
 
 	// Update health.

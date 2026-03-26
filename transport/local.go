@@ -12,11 +12,13 @@ import (
 // when SendMessage is called. Suitable for same-process agent
 // coordination (Papercup pattern).
 type LocalTransport struct {
-	mu       sync.RWMutex
-	handlers map[string]Handler
-	tasks    map[string]*taskEntry
-	nextID   uint64
-	closed   bool
+	mu          sync.RWMutex
+	handlers    map[string]Handler
+	tasks       map[string]*taskEntry
+	nextID      uint64
+	closed      bool
+	roles       *RoleRegistry
+	roleCounter map[string]int
 }
 
 type taskEntry struct {
@@ -28,9 +30,16 @@ type taskEntry struct {
 // NewLocalTransport creates a new in-process transport.
 func NewLocalTransport() *LocalTransport {
 	return &LocalTransport{
-		handlers: make(map[string]Handler),
-		tasks:    make(map[string]*taskEntry),
+		handlers:    make(map[string]Handler),
+		tasks:       make(map[string]*taskEntry),
+		roles:       NewRoleRegistry(),
+		roleCounter: make(map[string]int),
 	}
+}
+
+// Roles returns the transport's RoleRegistry for role-based routing.
+func (t *LocalTransport) Roles() *RoleRegistry {
+	return t.roles
 }
 
 // Register associates a Handler with the given agent ID.
@@ -146,6 +155,94 @@ func (t *LocalTransport) Close() error {
 	t.handlers = make(map[string]Handler)
 	t.closed = true
 	return nil
+}
+
+// Ask sends a message to the named agent and blocks until the handler
+// responds or the context is cancelled. Returns the response message
+// on success, or an error if the handler failed or the context expired.
+func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Message, error) {
+	task, err := t.SendMessage(ctx, to, msg)
+	if err != nil {
+		return Message{}, err
+	}
+
+	ch, err := t.Subscribe(ctx, task.ID)
+	if err != nil {
+		return Message{}, err
+	}
+
+	for {
+		select {
+		case ev, ok := <-ch:
+			if !ok {
+				return Message{}, fmt.Errorf("transport: task %s channel closed without terminal state", task.ID)
+			}
+			switch ev.State {
+			case TaskCompleted:
+				if ev.Data != nil {
+					return *ev.Data, nil
+				}
+				return Message{}, nil
+			case TaskFailed:
+				return Message{}, fmt.Errorf("transport: task %s failed", task.ID)
+			}
+		case <-ctx.Done():
+			return Message{}, ctx.Err()
+		}
+	}
+}
+
+// SendToRole sends a message to one agent with the given role, selected
+// via round-robin. Returns the Task for the chosen agent.
+func (t *LocalTransport) SendToRole(ctx context.Context, role string, msg Message) (*Task, error) {
+	agents := t.roles.AgentsForRole(role)
+	if len(agents) == 0 {
+		return nil, fmt.Errorf("transport: no agents for role %q", role)
+	}
+
+	t.mu.Lock()
+	idx := t.roleCounter[role]
+	t.roleCounter[role] = idx + 1
+	t.mu.Unlock()
+
+	target := agents[idx%len(agents)]
+	return t.SendMessage(ctx, target, msg)
+}
+
+// AskRole sends a message to one agent with the given role (round-robin)
+// and blocks until the handler responds or the context is cancelled.
+func (t *LocalTransport) AskRole(ctx context.Context, role string, msg Message) (Message, error) {
+	agents := t.roles.AgentsForRole(role)
+	if len(agents) == 0 {
+		return Message{}, fmt.Errorf("transport: no agents for role %q", role)
+	}
+
+	t.mu.Lock()
+	idx := t.roleCounter[role]
+	t.roleCounter[role] = idx + 1
+	t.mu.Unlock()
+
+	target := agents[idx%len(agents)]
+	return t.Ask(ctx, target, msg)
+}
+
+// Broadcast sends a message to ALL agents with the given role.
+// Returns a Task per agent. Returns an error if no agents have the role.
+func (t *LocalTransport) Broadcast(ctx context.Context, role string, msg Message) ([]*Task, error) {
+	agents := t.roles.AgentsForRole(role)
+	if len(agents) == 0 {
+		return nil, fmt.Errorf("transport: no agents for role %q", role)
+	}
+
+	tasks := make([]*Task, 0, len(agents))
+	for _, agentID := range agents {
+		task, err := t.SendMessage(ctx, agentID, msg)
+		if err != nil {
+			return tasks, fmt.Errorf("transport: broadcast to %s: %w", agentID, err)
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
 }
 
 // notify sends an event to all subscribers of the task entry.
