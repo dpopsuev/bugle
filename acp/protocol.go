@@ -77,10 +77,6 @@ type promptBlock struct {
 	Text string `json:"text,omitempty"`
 }
 
-type promptResult struct {
-	StopReason string `json:"stopReason"`
-}
-
 // --- Session Update (notification) ---
 
 type sessionUpdateNotification struct {

@@ -120,7 +120,7 @@ func TestClient_FullLifecycle(t *testing.T) {
 	}
 
 	// Stop.
-	c.Stop(ctx) //nolint:errcheck
+	c.Stop(ctx) //nolint:errcheck // test cleanup, error irrelevant
 }
 
 func TestClient_ChatNoMessages(t *testing.T) {

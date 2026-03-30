@@ -2,9 +2,20 @@ package transport
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
+)
+
+// Sentinel errors for transport operations.
+var (
+	ErrTransportClosed = errors.New("transport: closed")
+	ErrAgentNotFound   = errors.New("transport: agent not registered")
+	ErrTaskNotFound    = errors.New("transport: task not found")
+	ErrTaskChanClosed  = errors.New("transport: task channel closed without terminal state")
+	ErrTaskFailed      = errors.New("transport: task failed")
+	ErrNoAgentsForRole = errors.New("transport: no agents for role")
 )
 
 // LocalTransport is an in-process, channel-based A2A transport.
@@ -67,10 +78,10 @@ func (t *LocalTransport) SendMessage(ctx context.Context, to string, msg Message
 	t.mu.RUnlock()
 
 	if closed {
-		return nil, fmt.Errorf("transport: closed")
+		return nil, ErrTransportClosed
 	}
 	if !ok {
-		return nil, fmt.Errorf("transport: agent %q not registered", to)
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, to)
 	}
 
 	taskID := fmt.Sprintf("task-%d", atomic.AddUint64(&t.nextID, 1))
@@ -129,7 +140,7 @@ func (t *LocalTransport) Subscribe(_ context.Context, taskID string) (<-chan Eve
 	t.mu.RUnlock()
 
 	if !ok {
-		return nil, fmt.Errorf("transport: task %q not found", taskID)
+		return nil, fmt.Errorf("%w: %q", ErrTaskNotFound, taskID)
 	}
 
 	ch := make(chan Event, 8)
@@ -158,7 +169,7 @@ func (t *LocalTransport) Close() error {
 }
 
 // Ask sends a message to the named agent and blocks until the handler
-// responds or the context is cancelled. Returns the response message
+// responds or the context is canceled. Returns the response message
 // on success, or an error if the handler failed or the context expired.
 func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Message, error) {
 	task, err := t.SendMessage(ctx, to, msg)
@@ -175,7 +186,7 @@ func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Messa
 		select {
 		case ev, ok := <-ch:
 			if !ok {
-				return Message{}, fmt.Errorf("transport: task %s channel closed without terminal state", task.ID)
+				return Message{}, fmt.Errorf("%w: %s", ErrTaskChanClosed, task.ID)
 			}
 			switch ev.State {
 			case TaskCompleted:
@@ -184,7 +195,7 @@ func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Messa
 				}
 				return Message{}, nil
 			case TaskFailed:
-				return Message{}, fmt.Errorf("transport: task %s failed", task.ID)
+				return Message{}, fmt.Errorf("%w: %s", ErrTaskFailed, task.ID)
 			}
 		case <-ctx.Done():
 			return Message{}, ctx.Err()
@@ -197,7 +208,7 @@ func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Messa
 func (t *LocalTransport) SendToRole(ctx context.Context, role string, msg Message) (*Task, error) {
 	agents := t.roles.AgentsForRole(role)
 	if len(agents) == 0 {
-		return nil, fmt.Errorf("transport: no agents for role %q", role)
+		return nil, fmt.Errorf("%w: %q", ErrNoAgentsForRole, role)
 	}
 
 	t.mu.Lock()
@@ -210,11 +221,11 @@ func (t *LocalTransport) SendToRole(ctx context.Context, role string, msg Messag
 }
 
 // AskRole sends a message to one agent with the given role (round-robin)
-// and blocks until the handler responds or the context is cancelled.
+// and blocks until the handler responds or the context is canceled.
 func (t *LocalTransport) AskRole(ctx context.Context, role string, msg Message) (Message, error) {
 	agents := t.roles.AgentsForRole(role)
 	if len(agents) == 0 {
-		return Message{}, fmt.Errorf("transport: no agents for role %q", role)
+		return Message{}, fmt.Errorf("%w: %q", ErrNoAgentsForRole, role)
 	}
 
 	t.mu.Lock()
@@ -231,7 +242,7 @@ func (t *LocalTransport) AskRole(ctx context.Context, role string, msg Message) 
 func (t *LocalTransport) Broadcast(ctx context.Context, role string, msg Message) ([]*Task, error) {
 	agents := t.roles.AgentsForRole(role)
 	if len(agents) == 0 {
-		return nil, fmt.Errorf("transport: no agents for role %q", role)
+		return nil, fmt.Errorf("%w: %q", ErrNoAgentsForRole, role)
 	}
 
 	tasks := make([]*Task, 0, len(agents))

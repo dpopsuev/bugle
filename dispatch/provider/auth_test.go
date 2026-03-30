@@ -36,8 +36,9 @@ func TestStaticTokenAuth_MissingEnvVar(t *testing.T) {
 	auth := NewStaticTokenAuth("EMPTY_TOKEN_VAR", nil)
 	client := &http.Client{Transport: auth}
 
-	_, err := client.Get("http://localhost:1")
+	resp, err := client.Get("http://localhost:1") //nolint:bodyclose // resp is nil on error path
 	if err == nil {
+		resp.Body.Close()
 		t.Fatal("expected error for missing token")
 	}
 }

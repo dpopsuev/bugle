@@ -112,7 +112,7 @@ func DefaultStdinTemplate() StdinTemplate {
 
 // StdinDispatcher delivers prompts by printing a banner to stdout and
 // blocking on stdin until the user presses Enter. The banner text is
-// controlled by StdinTemplate so domain tools can customise instructions.
+// controlled by StdinTemplate so domain tools can customize instructions.
 type StdinDispatcher struct {
 	reader   *bufio.Reader
 	template StdinTemplate

@@ -18,6 +18,7 @@ type LaunchConfig struct {
 	WorkDir string            // working directory
 	Env     map[string]string // environment variables
 	Budget  float64           // cost ceiling (0 = unlimited)
+	Display *world.Display    // optional display identity (name, color, icon)
 }
 
 // Launcher is the process-agnostic interface for starting/stopping agents.

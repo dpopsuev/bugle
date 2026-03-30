@@ -12,12 +12,12 @@ import (
 // BudgetGate implements Gate by checking token budget.
 // A code-only gate — no LLM, no agent, just math.
 type BudgetGate struct {
-	MaxTokens int      // 0 = unlimited (always pass)
+	MaxTokens int        // 0 = unlimited (always pass)
 	Spent     func() int // callback to check current spend
 }
 
 // Pass checks if the budget allows entry.
-func (g *BudgetGate) Pass(_ context.Context, _ string) (bool, string, error) {
+func (g *BudgetGate) Pass(_ context.Context, _ string) (allowed bool, reason string, err error) {
 	if g.MaxTokens <= 0 {
 		return true, "", nil // unlimited
 	}

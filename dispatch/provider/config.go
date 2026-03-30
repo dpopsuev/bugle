@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -8,6 +9,16 @@ import (
 	bd "github.com/dpopsuev/bugle/dispatch"
 
 	"gopkg.in/yaml.v3"
+)
+
+// Sentinel errors for config operations.
+var (
+	ErrNoProviders      = errors.New("dispatch/config: no providers defined")
+	ErrMissingName      = errors.New("dispatch/config: provider missing name")
+	ErrMissingType      = errors.New("dispatch/config: provider missing type")
+	ErrUnknownType      = errors.New("dispatch/config: unknown provider type")
+	ErrHTTPBaseRequired = errors.New("http provider requires config.base_url")
+	ErrCLICmdRequired   = errors.New("cli provider requires config.command")
 )
 
 // Config is the YAML-loadable specification for a dispatch topology:
@@ -41,14 +52,14 @@ func ParseConfig(data []byte) (*Config, error) {
 		return nil, fmt.Errorf("dispatch/config: parse YAML: %w", err)
 	}
 	if len(cfg.Providers) == 0 {
-		return nil, fmt.Errorf("dispatch/config: no providers defined")
+		return nil, ErrNoProviders
 	}
 	for i, p := range cfg.Providers {
 		if p.Name == "" {
-			return nil, fmt.Errorf("dispatch/config: provider[%d] missing name", i)
+			return nil, fmt.Errorf("%w: provider[%d]", ErrMissingName, i)
 		}
 		if p.Type == "" {
-			return nil, fmt.Errorf("dispatch/config: provider %q missing type", p.Name)
+			return nil, fmt.Errorf("%w: provider %q", ErrMissingType, p.Name)
 		}
 	}
 	return &cfg, nil
@@ -76,7 +87,7 @@ func BuildRouter(cfg *Config, extraFactories map[string]DispatcherFactory) (*Rou
 	for i, pdef := range cfg.Providers {
 		factory, ok := factories[pdef.Type]
 		if !ok {
-			return nil, fmt.Errorf("dispatch/config: provider %q: unknown type %q", pdef.Name, pdef.Type)
+			return nil, fmt.Errorf("%w: provider %q type %q", ErrUnknownType, pdef.Name, pdef.Type)
 		}
 		d, err := factory(pdef.Config)
 		if err != nil {
@@ -109,7 +120,7 @@ func staticFactory(config map[string]any) (bd.Dispatcher, error) {
 func httpFactory(config map[string]any) (bd.Dispatcher, error) {
 	baseURL, _ := config["base_url"].(string)
 	if baseURL == "" {
-		return nil, fmt.Errorf("http provider requires config.base_url")
+		return nil, ErrHTTPBaseRequired
 	}
 
 	var opts []bd.HTTPOption
@@ -126,7 +137,7 @@ func httpFactory(config map[string]any) (bd.Dispatcher, error) {
 func cliFactory(config map[string]any) (bd.Dispatcher, error) {
 	command, _ := config["command"].(string)
 	if command == "" {
-		return nil, fmt.Errorf("cli provider requires config.command")
+		return nil, ErrCLICmdRequired
 	}
 
 	var opts []bd.CLIOption

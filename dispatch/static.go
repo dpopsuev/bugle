@@ -3,11 +3,15 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+// ErrNoArtifact is returned when no pre-authored artifact exists for a case+step pair.
+var ErrNoArtifact = errors.New("static dispatcher: no artifact")
 
 // StaticDispatcher returns pre-authored artifact data by looking up
 // (CaseID, Step) in a directory of JSON files. Used for deterministic
@@ -63,7 +67,7 @@ func (d *StaticDispatcher) Dispatch(_ context.Context, ctx Context) ([]byte, err
 		}
 	}
 
-	return nil, fmt.Errorf("static dispatcher: no artifact for %s/%s", ctx.CaseID, ctx.Step)
+	return nil, fmt.Errorf("%w for %s/%s", ErrNoArtifact, ctx.CaseID, ctx.Step)
 }
 
 func staticKey(caseID, step string) string {

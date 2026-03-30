@@ -159,7 +159,7 @@ func TestResilienceE2E_ACPClientWithResilience(t *testing.T) {
 		t.Fatal("missing done event")
 	}
 
-	client.Stop(ctx) //nolint:errcheck
+	client.Stop(ctx) //nolint:errcheck // test cleanup, error irrelevant
 }
 
 // TestResilienceE2E_BudgetEnforcerBlocksOverLimit proves the budget
@@ -272,7 +272,7 @@ func TestResilienceE2E_ProcessAlive(t *testing.T) {
 		t.Fatal("process should be alive after Start")
 	}
 
-	client.Stop(ctx) //nolint:errcheck
+	client.Stop(ctx) //nolint:errcheck // test cleanup, error irrelevant
 
 	// After stop, process should not be alive.
 	// Give it a moment to register the exit.

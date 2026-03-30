@@ -30,8 +30,8 @@ type ServiceRegistry interface {
 
 // InMemoryRegistry implements ServiceRegistry with stale eviction.
 type InMemoryRegistry struct {
-	mu      sync.RWMutex
-	entries map[string]*ServiceEntry
+	mu       sync.RWMutex
+	entries  map[string]*ServiceEntry
 	staleTTL time.Duration // entries older than this are considered stale
 }
 
@@ -72,7 +72,7 @@ func (r *InMemoryRegistry) Discover(role string) []ServiceEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var result []ServiceEntry
+	result := make([]ServiceEntry, 0, len(r.entries))
 	now := time.Now()
 	for _, e := range r.entries {
 		if e.Role != role {

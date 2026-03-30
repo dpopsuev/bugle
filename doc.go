@@ -11,7 +11,7 @@
 //
 //   - ECS World (world/ — entity registry, component storage, system queries)
 //   - Agent identity (identity/ — AgentIdentity, ModelIdentity, Persona)
-//   - Heraldic color system (palette/ — ColorIdentity, Registry, Shade/Colour)
+//   - Heraldic color system (palette/ — ColorIdentity, Registry, Shade/Color)
 //   - Behavioral profiles (element/ — Element, Approach)
 //   - Signal bus (signal/ — Bus, DurableBus)
 //   - Process supervision (pool/ — Fork, Kill, Wait, orphan reparenting)

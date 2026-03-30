@@ -250,7 +250,7 @@ func TestCardFromEntity_ColorIdentity(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
 	world.Attach(w, agent, palette.ColorIdentity{
-		Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor",
+		Shade: "Indigo", Color: "Denim", Role: "Writer", Collective: "Refactor",
 	})
 
 	card := CardFromEntity(w, agent)
@@ -273,7 +273,7 @@ func TestCardFromEntity_WithHealth(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
 	world.Attach(w, agent, palette.ColorIdentity{
-		Shade: "Azure", Colour: "Cerulean", Role: "Reviewer", Collective: "QA",
+		Shade: "Azure", Color: "Cerulean", Role: "Reviewer", Collective: "QA",
 	})
 	world.Attach(w, agent, world.Health{
 		State:    world.Active,

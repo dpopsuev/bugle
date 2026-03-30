@@ -7,11 +7,15 @@ package collective
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/dpopsuev/bugle/facade"
 )
+
+// ErrTooFewAgentsDialectic is returned when dialectic has fewer than 2 agents.
+var ErrTooFewAgentsDialectic = errors.New("dialectic requires at least 2 agents")
 
 // Dialectic is the default CollectiveStrategy: thesis-antithesis ping-pong.
 type Dialectic struct {
@@ -19,23 +23,23 @@ type Dialectic struct {
 	ConvergenceWord string // default "CONVERGED"
 }
 
-func (d *Dialectic) defaults() (int, string) {
-	maxRounds := d.MaxRounds
+func (d *Dialectic) defaults() (maxRounds int, convergenceWord string) {
+	maxRounds = d.MaxRounds
 	if maxRounds <= 0 {
 		maxRounds = 3
 	}
-	word := d.ConvergenceWord
-	if word == "" {
-		word = "CONVERGED"
+	convergenceWord = d.ConvergenceWord
+	if convergenceWord == "" {
+		convergenceWord = "CONVERGED"
 	}
-	return maxRounds, word
+	return maxRounds, convergenceWord
 }
 
 // Orchestrate runs the dialectic debate between agents[0] (thesis) and
 // agents[1] (antithesis). Returns the thesis's last response as synthesis.
 func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*facade.AgentHandle) (string, error) {
 	if len(agents) < 2 {
-		return "", fmt.Errorf("dialectic requires at least 2 agents, got %d", len(agents))
+		return "", fmt.Errorf("%w, got %d", ErrTooFewAgentsDialectic, len(agents))
 	}
 
 	maxRounds, convergenceWord := d.defaults()

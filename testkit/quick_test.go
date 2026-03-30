@@ -32,7 +32,7 @@ func TestQuickWorld_CreatesNAgents(t *testing.T) {
 func TestQuickWorld_UniqueIdentities(t *testing.T) {
 	_, agents := QuickWorld(10, "UniqueTeam")
 
-	// QuickWorld uses DefaultStrategy which assigns unique colours via Registry.
+	// QuickWorld uses DefaultStrategy which assigns unique colors via Registry.
 	// We just need to verify the count is correct; Registry guarantees uniqueness
 	// and would panic on collision.
 	if len(agents) != 10 {
@@ -45,7 +45,7 @@ func TestQuickTransport_RegistersHandlers(t *testing.T) {
 	tr := QuickTransport(w, agents)
 	defer tr.Close()
 
-	// Each agent's Short() (colour name) should be registered as a handler.
+	// Each agent's Short() (color name) should be registered as a handler.
 	for _, id := range agents {
 		color := world.Get[palette.ColorIdentity](w, id)
 		task, err := tr.SendMessage(context.Background(), color.Short(), transport.Message{

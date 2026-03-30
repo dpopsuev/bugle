@@ -8,6 +8,7 @@ const (
 	HierarchyType ComponentType = "hierarchy"
 	BudgetType    ComponentType = "budget"
 	ProgressType  ComponentType = "progress"
+	DisplayType   ComponentType = "display"
 )
 
 // AgentState represents the liveness state of an agent.
@@ -58,6 +59,19 @@ type Progress struct {
 
 // ComponentType implements Component.
 func (Progress) ComponentType() ComponentType { return ProgressType }
+
+// Display holds human-facing presentation data for an agent.
+// Color is a hex string (e.g., "#50C878"). Consumers use this
+// for terminal ANSI, web CSS, or IDE badges — the server never
+// renders it.
+type Display struct {
+	Name  string `json:"name"`            // human-friendly name
+	Color string `json:"color,omitempty"` // hex color (e.g., "#DC143C")
+	Icon  string `json:"icon,omitempty"`  // optional emoji or icon name
+}
+
+// ComponentType implements Component.
+func (Display) ComponentType() ComponentType { return DisplayType }
 
 // IdentityStrategy resolves agent roles into fully-formed entities
 // with identity components.

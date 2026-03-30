@@ -4,12 +4,28 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
+)
+
+// Slog attribute key constants.
+const (
+	logKeyHTTPCaseID       = "case_id"
+	logKeyHTTPStep         = "step"
+	logKeyHTTPURL          = "url"
+	logKeyHTTPResponseSize = "response_bytes"
+)
+
+// Sentinel errors for HTTP dispatch.
+var (
+	ErrHTTPSRequired = errors.New("dispatch/http: base URL must use HTTPS")
+	ErrAPIKeyMissing = errors.New("dispatch/http: API key environment variable not set")
+	ErrNoChoices     = errors.New("dispatch/http: response has no choices")
 )
 
 // HTTPDispatcher sends prompts to an OpenAI-compatible /v1/chat/completions
@@ -57,7 +73,7 @@ func NewHTTPDispatcher(baseURL string, opts ...HTTPOption) (*HTTPDispatcher, err
 		if strings.HasPrefix(baseURL, "http://localhost") || strings.HasPrefix(baseURL, "http://127.0.0.1") {
 			// allow localhost for development
 		} else {
-			return nil, fmt.Errorf("dispatch/http: base URL must use HTTPS (got %q); use localhost for development", baseURL)
+			return nil, fmt.Errorf("%w (got %q); use localhost for development", ErrHTTPSRequired, baseURL)
 		}
 	}
 
@@ -100,7 +116,7 @@ func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, er
 
 	apiKey := os.Getenv(d.apiKeyEnv)
 	if apiKey == "" {
-		return nil, fmt.Errorf("dispatch/http: %s environment variable not set", d.apiKeyEnv)
+		return nil, fmt.Errorf("%w: %s", ErrAPIKeyMissing, d.apiKeyEnv)
 	}
 
 	reqBody := chatRequest{
@@ -122,10 +138,10 @@ func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, er
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	d.Logger.Info("dispatching HTTP request",
-		slog.String("case_id", dctx.CaseID),
-		slog.String("step", dctx.Step),
-		slog.String("url", url),
+	d.Logger.InfoContext(ctx, "dispatching HTTP request",
+		slog.String(logKeyHTTPCaseID, dctx.CaseID),
+		slog.String(logKeyHTTPStep, dctx.Step),
+		slog.String(logKeyHTTPURL, url),
 	)
 
 	resp, err := d.HTTPClient.Do(req)
@@ -140,7 +156,7 @@ func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, er
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("dispatch/http: %s returned %d: %s", url, resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("dispatch/http: %s returned %d: %s", url, resp.StatusCode, string(respBody)) //nolint:err113 // dynamic HTTP status is inherently non-sentinel
 	}
 
 	var chatResp chatResponse
@@ -149,19 +165,19 @@ func (d *HTTPDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, er
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return nil, fmt.Errorf("dispatch/http: response has no choices")
+		return nil, ErrNoChoices
 	}
 
 	content := chatResp.Choices[0].Message.Content
 
-	if err := os.WriteFile(dctx.ArtifactPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(dctx.ArtifactPath, []byte(content), 0o600); err != nil {
 		return nil, fmt.Errorf("dispatch/http: write artifact: %w", err)
 	}
 
-	d.Logger.Info("HTTP dispatch complete",
-		slog.String("case_id", dctx.CaseID),
-		slog.String("step", dctx.Step),
-		slog.Int("response_bytes", len(content)),
+	d.Logger.InfoContext(ctx, "HTTP dispatch complete",
+		slog.String(logKeyHTTPCaseID, dctx.CaseID),
+		slog.String(logKeyHTTPStep, dctx.Step),
+		slog.Int(logKeyHTTPResponseSize, len(content)),
 	)
 
 	return []byte(content), nil

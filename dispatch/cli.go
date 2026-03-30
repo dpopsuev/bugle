@@ -3,11 +3,27 @@ package dispatch
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"time"
+)
+
+// Slog attribute key constants.
+const (
+	logKeyCLICommand      = "command"
+	logKeyCLICaseID       = "case_id"
+	logKeyCLIStep         = "step"
+	logKeyCLIResponseSize = "response_bytes"
+	logKeyCLIElapsed      = "elapsed"
+)
+
+// Sentinel errors for CLI dispatch.
+var (
+	ErrCLITimeout  = errors.New("dispatch/cli: command timed out")
+	ErrCLINoOutput = errors.New("dispatch/cli: command produced no output")
 )
 
 // CLIDispatcher shells out to an external CLI-based LLM tool (e.g. Codex,
@@ -81,24 +97,24 @@ func (d *CLIDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, err
 	args := make([]string, len(d.Args))
 	copy(args, d.Args)
 
-	cmd := exec.CommandContext(cmdCtx, d.Command, args...)
+	cmd := exec.CommandContext(cmdCtx, d.Command, args...) //nolint:gosec // command is validated via exec.LookPath at construction time
 	cmd.Stdin = bytes.NewReader(prompt)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	d.Logger.Info("dispatching CLI command",
-		slog.String("command", d.Command),
-		slog.String("case_id", dctx.CaseID),
-		slog.String("step", dctx.Step),
+	d.Logger.InfoContext(ctx, "dispatching CLI command",
+		slog.String(logKeyCLICommand, d.Command),
+		slog.String(logKeyCLICaseID, dctx.CaseID),
+		slog.String(logKeyCLIStep, dctx.Step),
 	)
 
 	start := time.Now()
 	if err := cmd.Run(); err != nil {
 		stderrStr := stderr.String()
-		if cmdCtx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("dispatch/cli: command timed out after %v (stderr: %s)", d.Timeout, stderrStr)
+		if errors.Is(cmdCtx.Err(), context.DeadlineExceeded) {
+			return nil, fmt.Errorf("%w after %v (stderr: %s)", ErrCLITimeout, d.Timeout, stderrStr)
 		}
 		return nil, fmt.Errorf("dispatch/cli: command failed: %w (stderr: %s)", err, stderrStr)
 	}
@@ -107,18 +123,18 @@ func (d *CLIDispatcher) Dispatch(ctx context.Context, dctx Context) ([]byte, err
 	elapsed := time.Since(start)
 
 	if len(output) == 0 {
-		return nil, fmt.Errorf("dispatch/cli: command produced no output (stderr: %s)", stderr.String())
+		return nil, fmt.Errorf("%w (stderr: %s)", ErrCLINoOutput, stderr.String())
 	}
 
-	if err := os.WriteFile(dctx.ArtifactPath, output, 0o644); err != nil {
+	if err := os.WriteFile(dctx.ArtifactPath, output, 0o600); err != nil {
 		return nil, fmt.Errorf("dispatch/cli: write artifact: %w", err)
 	}
 
-	d.Logger.Info("CLI dispatch complete",
-		slog.String("case_id", dctx.CaseID),
-		slog.String("step", dctx.Step),
-		slog.Int("response_bytes", len(output)),
-		slog.Duration("elapsed", elapsed),
+	d.Logger.InfoContext(ctx, "CLI dispatch complete",
+		slog.String(logKeyCLICaseID, dctx.CaseID),
+		slog.String(logKeyCLIStep, dctx.Step),
+		slog.Int(logKeyCLIResponseSize, len(output)),
+		slog.Duration(logKeyCLIElapsed, elapsed),
 	)
 
 	return output, nil

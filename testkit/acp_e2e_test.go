@@ -113,7 +113,7 @@ func TestACPE2E_ClientLifecycle(t *testing.T) {
 	}
 
 	// Stop — kill returns "signal: killed" which is expected for process termination.
-	client.Stop(ctx) //nolint:errcheck
+	client.Stop(ctx) //nolint:errcheck // test cleanup, error irrelevant
 }
 
 // TestACPE2E_LauncherInterface tests that ACPLauncher satisfies pool.Launcher
@@ -129,7 +129,7 @@ func TestACPE2E_LauncherInterface(t *testing.T) {
 	// in CI. We verify the launcher correctly creates and tracks clients.
 	var id world.EntityID = 42
 	err := launcher.Start(ctx, id, pool.LaunchConfig{Model: "cursor"})
-	if err != nil {
+	if err != nil { //nolint:nestif // test exercises both success and failure paths
 		// Expected — no real agent binary. Verify client wasn't tracked.
 		t.Logf("launcher.Start failed (expected — no agent binary): %v", err)
 		if launcher.Healthy(ctx, id) {
@@ -151,7 +151,7 @@ func TestACPE2E_LauncherInterface(t *testing.T) {
 		if client.AgentName() != "cursor" {
 			t.Fatalf("agentName = %q", client.AgentName())
 		}
-		launcher.Stop(ctx, id) //nolint:errcheck
+		launcher.Stop(ctx, id) //nolint:errcheck // test cleanup, error irrelevant
 		if launcher.Healthy(ctx, id) {
 			t.Fatal("should not be healthy after stop")
 		}

@@ -1,10 +1,14 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 )
+
+// ErrAuthTokenMissing is returned when the bearer token environment variable is empty.
+var ErrAuthTokenMissing = errors.New("dispatch/auth: token environment variable not set")
 
 // StaticTokenAuth is an http.RoundTripper middleware that injects a bearer
 // token from an environment variable into every outgoing request.
@@ -29,7 +33,7 @@ func NewStaticTokenAuth(envVar string, inner http.RoundTripper) *StaticTokenAuth
 func (a *StaticTokenAuth) RoundTrip(req *http.Request) (*http.Response, error) {
 	token := os.Getenv(a.EnvVar)
 	if token == "" {
-		return nil, fmt.Errorf("dispatch/auth: %s environment variable not set", a.EnvVar)
+		return nil, fmt.Errorf("%w: %s", ErrAuthTokenMissing, a.EnvVar)
 	}
 	clone := req.Clone(req.Context())
 	clone.Header.Set("Authorization", "Bearer "+token)

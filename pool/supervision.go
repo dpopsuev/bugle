@@ -29,7 +29,7 @@ func (p *AgentPool) Wait(ctx context.Context, childID world.EntityID) (*ExitStat
 		return nil, fmt.Errorf("%w: %d", ErrNotFound, childID)
 	}
 
-	// Block until child finishes or context is cancelled.
+	// Block until child finishes or context is canceled.
 	select {
 	case <-ch:
 		p.mu.RLock()

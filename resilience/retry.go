@@ -7,18 +7,19 @@ package resilience
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"math"
-	"math/rand/v2"
 	"time"
 )
 
 // RetryConfig controls retry behavior.
 type RetryConfig struct {
-	MaxAttempts int                // default 3
-	BaseDelay   time.Duration     // default 500ms
-	MaxDelay    time.Duration     // default 30s
-	Jitter      bool              // default true — adds ±25% randomness
-	Retryable   func(error) bool  // classify errors; nil = retry all
+	MaxAttempts int              // default 3
+	BaseDelay   time.Duration    // default 500ms
+	MaxDelay    time.Duration    // default 30s
+	Jitter      bool             // default true — adds ±25% randomness
+	Retryable   func(error) bool // classify errors; nil = retry all
 }
 
 func (c RetryConfig) defaults() RetryConfig {
@@ -68,14 +69,17 @@ func Retry(ctx context.Context, cfg RetryConfig, fn func() error) error {
 }
 
 // backoff computes the delay for the given attempt using exponential backoff.
-func backoff(attempt int, base, max time.Duration, jitter bool) time.Duration {
+func backoff(attempt int, base, maxDelay time.Duration, jitter bool) time.Duration {
 	delay := time.Duration(float64(base) * math.Pow(2, float64(attempt)))
-	if delay > max {
-		delay = max
+	if delay > maxDelay {
+		delay = maxDelay
 	}
 	if jitter {
-		// ±25% jitter
-		factor := 0.75 + rand.Float64()*0.5
+		// ±25% jitter using crypto/rand for unpredictability.
+		var buf [8]byte
+		_, _ = rand.Read(buf[:])
+		r := float64(binary.LittleEndian.Uint64(buf[:])) / float64(^uint64(0))
+		factor := 0.75 + r*0.5
 		delay = time.Duration(float64(delay) * factor)
 	}
 	return delay

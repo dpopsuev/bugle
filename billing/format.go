@@ -37,7 +37,7 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-// fmtMDTable renders a simple GitHub-flavoured Markdown table.
+// fmtMDTable renders a simple GitHub-flavored Markdown table.
 // header is the header row, rows are the data rows, and footer is an
 // optional final row (pass nil to omit).
 func fmtMDTable(header []string, rows [][]string, footer []string) string {

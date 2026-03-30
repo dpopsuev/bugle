@@ -42,7 +42,7 @@ func (rl *RateLimiter) Allow() bool {
 	return rl.limiter.Allow()
 }
 
-// Wait blocks until a token is available or the context is cancelled.
+// Wait blocks until a token is available or the context is canceled.
 // Returns immediately if a token is available. Calls OnLimit when throttled.
 func (rl *RateLimiter) Wait(ctx context.Context) error {
 	if rl.limiter.Allow() {

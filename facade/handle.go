@@ -78,6 +78,16 @@ func (a *AgentHandle) Progress() (world.Progress, bool) {
 	return world.TryGet[world.Progress](a.world, a.id)
 }
 
+// Display returns the agent's Display component (name, color, icon).
+func (a *AgentHandle) Display() (world.Display, bool) {
+	return world.TryGet[world.Display](a.world, a.id)
+}
+
+// SetDisplay attaches or updates the Display component.
+func (a *AgentHandle) SetDisplay(d world.Display) {
+	world.Attach(a.world, a.id, d)
+}
+
 // SetProgress attaches or updates the Progress component.
 func (a *AgentHandle) SetProgress(current, total int) {
 	pct := 0.0

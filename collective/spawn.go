@@ -3,10 +3,17 @@ package collective
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/dpopsuev/bugle/facade"
 	"github.com/dpopsuev/bugle/pool"
+)
+
+// Sentinel errors for collective spawning.
+var (
+	ErrTooFewAgents = errors.New("collective requires at least 2 agents")
+	ErrNoStrategy   = errors.New("collective requires a strategy")
 )
 
 // CollectiveConfig configures a new AgentCollective.
@@ -23,19 +30,19 @@ type CollectiveConfig struct {
 // it's not a single agent.
 func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveConfig) (*AgentCollective, error) {
 	if len(cfg.Agents) < 2 {
-		return nil, fmt.Errorf("collective requires at least 2 agents, got %d", len(cfg.Agents))
+		return nil, fmt.Errorf("%w, got %d", ErrTooFewAgents, len(cfg.Agents))
 	}
 	if cfg.Strategy == nil {
-		return nil, fmt.Errorf("collective requires a strategy")
+		return nil, ErrNoStrategy
 	}
 
-	var agents []*facade.AgentHandle
+	agents := make([]*facade.AgentHandle, 0, len(cfg.Agents))
 	for _, acfg := range cfg.Agents {
 		a, err := staff.Spawn(ctx, acfg.Role, acfg)
 		if err != nil {
 			// Kill any already-spawned agents on failure.
 			for _, spawned := range agents {
-				spawned.Kill(ctx) //nolint:errcheck
+				spawned.Kill(ctx) //nolint:errcheck // best-effort cleanup on spawn failure
 			}
 			return nil, fmt.Errorf("spawn agent for collective %q: %w", cfg.Role, err)
 		}
@@ -48,7 +55,7 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 		gateAgent, err := staff.Spawn(ctx, "ingress", *cfg.Ingress)
 		if err != nil {
 			for _, a := range agents {
-				a.Kill(ctx) //nolint:errcheck
+				a.Kill(ctx) //nolint:errcheck // best-effort cleanup on gate spawn failure
 			}
 			return nil, fmt.Errorf("spawn ingress gate for %q: %w", cfg.Role, err)
 		}
@@ -58,7 +65,7 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 		gateAgent, err := staff.Spawn(ctx, "egress", *cfg.Egress)
 		if err != nil {
 			for _, a := range agents {
-				a.Kill(ctx) //nolint:errcheck
+				a.Kill(ctx) //nolint:errcheck // best-effort cleanup on gate spawn failure
 			}
 			return nil, fmt.Errorf("spawn egress gate for %q: %w", cfg.Role, err)
 		}

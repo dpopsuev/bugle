@@ -9,6 +9,8 @@ import (
 	"github.com/dpopsuev/bugle/element"
 )
 
+const unknownValue = "unknown"
+
 // Persona is a perennial agent identity template -- stable across model
 // releases while the models behind them shift.
 type Persona struct {
@@ -162,11 +164,11 @@ type ModelIdentity struct { //nolint:revive // kept for Origami alias compat
 func (m ModelIdentity) String() string {
 	name := m.ModelName
 	if name == "" {
-		name = "unknown"
+		name = unknownValue
 	}
 	prov := m.Provider
 	if prov == "" {
-		prov = "unknown"
+		prov = unknownValue
 	}
 
 	var s string
@@ -187,7 +189,7 @@ func (m ModelIdentity) String() string {
 func (m ModelIdentity) Tag() string { //nolint:gocritic // value receiver for Origami compat
 	name := m.ModelName
 	if name == "" {
-		name = "unknown"
+		name = unknownValue
 	}
 	if len(name) > 20 {
 		name = name[:20]

@@ -81,7 +81,7 @@ func TestRetry_NonRetryableError(t *testing.T) {
 
 func TestRetry_RespectsContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // already cancelled
+	cancel() // already canceled
 
 	err := Retry(ctx, RetryConfig{
 		MaxAttempts: 10,
@@ -109,11 +109,11 @@ func TestRetry_DefaultConfig(t *testing.T) {
 
 func TestBackoff_ExponentialGrowth(t *testing.T) {
 	base := 100 * time.Millisecond
-	max := 10 * time.Second
+	maxDelay := 10 * time.Second
 
-	d0 := backoff(0, base, max, false) // 100ms
-	d1 := backoff(1, base, max, false) // 200ms
-	d2 := backoff(2, base, max, false) // 400ms
+	d0 := backoff(0, base, maxDelay, false) // 100ms
+	d1 := backoff(1, base, maxDelay, false) // 200ms
+	d2 := backoff(2, base, maxDelay, false) // 400ms
 
 	if d0 != 100*time.Millisecond {
 		t.Fatalf("d0 = %v", d0)

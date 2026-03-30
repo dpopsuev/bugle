@@ -51,10 +51,9 @@ func (m *mockLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 }
 
 // setup creates a Staff with a mock launcher.
-func setup() (*Staff, *mockLauncher) {
+func setup() *Staff {
 	ml := newMockLauncher()
-	s := NewStaff(ml)
-	return s, ml
+	return NewStaff(ml)
 }
 
 // ---------------------------------------------------------------------------
@@ -62,7 +61,7 @@ func setup() (*Staff, *mockLauncher) {
 // ---------------------------------------------------------------------------
 
 func TestStaff_SpawnReturnsHandle(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, err := s.Spawn(ctx, "executor", pool.LaunchConfig{})
@@ -78,7 +77,7 @@ func TestStaff_SpawnReturnsHandle(t *testing.T) {
 }
 
 func TestStaff_SpawnUnder_CreatesChild(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	parent, err := s.Spawn(ctx, "manager", pool.LaunchConfig{})
@@ -101,7 +100,7 @@ func TestStaff_SpawnUnder_CreatesChild(t *testing.T) {
 }
 
 func TestStaff_Active(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	for range 3 {
@@ -117,7 +116,7 @@ func TestStaff_Active(t *testing.T) {
 }
 
 func TestStaff_FindByRole(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	s.Spawn(ctx, "executor", pool.LaunchConfig{})
@@ -136,7 +135,7 @@ func TestStaff_FindByRole(t *testing.T) {
 }
 
 func TestStaff_KillAll(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	for range 3 {
@@ -153,7 +152,7 @@ func TestStaff_KillAll(t *testing.T) {
 }
 
 func TestStaff_Tree(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	root, _ := s.Spawn(ctx, "manager", pool.LaunchConfig{})
@@ -182,7 +181,7 @@ func TestStaff_Tree(t *testing.T) {
 }
 
 func TestStaff_Count(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	if s.Count() != 0 {
@@ -205,7 +204,7 @@ func TestStaff_Count(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestHandle_String(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "executor", pool.LaunchConfig{})
@@ -216,7 +215,7 @@ func TestHandle_String(t *testing.T) {
 }
 
 func TestHandle_IsAlive(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "worker", pool.LaunchConfig{})
@@ -231,7 +230,7 @@ func TestHandle_IsAlive(t *testing.T) {
 }
 
 func TestHandle_IsHealthy(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "worker", pool.LaunchConfig{})
@@ -241,7 +240,7 @@ func TestHandle_IsHealthy(t *testing.T) {
 }
 
 func TestHandle_IsZombie(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	// Disable auto-reap for parent=0 so zombies accumulate.
@@ -265,7 +264,7 @@ func TestHandle_IsZombie(t *testing.T) {
 }
 
 func TestHandle_Ask(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "echo", pool.LaunchConfig{})
@@ -284,7 +283,7 @@ func TestHandle_Ask(t *testing.T) {
 }
 
 func TestHandle_Tell(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "worker", pool.LaunchConfig{})
@@ -314,7 +313,7 @@ func TestHandle_Tell(t *testing.T) {
 }
 
 func TestHandle_Broadcast(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	var counters [3]atomic.Int32
@@ -350,7 +349,7 @@ func TestHandle_Broadcast(t *testing.T) {
 }
 
 func TestHandle_Listen(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "responder", pool.LaunchConfig{})
@@ -368,7 +367,7 @@ func TestHandle_Listen(t *testing.T) {
 }
 
 func TestHandle_Spawn_Child(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	parent, _ := s.Spawn(ctx, "manager", pool.LaunchConfig{})
@@ -387,7 +386,7 @@ func TestHandle_Spawn_Child(t *testing.T) {
 }
 
 func TestHandle_Kill_Wait(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	// Disable auto-reap so we can Wait.
@@ -409,7 +408,7 @@ func TestHandle_Kill_Wait(t *testing.T) {
 }
 
 func TestHandle_KillWithReason(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	// Disable auto-reap so we can Wait.
@@ -431,7 +430,7 @@ func TestHandle_KillWithReason(t *testing.T) {
 }
 
 func TestHandle_Children_Parent(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	parent, _ := s.Spawn(ctx, "manager", pool.LaunchConfig{})
@@ -465,7 +464,7 @@ func TestHandle_Children_Parent(t *testing.T) {
 }
 
 func TestHandle_SetProgress(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	h, _ := s.Spawn(ctx, "worker", pool.LaunchConfig{})
@@ -491,7 +490,7 @@ func TestHandle_SetProgress(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFacade_FullPipeline(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	// GenSec spawns an Executor.
@@ -533,7 +532,7 @@ func TestFacade_FullPipeline(t *testing.T) {
 }
 
 func TestFacade_ConcurrentSpawnAskKill(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	var wg sync.WaitGroup
@@ -577,7 +576,7 @@ func TestFacade_ConcurrentSpawnAskKill(t *testing.T) {
 }
 
 func TestStaff_OnSignal(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 	ctx := context.Background()
 
 	var signals []signal.Signal
@@ -601,7 +600,7 @@ func TestStaff_OnSignal(t *testing.T) {
 }
 
 func TestStaff_EscapeHatches(t *testing.T) {
-	s, _ := setup()
+	s := setup()
 
 	if s.World() == nil {
 		t.Fatal("World() should not be nil")

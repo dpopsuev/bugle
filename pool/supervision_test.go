@@ -418,9 +418,9 @@ func TestConcurrent_ForkWaitKill(t *testing.T) {
 	pool.SetAutoReap(gensec, false)
 
 	var wg sync.WaitGroup
-	for i := range 20 {
+	for range 20 {
 		wg.Add(1)
-		go func(n int) {
+		go func() {
 			defer wg.Done()
 			child, err := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
 			if err != nil {
@@ -428,8 +428,8 @@ func TestConcurrent_ForkWaitKill(t *testing.T) {
 				return
 			}
 			pool.Kill(ctx, child)
-			pool.Wait(ctx, child) //nolint:errcheck
-		}(i)
+			pool.Wait(ctx, child) //nolint:errcheck // test cleanup, error irrelevant
+		}()
 	}
 	wg.Wait()
 

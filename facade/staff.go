@@ -35,7 +35,11 @@ func (s *Staff) Spawn(ctx context.Context, role string, config pool.LaunchConfig
 	if err != nil {
 		return nil, err
 	}
-	return s.handleFor(id, role), nil
+	h := s.handleFor(id, role)
+	if config.Display != nil {
+		h.SetDisplay(*config.Display)
+	}
+	return h, nil
 }
 
 // SpawnUnder creates a child agent under the given parent.

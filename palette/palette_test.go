@@ -3,7 +3,7 @@ package palette
 import "testing"
 
 func TestColorIdentity_Title(t *testing.T) {
-	c := ColorIdentity{Shade: "Indigo", Colour: "Denim", Role: "Writer", Collective: "Refactor"}
+	c := ColorIdentity{Shade: "Indigo", Color: "Denim", Role: "Writer", Collective: "Refactor"}
 	want := "Denim Writer of Indigo Refactor"
 	if got := c.Title(); got != want {
 		t.Errorf("Title() = %q, want %q", got, want)
@@ -11,7 +11,7 @@ func TestColorIdentity_Title(t *testing.T) {
 }
 
 func TestColorIdentity_Label(t *testing.T) {
-	c := ColorIdentity{Shade: "Indigo", Colour: "Denim", Role: "Writer"}
+	c := ColorIdentity{Shade: "Indigo", Color: "Denim", Role: "Writer"}
 	want := "[Indigo·Denim|Writer]"
 	if got := c.Label(); got != want {
 		t.Errorf("Label() = %q, want %q", got, want)
@@ -19,7 +19,7 @@ func TestColorIdentity_Label(t *testing.T) {
 }
 
 func TestColorIdentity_Short(t *testing.T) {
-	c := ColorIdentity{Colour: "Denim"}
+	c := ColorIdentity{Color: "Denim"}
 	if got := c.Short(); got != "Denim" {
 		t.Errorf("Short() = %q, want Denim", got)
 	}
@@ -49,10 +49,10 @@ func TestLookupShade_NotFound(t *testing.T) {
 	}
 }
 
-func TestLookupColour_Found(t *testing.T) {
-	c, shade, ok := LookupColour("Cerulean")
+func TestLookupColor_Found(t *testing.T) {
+	c, shade, ok := LookupColor("Cerulean")
 	if !ok {
-		t.Fatal("LookupColour(Cerulean) not found")
+		t.Fatal("LookupColor(Cerulean) not found")
 	}
 	if shade != "Azure" {
 		t.Errorf("shade = %q, want Azure", shade)
@@ -62,10 +62,10 @@ func TestLookupColour_Found(t *testing.T) {
 	}
 }
 
-func TestLookupColour_NotFound(t *testing.T) {
-	_, _, ok := LookupColour("Nonexistent")
+func TestLookupColor_NotFound(t *testing.T) {
+	_, _, ok := LookupColor("Nonexistent")
 	if ok {
-		t.Error("LookupColour(Nonexistent) should return false")
+		t.Error("LookupColor(Nonexistent) should return false")
 	}
 }
 
@@ -100,8 +100,8 @@ func TestRegistry_Set(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set: %v", err)
 	}
-	if id.Colour != "Cerulean" {
-		t.Errorf("Colour = %q, want Cerulean", id.Colour)
+	if id.Color != "Cerulean" {
+		t.Errorf("Color = %q, want Cerulean", id.Color)
 	}
 }
 

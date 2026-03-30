@@ -9,6 +9,18 @@ import (
 	bd "github.com/dpopsuev/bugle/dispatch"
 )
 
+// Slog attribute key constants.
+const (
+	logKeyProvider = "provider"
+	logKeyStep     = "step"
+	logKeyCaseID   = "case_id"
+	logKeyPrimary  = "primary"
+	logKeyFallback = "fallback"
+)
+
+// ErrFallbackNotRegistered is returned when a fallback provider is not registered.
+var ErrFallbackNotRegistered = errors.New("fallback provider not registered")
+
 // Router selects a bd.Dispatcher based on the provider name carried
 // in the bd.Context. This enables per-step LLM routing: one node uses
 // Cursor (MuxDispatcher), another uses Codex (CLIDispatcher), a third
@@ -75,9 +87,9 @@ func (r *Router) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { 
 	if dc.Provider == "" && r.StepProviderHints != nil {
 		if hint, ok := r.StepProviderHints[dc.Step]; ok {
 			if d, found := r.Routes[hint]; found {
-				r.Logger.Debug("provider router: auto-route from PersonaSheet",
-					slog.String("provider", hint),
-					slog.String("step", dc.Step),
+				r.Logger.DebugContext(ctx, "provider router: auto-route from PersonaSheet",
+					slog.String(logKeyProvider, hint),
+					slog.String(logKeyStep, dc.Step),
 				)
 				return r.dispatchWithFallback(ctx, hint, d, dc)
 			}
@@ -85,23 +97,23 @@ func (r *Router) Dispatch(ctx context.Context, dc bd.Context) ([]byte, error) { 
 	}
 
 	if dc.Provider == "" {
-		r.Logger.Debug("provider router: using default dispatcher",
-			slog.String("case_id", dc.CaseID),
-			slog.String("step", dc.Step),
+		r.Logger.DebugContext(ctx, "provider router: using default dispatcher",
+			slog.String(logKeyCaseID, dc.CaseID),
+			slog.String(logKeyStep, dc.Step),
 		)
 		return r.dispatchWithFallback(ctx, "default", r.Default, dc)
 	}
 
 	d, ok := r.Routes[dc.Provider]
 	if !ok {
-		return nil, fmt.Errorf("dispatch/provider: unknown provider %q (registered: %v)",
+		return nil, fmt.Errorf("dispatch/provider: unknown provider %q (registered: %v)", //nolint:err113 // dynamic provider list is inherently non-sentinel
 			dc.Provider, r.providerNames())
 	}
 
-	r.Logger.Debug("provider router: routing to provider",
-		slog.String("provider", dc.Provider),
-		slog.String("case_id", dc.CaseID),
-		slog.String("step", dc.Step),
+	r.Logger.DebugContext(ctx, "provider router: routing to provider",
+		slog.String(logKeyProvider, dc.Provider),
+		slog.String(logKeyCaseID, dc.CaseID),
+		slog.String(logKeyStep, dc.Step),
 	)
 	return r.dispatchWithFallback(ctx, dc.Provider, d, dc)
 }
@@ -125,14 +137,14 @@ func (r *Router) dispatchWithFallback(ctx context.Context, providerName string, 
 	for _, fb := range chain {
 		d, ok := r.Routes[fb]
 		if !ok {
-			errs = append(errs, fmt.Errorf("fallback %s: not registered", fb))
+			errs = append(errs, fmt.Errorf("%w: %s", ErrFallbackNotRegistered, fb))
 			continue
 		}
 
-		r.Logger.Info("provider router: fallback activated",
-			slog.String("primary", providerName),
-			slog.String("fallback", fb),
-			slog.String("step", dc.Step),
+		r.Logger.InfoContext(ctx, "provider router: fallback activated",
+			slog.String(logKeyPrimary, providerName),
+			slog.String(logKeyFallback, fb),
+			slog.String(logKeyStep, dc.Step),
 		)
 		if r.OnFallback != nil {
 			r.OnFallback(providerName, fb, err)

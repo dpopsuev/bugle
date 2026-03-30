@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/dpopsuev/bugle/facade"
-	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/pool"
+	"github.com/dpopsuev/bugle/signal"
 	"github.com/dpopsuev/bugle/world"
 )
 
@@ -53,7 +53,7 @@ func (l *pipeLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 
 // TestFacadeE2E_FullPipe tests the ENTIRE pipe from Staff creation
 // to clean shutdown. This is the "turn on the water" test.
-func TestFacadeE2E_FullPipe(t *testing.T) {
+func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E test is intentionally comprehensive
 	launcher := newPipeLauncher()
 	staff := facade.NewStaff(launcher)
 	ctx := context.Background()
@@ -184,9 +184,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) {
 	if status1.Code != pool.ExitBudget {
 		t.Fatalf("exit code = %d, want ExitBudget", status1.Code)
 	}
-	if !executor1.IsZombie() == false && staff.Pool().IsZombie(executor1.ID()) {
-		// Already reaped by Wait — should NOT be zombie anymore
-	}
+	// Already reaped by Wait — should NOT be zombie anymore.
 
 	// === 11. Orphan reparenting ===
 	scheduler, _ := gensec.Spawn(ctx, "scheduler", pool.LaunchConfig{})
@@ -232,7 +230,7 @@ func TestFacadeE2E_StressTest(t *testing.T) {
 	root, _ := staff.Spawn(ctx, "root", pool.LaunchConfig{})
 
 	// Spawn 20 workers under root.
-	var agents []*facade.AgentHandle
+	agents := make([]*facade.AgentHandle, 0, 20)
 	for i := range 20 {
 		a, _ := root.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.LaunchConfig{})
 		a.Listen(func(content string) string {

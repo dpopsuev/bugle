@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -18,6 +19,30 @@ import (
 	"time"
 
 	"github.com/dpopsuev/bugle/resilience"
+)
+
+// Slog attribute key constants.
+const (
+	logKeyAgent     = "agent"
+	logKeyPID       = "pid"
+	logKeyAgentName = "agent_name"
+	logKeyProtocol  = "protocol"
+	logKeyCWD       = "cwd"
+	logKeyError     = "error"
+	logKeySessionID = "session_id"
+	logKeyMethod    = "method"
+	logKeyID        = "id"
+	logKeyLineLen   = "line_len"
+	logKeyCode      = "code"
+	logKeyMessage   = "message"
+)
+
+// Sentinel errors for ACP operations.
+var (
+	ErrUnknownAgent = errors.New("unknown ACP agent")
+	ErrNoMessages   = errors.New("no messages to send")
+	ErrAgentExited  = errors.New("no response (agent exited)")
+	ErrAgentError   = errors.New("ACP error response")
 )
 
 // CommandFactory creates exec.Cmd — injectable for testing.
@@ -78,26 +103,26 @@ type Client struct {
 // Option configures a Client.
 type Option func(*Client)
 
-func WithModel(m string) Option                    { return func(c *Client) { c.model = m } }
-func WithLogger(l *slog.Logger) Option             { return func(c *Client) { c.log = l } }
-func WithCommandFactory(f CommandFactory) Option   { return func(c *Client) { c.cmdFactory = f } }
-func WithClientInfo(info ClientInfo) Option        { return func(c *Client) { c.clientInfo = info } }
-func WithRetry(cfg resilience.RetryConfig) Option  { return func(c *Client) { c.retry = &cfg } }
+func WithModel(m string) Option                   { return func(c *Client) { c.model = m } }
+func WithLogger(l *slog.Logger) Option            { return func(c *Client) { c.log = l } }
+func WithCommandFactory(f CommandFactory) Option  { return func(c *Client) { c.cmdFactory = f } }
+func WithClientInfo(info ClientInfo) Option       { return func(c *Client) { c.clientInfo = info } }
+func WithRetry(cfg resilience.RetryConfig) Option { return func(c *Client) { c.retry = &cfg } }
 func WithCircuitBreaker(cfg resilience.CircuitConfig) Option {
 	return func(c *Client) { c.circuit = resilience.NewCircuitBreaker(cfg) }
 }
 func WithRateLimiter(cfg resilience.RateLimitConfig) Option {
 	return func(c *Client) { c.limiter = resilience.NewRateLimiter(cfg) }
 }
-func WithHandshakeTimeout(d time.Duration) Option  { return func(c *Client) { c.handshakeTimeout = d } }
-func WithSessionTimeout(d time.Duration) Option    { return func(c *Client) { c.sessionTimeout = d } }
-func WithPromptTimeout(d time.Duration) Option     { return func(c *Client) { c.promptTimeout = d } }
+func WithHandshakeTimeout(d time.Duration) Option { return func(c *Client) { c.handshakeTimeout = d } }
+func WithSessionTimeout(d time.Duration) Option   { return func(c *Client) { c.sessionTimeout = d } }
+func WithPromptTimeout(d time.Duration) Option    { return func(c *Client) { c.promptTimeout = d } }
 
 // NewClient creates an ACP client for the named agent.
 func NewClient(agentName string, opts ...Option) (*Client, error) {
 	args, ok := AgentCommands[agentName]
 	if !ok {
-		return nil, fmt.Errorf("unknown ACP agent %q (supported: cursor, claude, gemini, codex)", agentName)
+		return nil, fmt.Errorf("%w: %q", ErrUnknownAgent, agentName)
 	}
 
 	c := &Client{
@@ -178,7 +203,7 @@ func (c *Client) doStart(ctx context.Context) error {
 	c.scanner = bufio.NewScanner(stdoutPipe)
 	c.scanner.Buffer(make([]byte, 4*1024*1024), 4*1024*1024) // 4MB buffer
 
-	c.log.Info("ACP agent started", "agent", c.agentName, "pid", c.cmd.Process.Pid)
+	c.log.InfoContext(ctx, "ACP agent started", slog.String(logKeyAgent, c.agentName), slog.Int(logKeyPID, c.cmd.Process.Pid))
 
 	// Initialize handshake — with timeout.
 	initCtx, initCancel := context.WithTimeout(ctx, c.handshakeTimeout)
@@ -190,7 +215,7 @@ func (c *Client) doStart(ctx context.Context) error {
 	}
 	initCh := make(chan callResult, 1)
 	go func() {
-		resp, err := c.call("initialize", initializeParams{
+		resp, err := c.call(initCtx, "initialize", initializeParams{
 			ProtocolVersion: ProtocolVersion,
 			ClientInfo:      clientInfo{Name: c.clientInfo.Name, Version: c.clientInfo.Version},
 		})
@@ -199,18 +224,18 @@ func (c *Client) doStart(ctx context.Context) error {
 
 	select {
 	case <-initCtx.Done():
-		c.cmd.Process.Kill() //nolint:errcheck
+		c.cmd.Process.Kill() //nolint:errcheck // best-effort kill on timeout
 		return fmt.Errorf("ACP initialize: %w", initCtx.Err())
 	case r := <-initCh:
 		if r.err != nil {
-			c.cmd.Process.Kill() //nolint:errcheck
+			c.cmd.Process.Kill() //nolint:errcheck // best-effort kill on handshake failure
 			return fmt.Errorf("ACP initialize: %w", r.err)
 		}
 		var initResult initializeResult
 		if r.resp != nil {
-			json.Unmarshal(*r.resp, &initResult) //nolint:errcheck
+			json.Unmarshal(*r.resp, &initResult) //nolint:errcheck // non-critical metadata parse
 		}
-		c.log.Info("ACP initialized", "agent_name", initResult.AgentInfo.Name, "protocol", initResult.ProtocolVersion)
+		c.log.InfoContext(ctx, "ACP initialized", slog.String(logKeyAgentName, initResult.AgentInfo.Name), slog.Int(logKeyProtocol, initResult.ProtocolVersion))
 	}
 
 	// Create session — with timeout.
@@ -218,30 +243,30 @@ func (c *Client) doStart(ctx context.Context) error {
 	defer sessCancel()
 
 	cwd, _ := os.Getwd()
-	c.log.Debug("ACP session/new", "cwd", cwd)
+	c.log.DebugContext(ctx, "ACP session/new", slog.String(logKeyCWD, cwd))
 
 	sessCh := make(chan callResult, 1)
 	go func() {
-		resp, err := c.call("session/new", newSessionParams{CWD: cwd, MCPServers: []any{}})
+		resp, err := c.call(sessCtx, "session/new", newSessionParams{CWD: cwd, MCPServers: []any{}})
 		sessCh <- callResult{resp, err}
 	}()
 
 	select {
 	case <-sessCtx.Done():
-		c.cmd.Process.Kill() //nolint:errcheck
+		c.cmd.Process.Kill() //nolint:errcheck // best-effort kill on session timeout
 		return fmt.Errorf("ACP session/new: %w", sessCtx.Err())
 	case r := <-sessCh:
 		if r.err != nil {
-			c.log.Error("ACP session/new failed", "error", r.err)
-			c.cmd.Process.Kill() //nolint:errcheck
+			c.log.ErrorContext(ctx, "ACP session/new failed", slog.Any(logKeyError, r.err))
+			c.cmd.Process.Kill() //nolint:errcheck // best-effort kill on session failure
 			return fmt.Errorf("ACP session/new: %w", r.err)
 		}
 		var sessResult newSessionResult
 		if r.resp != nil {
-			json.Unmarshal(*r.resp, &sessResult) //nolint:errcheck
+			json.Unmarshal(*r.resp, &sessResult) //nolint:errcheck // non-critical metadata parse
 		}
 		c.sessionID = sessResult.SessionID
-		c.log.Info("ACP session created", "session_id", c.sessionID)
+		c.log.InfoContext(ctx, "ACP session created", slog.String(logKeySessionID, c.sessionID))
 	}
 
 	return nil
@@ -263,7 +288,7 @@ func (c *Client) Stop(_ context.Context) error {
 	case err := <-done:
 		return err
 	case <-time.After(5 * time.Second):
-		c.cmd.Process.Kill() //nolint:errcheck
+		c.cmd.Process.Kill() //nolint:errcheck // best-effort kill after graceful timeout
 		return <-done
 	}
 }
@@ -286,7 +311,7 @@ func (c *Client) Messages() []Message {
 
 // Chat sends the last message as a prompt and streams ACP session/update events.
 // Applies rate limiter (if configured) before sending the prompt.
-func (c *Client) Chat(ctx context.Context) (<-chan StreamEvent, error) {
+func (c *Client) Chat(ctx context.Context) (<-chan StreamEvent, error) { //nolint:gocyclo // streaming protocol dispatch is inherently branchy
 	// Rate limit — block until token available.
 	if c.limiter != nil {
 		if err := c.limiter.Wait(ctx); err != nil {
@@ -297,7 +322,7 @@ func (c *Client) Chat(ctx context.Context) (<-chan StreamEvent, error) {
 	c.mu.Lock()
 	if len(c.messages) == 0 {
 		c.mu.Unlock()
-		return nil, fmt.Errorf("no messages to send")
+		return nil, ErrNoMessages
 	}
 	lastMsg := c.messages[len(c.messages)-1]
 	c.mu.Unlock()
@@ -391,10 +416,10 @@ func (c *Client) Chat(ctx context.Context) (<-chan StreamEvent, error) {
 }
 
 // call sends a JSON-RPC request and reads the response.
-func (c *Client) call(method string, params any) (*json.RawMessage, error) {
+func (c *Client) call(ctx context.Context, method string, params any) (*json.RawMessage, error) {
 	id := int(c.nextID.Add(1))
 
-	c.log.Debug("ACP call", "method", method, "id", id)
+	c.log.DebugContext(ctx, "ACP call", slog.String(logKeyMethod, method), slog.Int(logKeyID, id))
 	if err := c.stdin.Encode(jsonRPCRequest{
 		JSONRPC: "2.0",
 		ID:      id,
@@ -409,30 +434,30 @@ func (c *Client) call(method string, params any) (*json.RawMessage, error) {
 		if line == "" {
 			continue
 		}
-		c.log.Debug("ACP recv", "method", method, "line_len", len(line))
+		c.log.DebugContext(ctx, "ACP recv", slog.String(logKeyMethod, method), slog.Int(logKeyLineLen, len(line)))
 
 		var resp jsonRPCResponse
 		if err := json.Unmarshal([]byte(line), &resp); err != nil {
-			c.log.Warn("ACP parse error", "method", method, "error", err)
+			c.log.WarnContext(ctx, "ACP parse error", slog.String(logKeyMethod, method), slog.Any(logKeyError, err))
 			continue
 		}
 
 		if resp.ID == id {
 			if resp.Error != nil {
-				c.log.Error("ACP error response", "method", method, "code", resp.Error.Code, "message", resp.Error.Message)
-				return nil, fmt.Errorf("%s error: %s", method, resp.Error.Message)
+				c.log.ErrorContext(ctx, "ACP error response", slog.String(logKeyMethod, method), slog.Int(logKeyCode, resp.Error.Code), slog.String(logKeyMessage, resp.Error.Message))
+				return nil, fmt.Errorf("%w: %s: %s", ErrAgentError, method, resp.Error.Message)
 			}
-			c.log.Debug("ACP result", "method", method, "id", id)
+			c.log.DebugContext(ctx, "ACP result", slog.String(logKeyMethod, method), slog.Int(logKeyID, id))
 			return resp.Result, nil
 		}
 	}
 
-	return nil, fmt.Errorf("%s: no response (agent exited)", method)
+	return nil, fmt.Errorf("%w: %s", ErrAgentExited, method)
 }
 
 // notify sends a JSON-RPC notification (no response expected).
 func (c *Client) notify(method string, params any) {
-	c.stdin.Encode(map[string]any{ //nolint:errcheck
+	c.stdin.Encode(map[string]any{ //nolint:errcheck // fire-and-forget notification, no response expected
 		"jsonrpc": "2.0",
 		"method":  method,
 		"params":  params,

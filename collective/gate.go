@@ -29,7 +29,7 @@ type AgentGate struct {
 // Pass asks the agent to evaluate the content. The agent should respond
 // with PASS or REJECT followed by a reason. Defaults to PASS on
 // ambiguous responses (fail-open).
-func (g *AgentGate) Pass(ctx context.Context, content string) (bool, string, error) {
+func (g *AgentGate) Pass(ctx context.Context, content string) (allowed bool, reason string, err error) {
 	prompt := "Evaluate the following content. Respond with exactly PASS or REJECT followed by your reason.\n\n" + content
 	resp, err := g.Agent.Ask(ctx, prompt)
 	if err != nil {

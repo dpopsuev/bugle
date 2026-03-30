@@ -282,13 +282,13 @@ func TestDebateRound_Tracking(t *testing.T) {
 
 type rejectGate struct{ reason string }
 
-func (g *rejectGate) Pass(_ context.Context, _ string) (bool, string, error) {
+func (g *rejectGate) Pass(_ context.Context, _ string) (allowed bool, reason string, err error) {
 	return false, g.reason, nil
 }
 
 type passGate struct{}
 
-func (g *passGate) Pass(_ context.Context, _ string) (bool, string, error) {
+func (g *passGate) Pass(_ context.Context, _ string) (allowed bool, reason string, err error) {
 	return true, "ok", nil
 }
 

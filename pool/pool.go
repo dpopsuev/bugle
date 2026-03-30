@@ -33,10 +33,6 @@ type agentEntry struct {
 	ExitTime time.Time // zero = still running
 }
 
-func (e *agentEntry) isZombie() bool {
-	return !e.ExitTime.IsZero()
-}
-
 // AgentPool manages agent process lifecycles with process supervision.
 type AgentPool struct {
 	world     *world.World
@@ -44,10 +40,10 @@ type AgentPool struct {
 	bus       signal.Bus
 	launcher  Launcher
 	mu        sync.RWMutex
-	agents    map[world.EntityID]*agentEntry // running agents
-	zombies   map[world.EntityID]*agentEntry // finished but not reaped
-	subreaper world.EntityID                 // orphan adopter (0 = pool-level)
-	autoReap  map[world.EntityID]bool        // parents with auto-reap enabled
+	agents    map[world.EntityID]*agentEntry   // running agents
+	zombies   map[world.EntityID]*agentEntry   // finished but not reaped
+	subreaper world.EntityID                   // orphan adopter (0 = pool-level)
+	autoReap  map[world.EntityID]bool          // parents with auto-reap enabled
 	waitCh    map[world.EntityID]chan struct{} // notify Wait() callers
 }
 
@@ -199,7 +195,7 @@ func (p *AgentPool) KillAll(ctx context.Context) {
 	p.mu.RUnlock()
 
 	for _, id := range ids {
-		p.Kill(ctx, id) //nolint:errcheck
+		p.Kill(ctx, id) //nolint:errcheck // best-effort cleanup during shutdown
 	}
 
 	// Also clean up any remaining zombies.
@@ -236,8 +232,8 @@ func (p *AgentPool) ZombieCount() int {
 	return len(p.zombies)
 }
 
-// Get returns the entry for a running agent.
-func (p *AgentPool) Get(id world.EntityID) (*agentEntry, bool) {
+// get returns the entry for a running agent.
+func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	e, ok := p.agents[id]

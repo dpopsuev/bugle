@@ -1,5 +1,5 @@
 // Package palette defines the heraldic color system — Shade families,
-// Colour values, ColorIdentity component, and the collision-free Registry.
+// Color values, ColorIdentity component, and the collision-free Registry.
 package palette
 
 import (
@@ -13,19 +13,19 @@ const ColorIdentityType world.ComponentType = "color_identity"
 
 // Shade is a color family grouping for agent collectives.
 type Shade struct {
-	Name    string
-	Colours []Colour
+	Name   string
+	Colors []Color
 }
 
-// Colour is a specific color within a shade family.
-type Colour struct {
+// Color is a specific color within a shade family.
+type Color struct {
 	Name string
 	Hex  string
 }
 
-// Palette defines 7 shade families x 8 colours = 56 unique agent identities.
+// Palette defines 7 shade families x 8 colors = 56 unique agent identities.
 var Palette = []Shade{
-	{Name: "Azure", Colours: []Colour{
+	{Name: "Azure", Colors: []Color{
 		{"Cerulean", "#007BA7"},
 		{"Cobalt", "#0047AB"},
 		{"Sapphire", "#0F52BA"},
@@ -35,7 +35,7 @@ var Palette = []Shade{
 		{"Steel", "#4682B4"},
 		{"Teal", "#008080"},
 	}},
-	{Name: "Crimson", Colours: []Colour{
+	{Name: "Crimson", Colors: []Color{
 		{"Scarlet", "#FF2400"},
 		{"Vermillion", "#E34234"},
 		{"Ruby", "#E0115F"},
@@ -45,7 +45,7 @@ var Palette = []Shade{
 		{"Rust", "#B7410E"},
 		{"Coral", "#FF7F50"},
 	}},
-	{Name: "Forest", Colours: []Colour{
+	{Name: "Forest", Colors: []Color{
 		{"Emerald", "#50C878"},
 		{"Jade", "#00A86B"},
 		{"Sage", "#BCB88A"},
@@ -55,7 +55,7 @@ var Palette = []Shade{
 		{"Moss", "#8A9A5B"},
 		{"Viridian", "#40826D"},
 	}},
-	{Name: "Amber", Colours: []Colour{
+	{Name: "Amber", Colors: []Color{
 		{"Saffron", "#F4C430"},
 		{"Gold", "#FFD700"},
 		{"Marigold", "#EAA221"},
@@ -65,7 +65,7 @@ var Palette = []Shade{
 		{"Bronze", "#CD7F32"},
 		{"Copper", "#B87333"},
 	}},
-	{Name: "Violet", Colours: []Colour{
+	{Name: "Violet", Colors: []Color{
 		{"Amethyst", "#9966CC"},
 		{"Lavender", "#E6E6FA"},
 		{"Plum", "#8E4585"},
@@ -75,7 +75,7 @@ var Palette = []Shade{
 		{"Iris", "#5A4FCF"},
 		{"Heather", "#B7C3D0"},
 	}},
-	{Name: "Slate", Colours: []Colour{
+	{Name: "Slate", Colors: []Color{
 		{"Charcoal", "#36454F"},
 		{"Ash", "#B2BEB5"},
 		{"Pewter", "#8BA8B7"},
@@ -85,7 +85,7 @@ var Palette = []Shade{
 		{"Iron", "#48494B"},
 		{"Flint", "#6F6A63"},
 	}},
-	{Name: "Ivory", Colours: []Colour{
+	{Name: "Ivory", Colors: []Color{
 		{"Pearl", "#EAE0C8"},
 		{"Cream", "#FFFDD0"},
 		{"Linen", "#FAF0E6"},
@@ -107,24 +107,24 @@ func LookupShade(name string) *Shade {
 	return nil
 }
 
-// LookupColour finds a colour by name across all shades.
-// Returns the colour and its parent shade name.
-func LookupColour(name string) (Colour, string, bool) {
+// LookupColor finds a color by name across all shades.
+// Returns the color and its parent shade name.
+func LookupColor(name string) (Color, string, bool) {
 	for _, shade := range Palette {
-		for _, c := range shade.Colours {
+		for _, c := range shade.Colors {
 			if c.Name == name {
 				return c, shade.Name, true
 			}
 		}
 	}
-	return Colour{}, "", false
+	return Color{}, "", false
 }
 
 // ColorIdentity is the visual identity for humans.
-// Format: "Denim Writer of Indigo Refactor" (Colour Role of Shade Collective).
+// Format: "Denim Writer of Indigo Refactor" (Color Role of Shade Collective).
 type ColorIdentity struct {
 	Shade      string `json:"shade"`      // group family: "Indigo", "Crimson"
-	Colour     string `json:"colour"`     // individual: "Denim", "Scarlet"
+	Color      string `json:"color"`      // individual: "Denim", "Scarlet"
 	Role       string `json:"role"`       // function: "Writer", "Reviewer"
 	Collective string `json:"collective"` // formation: "Refactor", "Triage"
 	Hex        string `json:"hex"`        // CSS hex: "#6F8FAF"
@@ -135,13 +135,13 @@ func (ColorIdentity) ComponentType() world.ComponentType { return ColorIdentityT
 
 // Title returns the heraldic name: "Denim Writer of Indigo Refactor".
 func (c ColorIdentity) Title() string { //nolint:gocritic // value receiver needed for ECS Get[T]
-	return fmt.Sprintf("%s %s of %s %s", c.Colour, c.Role, c.Shade, c.Collective)
+	return fmt.Sprintf("%s %s of %s %s", c.Color, c.Role, c.Shade, c.Collective)
 }
 
 // Label returns the compact log format: "[Indigo·Denim|Writer]".
 func (c ColorIdentity) Label() string { //nolint:gocritic // value receiver needed for ECS Get[T]
-	return fmt.Sprintf("[%s·%s|%s]", c.Shade, c.Colour, c.Role)
+	return fmt.Sprintf("[%s·%s|%s]", c.Shade, c.Color, c.Role)
 }
 
-// Short returns just the colour name: "Denim".
-func (c ColorIdentity) Short() string { return c.Colour } //nolint:gocritic // value receiver
+// Short returns just the color name: "Denim".
+func (c ColorIdentity) Short() string { return c.Color } //nolint:gocritic // value receiver

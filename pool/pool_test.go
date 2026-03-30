@@ -168,7 +168,7 @@ func TestGet(t *testing.T) {
 	ctx := context.Background()
 
 	id, _ := pool.Fork(ctx, "executor", LaunchConfig{Role: "executor"}, 0)
-	entry, ok := pool.Get(id)
+	entry, ok := pool.get(id)
 	if !ok {
 		t.Fatal("should find entry")
 	}
@@ -222,7 +222,7 @@ func TestConcurrentForkKill(t *testing.T) {
 		wg.Add(1)
 		go func(eid world.EntityID) {
 			defer wg.Done()
-			pool.Kill(ctx, eid) //nolint:errcheck
+			pool.Kill(ctx, eid) //nolint:errcheck // best-effort concurrent kill in test
 		}(id)
 	}
 	wg.Wait()

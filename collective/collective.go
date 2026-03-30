@@ -7,12 +7,20 @@ package collective
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/dpopsuev/bugle/facade"
 	"github.com/dpopsuev/bugle/pool"
 	"github.com/dpopsuev/bugle/world"
+)
+
+// Sentinel errors for collective operations.
+var (
+	ErrIngressRejected = errors.New("collective ingress rejected")
+	ErrEgressRejected  = errors.New("collective egress rejected")
+	ErrNoAgents        = errors.New("collective: no agents")
 )
 
 // CollectiveStrategy defines how agents collaborate inside a collective.
@@ -71,8 +79,10 @@ func NewAgentCollective(id world.EntityID, role string, strategy CollectiveStrat
 // --- Identity ---
 
 func (c *AgentCollective) ID() world.EntityID { return c.id }
-func (c *AgentCollective) Role() string        { return c.role }
-func (c *AgentCollective) String() string      { return fmt.Sprintf("%s(collective-%d, %d agents)", c.role, c.id, len(c.agents)) }
+func (c *AgentCollective) Role() string       { return c.role }
+func (c *AgentCollective) String() string {
+	return fmt.Sprintf("%s(collective-%d, %d agents)", c.role, c.id, len(c.agents))
+}
 
 // --- Messaging ---
 
@@ -86,7 +96,7 @@ func (c *AgentCollective) Ask(ctx context.Context, content string) (string, erro
 			return "", fmt.Errorf("collective %s ingress: %w", c.role, err)
 		}
 		if !ok {
-			return "", fmt.Errorf("collective %s ingress rejected: %s", c.role, reason)
+			return "", fmt.Errorf("%w: %s %s", ErrIngressRejected, c.role, reason)
 		}
 	}
 
@@ -103,7 +113,7 @@ func (c *AgentCollective) Ask(ctx context.Context, content string) (string, erro
 			return "", fmt.Errorf("collective %s egress: %w", c.role, err)
 		}
 		if !ok {
-			return "", fmt.Errorf("collective %s egress rejected: %s", c.role, reason)
+			return "", fmt.Errorf("%w: %s %s", ErrEgressRejected, c.role, reason)
 		}
 	}
 
@@ -113,7 +123,7 @@ func (c *AgentCollective) Ask(ctx context.Context, content string) (string, erro
 // Tell forwards to the first agent (no debate for fire-and-forget).
 func (c *AgentCollective) Tell(content string) error {
 	if len(c.agents) == 0 {
-		return fmt.Errorf("collective %s: no agents", c.role)
+		return fmt.Errorf("%w: %s", ErrNoAgents, c.role)
 	}
 	return c.agents[0].Tell(content)
 }
@@ -174,7 +184,7 @@ func (c *AgentCollective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
 // Spawn creates a child agent under the first agent in the collective.
 func (c *AgentCollective) Spawn(ctx context.Context, role string, config pool.LaunchConfig) (*facade.AgentHandle, error) {
 	if len(c.agents) == 0 {
-		return nil, fmt.Errorf("collective %s: no agents to spawn under", c.role)
+		return nil, fmt.Errorf("%w: %s (spawn)", ErrNoAgents, c.role)
 	}
 	return c.agents[0].Spawn(ctx, role, config)
 }
@@ -252,6 +262,6 @@ func (c *AgentCollective) addDebateRound(r DebateRound) {
 
 // Compile-time checks.
 var (
-	_ facade.Agent      = (*AgentCollective)(nil)
+	_ facade.Agent       = (*AgentCollective)(nil)
 	_ facade.FacadeAgent = (*AgentCollective)(nil)
 )

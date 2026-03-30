@@ -20,10 +20,10 @@ func TestSnapshot_MatchesComponentTypes(t *testing.T) {
 	c := w.Spawn()
 
 	world.Attach(w, a, world.Health{State: world.Active})
-	world.Attach(w, a, palette.ColorIdentity{Colour: "Denim", Collective: "Refactor"})
+	world.Attach(w, a, palette.ColorIdentity{Color: "Denim", Collective: "Refactor"})
 
 	world.Attach(w, b, world.Health{State: world.Idle})
-	world.Attach(w, b, palette.ColorIdentity{Colour: "Scarlet", Collective: "Triage"})
+	world.Attach(w, b, palette.ColorIdentity{Color: "Scarlet", Collective: "Triage"})
 
 	// c has only Health — should NOT match a 2-type query.
 	world.Attach(w, c, world.Health{State: world.Done})
@@ -191,7 +191,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 
 	id := w.Spawn()
 	// Attach a ColorIdentity (should NOT trigger diff on this channel).
-	world.Attach(w, id, palette.ColorIdentity{Colour: "Denim"})
+	world.Attach(w, id, palette.ColorIdentity{Color: "Denim"})
 
 	select {
 	case d := <-ch:
@@ -363,11 +363,11 @@ func TestStats_CountsCollectives(t *testing.T) {
 	// 3 in "Refactor", 2 in "Triage".
 	for range 3 {
 		id := w.Spawn()
-		world.Attach(w, id, palette.ColorIdentity{Colour: "A", Collective: "Refactor"})
+		world.Attach(w, id, palette.ColorIdentity{Color: "A", Collective: "Refactor"})
 	}
 	for range 2 {
 		id := w.Spawn()
-		world.Attach(w, id, palette.ColorIdentity{Colour: "B", Collective: "Triage"})
+		world.Attach(w, id, palette.ColorIdentity{Color: "B", Collective: "Triage"})
 	}
 
 	v := worldview.NewView(w)
@@ -388,7 +388,7 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 	w := world.NewWorld()
 
 	agents := []struct {
-		colour     string
+		color      string
 		shade      string
 		role       string
 		collective string
@@ -403,7 +403,7 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 		id := w.Spawn()
 		world.Attach(w, id, palette.ColorIdentity{
 			Shade:      a.shade,
-			Colour:     a.colour,
+			Color:      a.color,
 			Role:       a.role,
 			Collective: a.collective,
 		})
@@ -422,8 +422,8 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 	for _, s := range snaps {
 		ci := s.Components[palette.ColorIdentityType].(palette.ColorIdentity)
 		h := s.Components[world.HealthType].(world.Health)
-		if ci.Colour == "" {
-			t.Errorf("entity %d: empty Colour", s.ID)
+		if ci.Color == "" {
+			t.Errorf("entity %d: empty Color", s.ID)
 		}
 		if h.State == "" {
 			t.Errorf("entity %d: empty State", s.ID)

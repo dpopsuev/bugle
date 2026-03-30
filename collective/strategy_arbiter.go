@@ -7,11 +7,15 @@ package collective
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/dpopsuev/bugle/facade"
 )
+
+// ErrTooFewAgentsArbiter is returned when arbiter has fewer than 3 agents.
+var ErrTooFewAgentsArbiter = errors.New("arbiter requires at least 3 agents")
 
 // ArbiterDecision is the judge's ruling.
 type ArbiterDecision string
@@ -38,7 +42,7 @@ func (a *Arbiter) defaults() int {
 // Orchestrate runs the arbiter debate. Judge decides after each round.
 func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*facade.AgentHandle) (string, error) {
 	if len(agents) < 3 {
-		return "", fmt.Errorf("arbiter requires at least 3 agents, got %d", len(agents))
+		return "", fmt.Errorf("%w, got %d", ErrTooFewAgentsArbiter, len(agents))
 	}
 
 	maxRounds := a.defaults()
