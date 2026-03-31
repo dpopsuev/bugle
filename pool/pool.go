@@ -19,8 +19,9 @@ import (
 
 // Sentinel errors.
 var (
-	ErrNotFound = errors.New("agent not found")
-	ErrNotOwner = errors.New("caller is not the parent of this agent")
+	ErrNotFound      = errors.New("agent not found")
+	ErrNotOwner      = errors.New("caller is not the parent of this agent")
+	ErrQuotaExceeded = errors.New("agent quota exceeded")
 )
 
 // agentEntry tracks a running or zombie agent.
@@ -47,6 +48,7 @@ type AgentPool struct {
 	autoReap  map[world.EntityID]bool          // parents with auto-reap enabled
 	waitCh    map[world.EntityID]chan struct{} // notify Wait() callers
 	registry  *symbol.Registry                 // optional color registry (nil = no color assignment)
+	maxAgents int                              // 0 = unlimited
 }
 
 // New creates an AgentPool.
@@ -67,6 +69,11 @@ func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSuper
 // components, starts process, registers in transport, emits signal.
 // parentID=0 means root agent (no parent).
 func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, parentID world.EntityID) (world.EntityID, error) {
+	// 0. Quota check.
+	if p.maxAgents > 0 && p.Count() >= p.maxAgents {
+		return 0, fmt.Errorf("%w: max %d agents", ErrQuotaExceeded, p.maxAgents)
+	}
+
 	// 1. Create entity.
 	id := p.world.Spawn()
 
@@ -338,6 +345,12 @@ func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
 // SetRegistry sets the color registry for automatic color assignment on Fork.
 func (p *AgentPool) SetRegistry(reg *symbol.Registry) {
 	p.registry = reg
+}
+
+// SetMaxAgents sets the maximum number of agents this pool can manage.
+// 0 means unlimited (default).
+func (p *AgentPool) SetMaxAgents(n int) {
+	p.maxAgents = n
 }
 
 func agentTransportID(id world.EntityID) string {

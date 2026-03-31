@@ -98,6 +98,9 @@ type Client struct {
 	handshakeTimeout time.Duration // default 10s
 	sessionTimeout   time.Duration // default 10s
 	promptTimeout    time.Duration // default 60s (0 = no limit)
+
+	// Environment.
+	extraEnv map[string]string // additional env vars for child process
 }
 
 // Option configures a Client.
@@ -184,6 +187,7 @@ func (c *Client) doStart(ctx context.Context) error {
 
 	c.cmd = c.cmdFactory(ctx, c.agentCmd, args...)
 	c.cmd.Stderr = os.Stderr
+	c.cmd.Env = safeEnv(c.extraEnv)
 
 	stdinPipe, err := c.cmd.StdinPipe()
 	if err != nil {

@@ -18,10 +18,11 @@ import (
 
 // Sentinel errors for collective operations.
 var (
-	ErrIngressRejected = errors.New("collective ingress rejected")
-	ErrEgressRejected  = errors.New("collective egress rejected")
-	ErrNoAgents        = errors.New("collective: no agents")
-	ErrMaxSizeExceeded = errors.New("collective: max size exceeded")
+	ErrIngressRejected  = errors.New("collective ingress rejected")
+	ErrEgressRejected   = errors.New("collective egress rejected")
+	ErrNoAgents         = errors.New("collective: no agents")
+	ErrMaxSizeExceeded  = errors.New("collective: max size exceeded")
+	ErrDisruptionBudget = errors.New("collective: disruption budget violated")
 )
 
 // CollectiveStrategy defines how agents collaborate inside a collective.
@@ -49,17 +50,18 @@ const (
 // Collective wraps N agents behind the agent.Agent interface.
 // Operators see one agent. Internally, N agents debate/collaborate.
 type Collective struct {
-	id       world.EntityID
-	role     string
-	agents   []*agent.Solo
-	strategy CollectiveStrategy
-	ingress  Gatekeeper // optional bouncer (nil = pass-through)
-	egress   Gatekeeper // optional reviewer (nil = pass-through)
-	handler  func(content string) string
-	mu       sync.RWMutex
-	rounds   []DebateRound
-	phase    Phase
-	maxSize  int // 0 = unlimited
+	id           world.EntityID
+	role         string
+	agents       []*agent.Solo
+	strategy     CollectiveStrategy
+	ingress      Gatekeeper // optional bouncer (nil = pass-through)
+	egress       Gatekeeper // optional reviewer (nil = pass-through)
+	handler      func(content string) string
+	mu           sync.RWMutex
+	rounds       []DebateRound
+	phase        Phase
+	maxSize      int // 0 = unlimited
+	minAvailable int // 0 = no disruption budget
 }
 
 // CollectiveOption configures an Collective.
@@ -78,6 +80,12 @@ func WithEgress(g Gatekeeper) CollectiveOption {
 // WithMaxSize sets the maximum number of agents in the collective.
 func WithMaxSize(n int) CollectiveOption {
 	return func(c *Collective) { c.maxSize = n }
+}
+
+// WithMinAvailable sets the minimum number of agents that must remain
+// available during scale-down or kill operations (disruption budget).
+func WithMinAvailable(n int) CollectiveOption {
+	return func(c *Collective) { c.minAvailable = n }
 }
 
 // NewCollective creates a collective from existing agent handles.
@@ -307,6 +315,9 @@ func (c *Collective) Scale(ctx context.Context, target int, config pool.AgentCon
 
 	if c.maxSize > 0 && target > c.maxSize {
 		return fmt.Errorf("%w: target %d exceeds max %d", ErrMaxSizeExceeded, target, c.maxSize)
+	}
+	if c.minAvailable > 0 && target < c.minAvailable {
+		return fmt.Errorf("%w: target %d below minimum %d", ErrDisruptionBudget, target, c.minAvailable)
 	}
 
 	if target > current {
