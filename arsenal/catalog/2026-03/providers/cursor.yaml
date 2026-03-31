@@ -1,4 +1,5 @@
 provider: cursor
+shade: Ivory
 models:
   - id: cursor-composer
     context: 200000

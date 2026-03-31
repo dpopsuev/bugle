@@ -17,6 +17,7 @@ var catalogFS embed.FS
 // providerFile is the YAML structure for a provider manifest.
 type providerFile struct {
 	Provider string       `yaml:"provider"`
+	Shade    string       `yaml:"shade,omitempty"` // canonical shade family
 	Models   []ModelEntry `yaml:"models"`
 }
 

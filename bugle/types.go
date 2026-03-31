@@ -1,6 +1,9 @@
 package bugle
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // --- Start ---
 
@@ -61,6 +64,20 @@ type PushRequest struct {
 	Andon      *Andon          `json:"andon,omitempty"`
 	Budget     *BudgetActual   `json:"budget_actual,omitempty"`
 	Auth       *AuthToken      `json:"auth,omitempty"`
+}
+
+// Validate checks that required fields are present and status is valid.
+func (r PushRequest) Validate() error { //nolint:gocritic // value receiver for validation
+	if r.SessionID == "" {
+		return fmt.Errorf("%w: empty session_id", ErrInvalidStatus)
+	}
+	if r.DispatchID <= 0 {
+		return fmt.Errorf("%w: dispatch_id must be positive", ErrInvalidStatus)
+	}
+	if r.Status != "" && !ValidStatuses[r.Status] {
+		return fmt.Errorf("%w: %q", ErrInvalidStatus, r.Status)
+	}
+	return nil
 }
 
 // PushResponse acknowledges a submission.

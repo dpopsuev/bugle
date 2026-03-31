@@ -188,7 +188,8 @@ func (a *Solo) Broadcast(ctx context.Context, content string) error {
 // It replaces any previously registered handler for this agent.
 func (a *Solo) Listen(handler func(content string) string) {
 	agentID := a.agentID()
-	a.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) {
+	a.transport.Unregister(agentID)                                                                           // remove previous handler if any
+	a.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) { //nolint:errcheck // Unregister guarantees slot is free
 		resp := handler(msg.Content)
 		return transport.Message{
 			From:    agentID,

@@ -1,4 +1,5 @@
 provider: google
+shade: Azure
 models:
   - id: gemini-2.5-pro
     context: 1000000

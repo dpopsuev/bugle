@@ -1,4 +1,5 @@
 provider: anthropic
+shade: Amber
 models:
   - id: claude-opus-4-6
     context: 200000

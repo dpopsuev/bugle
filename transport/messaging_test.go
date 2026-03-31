@@ -12,7 +12,7 @@ func TestAsk_RespondsCorrectly(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	tr.Register("echo", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register("echo", func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:    "echo",
 			To:      msg.From,
@@ -40,7 +40,7 @@ func TestAsk_Timeout(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	tr.Register("slow", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register("slow", func(_ context.Context, _ Message) (Message, error) {
 		time.Sleep(200 * time.Millisecond)
 		return Message{Content: "late"}, nil
 	})
@@ -76,7 +76,7 @@ func TestSendToRole_RoundRobin(t *testing.T) {
 
 	for i := range 3 {
 		agentID := fmt.Sprintf("exec-%d", i)
-		tr.Register(agentID, func(_ context.Context, _ Message) (Message, error) {
+		_ = tr.Register(agentID, func(_ context.Context, _ Message) (Message, error) {
 			return Message{Content: "done"}, nil
 		})
 		tr.Roles().Register(agentID, "executor")
@@ -128,7 +128,7 @@ func TestSendToRole_RoundRobin_Distribution(t *testing.T) {
 	for i := range 3 {
 		agentID := fmt.Sprintf("w-%d", i)
 		id := agentID // capture
-		tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
+		_ = tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
 			mu.Lock()
 			hits[id]++
 			mu.Unlock()
@@ -165,7 +165,7 @@ func TestAskRole_BlocksForResponse(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	tr.Register("worker-0", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register("worker-0", func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:    "worker-0",
 			Content: "reply: " + msg.Content,
@@ -194,7 +194,7 @@ func TestBroadcast_AllReceive(t *testing.T) {
 	for i := range 3 {
 		agentID := fmt.Sprintf("agent-%d", i)
 		id := agentID // capture
-		tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
+		_ = tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
 			received.Store(id, true)
 			return Message{From: id, Content: "ack"}, nil
 		})

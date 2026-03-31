@@ -83,8 +83,8 @@ func TestE2E_MixedElements_Collaborate(t *testing.T) {
 
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
-	tr.Register(fire.Short(), EchoHandler())
-	tr.Register(water.Short(), EchoHandler())
+	_ = tr.Register(fire.Short(), EchoHandler())
+	_ = tr.Register(water.Short(), EchoHandler())
 
 	// fire sends to water, verify round-trip.
 	ctx := context.Background()

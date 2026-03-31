@@ -93,9 +93,13 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 
 	// 4. Register in transport.
 	agentID := agentTransportID(id)
-	p.transport.Register(agentID, func(ctx context.Context, msg transport.Message) (transport.Message, error) {
+	if err := p.transport.Register(agentID, func(ctx context.Context, msg transport.Message) (transport.Message, error) {
 		return transport.Message{From: agentID, Content: "ack"}, nil
-	})
+	}); err != nil {
+		p.launcher.Stop(ctx, id) //nolint:errcheck // best-effort on registration failure
+		p.world.Despawn(id)
+		return 0, fmt.Errorf("fork %s transport register: %w", role, err)
+	}
 	p.transport.Roles().Register(agentID, role)
 
 	// 5. Track with parent.

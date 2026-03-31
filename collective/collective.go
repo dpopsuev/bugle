@@ -21,6 +21,7 @@ var (
 	ErrIngressRejected = errors.New("collective ingress rejected")
 	ErrEgressRejected  = errors.New("collective egress rejected")
 	ErrNoAgents        = errors.New("collective: no agents")
+	ErrMaxSizeExceeded = errors.New("collective: max size exceeded")
 )
 
 // CollectiveStrategy defines how agents collaborate inside a collective.
@@ -58,6 +59,7 @@ type Collective struct {
 	mu       sync.RWMutex
 	rounds   []DebateRound
 	phase    Phase
+	maxSize  int // 0 = unlimited
 }
 
 // CollectiveOption configures an Collective.
@@ -71,6 +73,11 @@ func WithIngress(g Gatekeeper) CollectiveOption {
 // WithEgress sets the egress gate (reviewer).
 func WithEgress(g Gatekeeper) CollectiveOption {
 	return func(c *Collective) { c.egress = g }
+}
+
+// WithMaxSize sets the maximum number of agents in the collective.
+func WithMaxSize(n int) CollectiveOption {
+	return func(c *Collective) { c.maxSize = n }
 }
 
 // NewCollective creates a collective from existing agent handles.
@@ -296,6 +303,10 @@ func (c *Collective) Scale(ctx context.Context, target int, config pool.AgentCon
 	current := len(c.agents)
 	if target == current {
 		return nil
+	}
+
+	if c.maxSize > 0 && target > c.maxSize {
+		return fmt.Errorf("%w: target %d exceeds max %d", ErrMaxSizeExceeded, target, c.maxSize)
 	}
 
 	if target > current {

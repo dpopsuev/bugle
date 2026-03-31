@@ -10,12 +10,13 @@ import (
 
 // Sentinel errors for transport operations.
 var (
-	ErrTransportClosed = errors.New("transport: closed")
-	ErrAgentNotFound   = errors.New("transport: agent not registered")
-	ErrTaskNotFound    = errors.New("transport: task not found")
-	ErrTaskChanClosed  = errors.New("transport: task channel closed without terminal state")
-	ErrTaskFailed      = errors.New("transport: task failed")
-	ErrNoAgentsForRole = errors.New("transport: no agents for role")
+	ErrTransportClosed   = errors.New("transport: closed")
+	ErrAgentNotFound     = errors.New("transport: agent not registered")
+	ErrTaskNotFound      = errors.New("transport: task not found")
+	ErrTaskChanClosed    = errors.New("transport: task channel closed without terminal state")
+	ErrTaskFailed        = errors.New("transport: task failed")
+	ErrNoAgentsForRole   = errors.New("transport: no agents for role")
+	ErrAlreadyRegistered = errors.New("transport: agent already registered")
 )
 
 // LocalTransport is an in-process, channel-based A2A transport.
@@ -54,11 +55,16 @@ func (t *LocalTransport) Roles() *RoleRegistry {
 }
 
 // Register associates a MsgHandler with the given agent ID.
-// Subsequent SendMessage calls to this agent will invoke the handler.
-func (t *LocalTransport) Register(agentID string, handler MsgHandler) {
+// Returns ErrAlreadyRegistered if the agent ID is already registered.
+// Use Unregister first to replace an existing handler.
+func (t *LocalTransport) Register(agentID string, handler MsgHandler) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if _, exists := t.handlers[agentID]; exists {
+		return fmt.Errorf("%w: %q", ErrAlreadyRegistered, agentID)
+	}
 	t.handlers[agentID] = handler
+	return nil
 }
 
 // Unregister removes the handler for the given agent ID.

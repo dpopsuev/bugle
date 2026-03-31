@@ -89,7 +89,7 @@ func spawnAgent(t *testing.T, w *world.World, reg *symbol.Registry, tr *transpor
 	id := w.Spawn()
 	world.Attach(w, id, color)
 	world.Attach(w, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
-	tr.Register(color.Short(), cliHandler(p.command, p.args))
+	_ = tr.Register(color.Short(), cliHandler(p.command, p.args))
 	t.Logf("spawned %s agent: %s (entity %d)", p.name, color.Title(), id)
 	return color.Short()
 }

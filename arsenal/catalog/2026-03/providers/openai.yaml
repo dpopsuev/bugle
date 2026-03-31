@@ -1,4 +1,5 @@
 provider: openai
+shade: Slate
 models:
   - id: gpt-4o
     context: 128000
