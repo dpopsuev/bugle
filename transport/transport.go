@@ -68,5 +68,5 @@ type Event struct {
 	Data   *Message  `json:"data,omitempty"`
 }
 
-// Handler processes a received message and returns a response.
-type Handler func(ctx context.Context, msg Message) (Message, error)
+// MsgHandler processes a received message and returns a response.
+type MsgHandler func(ctx context.Context, msg Message) (Message, error)

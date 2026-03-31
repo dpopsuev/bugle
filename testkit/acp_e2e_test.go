@@ -1,4 +1,4 @@
-// acp_e2e_test.go — E2E tests for bugle/acp through the facade.
+// acp_e2e_test.go — E2E tests for bugle/acp through the agent.
 //
 // Proves: ACPLauncher plugs into Staff → Spawn starts a mock ACP agent →
 // Client.Send + Client.Chat streams events → Kill shuts down cleanly.
@@ -116,19 +116,19 @@ func TestACPE2E_ClientLifecycle(t *testing.T) {
 	client.Stop(ctx) //nolint:errcheck // test cleanup, error irrelevant
 }
 
-// TestACPE2E_LauncherInterface tests that ACPLauncher satisfies pool.Launcher
+// TestACPE2E_LauncherInterface tests that ACPLauncher satisfies pool.AgentSupervisor
 // and manages client lifecycle correctly.
 func TestACPE2E_LauncherInterface(t *testing.T) {
 	launcher := acp.NewACPLauncher()
 	ctx := context.Background()
 
 	// Verify interface compliance at runtime.
-	var _ pool.Launcher = launcher
+	var _ pool.AgentSupervisor = launcher
 
 	// Start will fail because "agent" binary isn't on PATH — that's expected
 	// in CI. We verify the launcher correctly creates and tracks clients.
 	var id world.EntityID = 42
-	err := launcher.Start(ctx, id, pool.LaunchConfig{Model: "cursor"})
+	err := launcher.Start(ctx, id, pool.AgentConfig{Model: "cursor"})
 	if err != nil { //nolint:nestif // test exercises both success and failure paths
 		// Expected — no real agent binary. Verify client wasn't tracked.
 		t.Logf("launcher.Start failed (expected — no agent binary): %v", err)

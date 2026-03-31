@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 )
 
@@ -13,14 +13,14 @@ import (
 // RED: Ambiguous / error cases
 // ═══════════════════════════════════════════════════════════════════════
 
-func TestAgentGate_GibberishDefaultsToPass(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+func TestAgentGatekeeper_GibberishDefaultsToPass(t *testing.T) {
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.LaunchConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
 	agent.Listen(func(_ string) string { return "I don't understand the question" })
 
-	gate := &AgentGate{Agent: agent}
+	gate := &AgentGatekeeper{Agent: agent}
 	ok, _, err := gate.Pass(ctx, "test content")
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -34,14 +34,14 @@ func TestAgentGate_GibberishDefaultsToPass(t *testing.T) {
 // GREEN: Happy path
 // ═══════════════════════════════════════════════════════════════════════
 
-func TestAgentGate_PassResponse(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+func TestAgentGatekeeper_PassResponse(t *testing.T) {
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.LaunchConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
 	agent.Listen(func(_ string) string { return "PASS: looks good" })
 
-	gate := &AgentGate{Agent: agent}
+	gate := &AgentGatekeeper{Agent: agent}
 	ok, reason, err := gate.Pass(ctx, "review this code")
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -54,14 +54,14 @@ func TestAgentGate_PassResponse(t *testing.T) {
 	}
 }
 
-func TestAgentGate_RejectResponse(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+func TestAgentGatekeeper_RejectResponse(t *testing.T) {
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.LaunchConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
 	agent.Listen(func(_ string) string { return "REJECT: destructive request" })
 
-	gate := &AgentGate{Agent: agent}
+	gate := &AgentGatekeeper{Agent: agent}
 	ok, reason, err := gate.Pass(ctx, "delete everything")
 	if err != nil {
 		t.Fatalf("err = %v", err)
@@ -78,8 +78,8 @@ func TestAgentGate_RejectResponse(t *testing.T) {
 // BLUE: Edge cases
 // ═══════════════════════════════════════════════════════════════════════
 
-func TestAgentGate_CaseInsensitive(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+func TestAgentGatekeeper_CaseInsensitive(t *testing.T) {
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
 	cases := []struct {
@@ -95,11 +95,11 @@ func TestAgentGate_CaseInsensitive(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		agent, _ := staff.Spawn(ctx, "gate", pool.LaunchConfig{})
+		agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
 		resp := tc.response
 		agent.Listen(func(_ string) string { return resp })
 
-		gate := &AgentGate{Agent: agent}
+		gate := &AgentGatekeeper{Agent: agent}
 		ok, _, err := gate.Pass(ctx, "test")
 		if err != nil {
 			t.Fatalf("err = %v for %q", err, tc.response)
@@ -110,14 +110,14 @@ func TestAgentGate_CaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestAgentGate_EmptyResponse(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+func TestAgentGatekeeper_EmptyResponse(t *testing.T) {
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.LaunchConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
 	agent.Listen(func(_ string) string { return "" })
 
-	gate := &AgentGate{Agent: agent}
+	gate := &AgentGatekeeper{Agent: agent}
 	ok, _, _ := gate.Pass(ctx, "test")
 	if !ok {
 		t.Fatal("empty response should default to PASS")
@@ -125,4 +125,4 @@ func TestAgentGate_EmptyResponse(t *testing.T) {
 }
 
 // Compile-time interface check.
-var _ Gate = (*AgentGate)(nil)
+var _ Gatekeeper = (*AgentGatekeeper)(nil)

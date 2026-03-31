@@ -19,12 +19,12 @@ var (
 )
 
 // LocalTransport is an in-process, channel-based A2A transport.
-// Handlers are registered by agent ID and invoked asynchronously
+// MsgHandlers are registered by agent ID and invoked asynchronously
 // when SendMessage is called. Suitable for same-process agent
 // coordination (Papercup pattern).
 type LocalTransport struct {
 	mu          sync.RWMutex
-	handlers    map[string]Handler
+	handlers    map[string]MsgHandler
 	tasks       map[string]*taskEntry
 	nextID      uint64
 	closed      bool
@@ -41,7 +41,7 @@ type taskEntry struct {
 // NewLocalTransport creates a new in-process transport.
 func NewLocalTransport() *LocalTransport {
 	return &LocalTransport{
-		handlers:    make(map[string]Handler),
+		handlers:    make(map[string]MsgHandler),
 		tasks:       make(map[string]*taskEntry),
 		roles:       NewRoleRegistry(),
 		roleCounter: make(map[string]int),
@@ -53,9 +53,9 @@ func (t *LocalTransport) Roles() *RoleRegistry {
 	return t.roles
 }
 
-// Register associates a Handler with the given agent ID.
+// Register associates a MsgHandler with the given agent ID.
 // Subsequent SendMessage calls to this agent will invoke the handler.
-func (t *LocalTransport) Register(agentID string, handler Handler) {
+func (t *LocalTransport) Register(agentID string, handler MsgHandler) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.handlers[agentID] = handler
@@ -102,7 +102,7 @@ func (t *LocalTransport) SendMessage(ctx context.Context, to string, msg Message
 	return task, nil
 }
 
-func (t *LocalTransport) execute(ctx context.Context, handler Handler, entry *taskEntry, msg Message) { //nolint:gocritic // called once from SendMessage, value copy acceptable
+func (t *LocalTransport) execute(ctx context.Context, handler MsgHandler, entry *taskEntry, msg Message) { //nolint:gocritic // called once from SendMessage, value copy acceptable
 	entry.mu.Lock()
 	entry.task.State = TaskWorking
 	taskID := entry.task.ID
@@ -163,7 +163,7 @@ func (t *LocalTransport) Subscribe(_ context.Context, taskID string) (<-chan Eve
 func (t *LocalTransport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.handlers = make(map[string]Handler)
+	t.handlers = make(map[string]MsgHandler)
 	t.closed = true
 	return nil
 }

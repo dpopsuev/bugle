@@ -1,7 +1,7 @@
-// Package facade provides a human-readable API over Bugle's internal
-// subsystems (pool, transport, world, signal). AgentHandle wraps a
+// Package agent provides a human-readable API over Bugle's internal
+// subsystems (pool, transport, world, signal). Solo wraps a
 // single agent; Staff is the top-level entry point.
-package facade
+package agent
 
 import (
 	"context"
@@ -14,10 +14,10 @@ import (
 	"github.com/dpopsuev/jericho/world"
 )
 
-// AgentHandle wraps all subsystems into one human-readable object for a
-// single agent. Created by Staff.Spawn or AgentHandle.Spawn — never
+// Solo wraps all subsystems into one human-readable object for a
+// single agent. Created by Staff.Spawn or Solo.Spawn — never
 // instantiated directly.
-type AgentHandle struct {
+type Solo struct {
 	id        world.EntityID
 	role      string
 	world     *world.World
@@ -30,13 +30,13 @@ type AgentHandle struct {
 // ---------------------------------------------------------------------------
 
 // ID returns the agent's entity ID.
-func (a *AgentHandle) ID() world.EntityID { return a.id }
+func (a *Solo) ID() world.EntityID { return a.id }
 
 // Role returns the agent's staff role name.
-func (a *AgentHandle) Role() string { return a.role }
+func (a *Solo) Role() string { return a.role }
 
 // String returns a human-readable label: "role(agent-N)".
-func (a *AgentHandle) String() string {
+func (a *Solo) String() string {
 	return fmt.Sprintf("%s(%s)", a.role, a.agentID())
 }
 
@@ -45,12 +45,12 @@ func (a *AgentHandle) String() string {
 // ---------------------------------------------------------------------------
 
 // IsAlive returns true if the agent entity exists in the world.
-func (a *AgentHandle) IsAlive() bool {
+func (a *Solo) IsAlive() bool {
 	return a.world.Alive(a.id)
 }
 
 // IsHealthy returns true if the agent's Health component has State == Active.
-func (a *AgentHandle) IsHealthy() bool {
+func (a *Solo) IsHealthy() bool {
 	h, ok := world.TryGet[world.Health](a.world, a.id)
 	if !ok {
 		return false
@@ -59,37 +59,37 @@ func (a *AgentHandle) IsHealthy() bool {
 }
 
 // IsZombie returns true if the agent is finished but not yet reaped.
-func (a *AgentHandle) IsZombie() bool {
+func (a *Solo) IsZombie() bool {
 	return a.pool.IsZombie(a.id)
 }
 
 // Health returns the agent's Health component.
-func (a *AgentHandle) Health() (world.Health, bool) {
+func (a *Solo) Health() (world.Health, bool) {
 	return world.TryGet[world.Health](a.world, a.id)
 }
 
 // Budget returns the agent's Budget component.
-func (a *AgentHandle) Budget() (world.Budget, bool) {
+func (a *Solo) Budget() (world.Budget, bool) {
 	return world.TryGet[world.Budget](a.world, a.id)
 }
 
 // Progress returns the agent's Progress component.
-func (a *AgentHandle) Progress() (world.Progress, bool) {
+func (a *Solo) Progress() (world.Progress, bool) {
 	return world.TryGet[world.Progress](a.world, a.id)
 }
 
 // Display returns the agent's Display component (name, color, icon).
-func (a *AgentHandle) Display() (world.Display, bool) {
+func (a *Solo) Display() (world.Display, bool) {
 	return world.TryGet[world.Display](a.world, a.id)
 }
 
 // SetDisplay attaches or updates the Display component.
-func (a *AgentHandle) SetDisplay(d world.Display) {
+func (a *Solo) SetDisplay(d world.Display) {
 	world.Attach(a.world, a.id, d)
 }
 
 // SetProgress attaches or updates the Progress component.
-func (a *AgentHandle) SetProgress(current, total int) {
+func (a *Solo) SetProgress(current, total int) {
 	pct := 0.0
 	if total > 0 {
 		pct = float64(current) / float64(total) * 100
@@ -102,7 +102,7 @@ func (a *AgentHandle) SetProgress(current, total int) {
 }
 
 // Uptime returns how long the agent has been running (or total runtime if finished).
-func (a *AgentHandle) Uptime() time.Duration {
+func (a *Solo) Uptime() time.Duration {
 	return a.pool.Uptime(a.id)
 }
 
@@ -112,9 +112,9 @@ func (a *AgentHandle) Uptime() time.Duration {
 
 // Ask sends a message to this agent and blocks until a response is received.
 // Returns the response content string.
-func (a *AgentHandle) Ask(ctx context.Context, content string) (string, error) {
+func (a *Solo) Ask(ctx context.Context, content string) (string, error) {
 	msg := transport.Message{
-		From:         "facade",
+		From:         "agent",
 		To:           a.agentID(),
 		Performative: signal.Request,
 		Content:      content,
@@ -127,9 +127,9 @@ func (a *AgentHandle) Ask(ctx context.Context, content string) (string, error) {
 }
 
 // Tell sends a fire-and-forget message to this agent.
-func (a *AgentHandle) Tell(content string) error {
+func (a *Solo) Tell(content string) error {
 	msg := transport.Message{
-		From:         "facade",
+		From:         "agent",
 		To:           a.agentID(),
 		Performative: signal.Inform,
 		Content:      content,
@@ -140,9 +140,9 @@ func (a *AgentHandle) Tell(content string) error {
 
 // AskWithPerformative sends a message with a specific performative and blocks
 // until a response is received. Returns the response content string.
-func (a *AgentHandle) AskWithPerformative(ctx context.Context, perf signal.Performative, content string) (string, error) {
+func (a *Solo) AskWithPerformative(ctx context.Context, perf signal.Performative, content string) (string, error) {
 	msg := transport.Message{
-		From:         "facade",
+		From:         "agent",
 		To:           a.agentID(),
 		Performative: perf,
 		Content:      content,
@@ -155,7 +155,7 @@ func (a *AgentHandle) AskWithPerformative(ctx context.Context, perf signal.Perfo
 }
 
 // Broadcast sends a message to ALL agents with this agent's role.
-func (a *AgentHandle) Broadcast(ctx context.Context, content string) error {
+func (a *Solo) Broadcast(ctx context.Context, content string) error {
 	msg := transport.Message{
 		From:         a.agentID(),
 		Performative: signal.Inform,
@@ -168,7 +168,7 @@ func (a *AgentHandle) Broadcast(ctx context.Context, content string) error {
 // Listen registers a simplified handler for incoming messages to this agent.
 // The handler receives the message content and returns a response content string.
 // It replaces any previously registered handler for this agent.
-func (a *AgentHandle) Listen(handler func(content string) string) {
+func (a *Solo) Listen(handler func(content string) string) {
 	agentID := a.agentID()
 	a.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) {
 		resp := handler(msg.Content)
@@ -184,12 +184,12 @@ func (a *AgentHandle) Listen(handler func(content string) string) {
 // ---------------------------------------------------------------------------
 
 // Spawn creates a child agent under this agent as parent.
-func (a *AgentHandle) Spawn(ctx context.Context, role string, config pool.LaunchConfig) (*AgentHandle, error) {
+func (a *Solo) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error) {
 	id, err := a.pool.Fork(ctx, role, config, a.id)
 	if err != nil {
 		return nil, err
 	}
-	return &AgentHandle{
+	return &Solo{
 		id:        id,
 		role:      role,
 		world:     a.world,
@@ -199,27 +199,27 @@ func (a *AgentHandle) Spawn(ctx context.Context, role string, config pool.Launch
 }
 
 // Kill stops this agent.
-func (a *AgentHandle) Kill(ctx context.Context) error {
+func (a *Solo) Kill(ctx context.Context) error {
 	return a.pool.Kill(ctx, a.id)
 }
 
 // KillWithReason stops this agent with a specific exit code.
-func (a *AgentHandle) KillWithReason(ctx context.Context, code pool.ExitCode) error {
+func (a *Solo) KillWithReason(ctx context.Context, code pool.ExitCode) error {
 	return a.pool.KillWithCode(ctx, a.id, code)
 }
 
 // Wait blocks until this agent finishes and returns its exit status.
-func (a *AgentHandle) Wait(ctx context.Context) (*pool.ExitStatus, error) {
+func (a *Solo) Wait(ctx context.Context) (*pool.ExitStatus, error) {
 	return a.pool.Wait(ctx, a.id)
 }
 
 // Children returns handles for all direct children of this agent.
-func (a *AgentHandle) Children() []*AgentHandle {
+func (a *Solo) Children() []*Solo {
 	childIDs := a.pool.Children(a.id)
-	handles := make([]*AgentHandle, 0, len(childIDs))
+	handles := make([]*Solo, 0, len(childIDs))
 	for _, cid := range childIDs {
 		role := a.transport.Roles().RoleOf(agentTransportID(cid))
-		handles = append(handles, &AgentHandle{
+		handles = append(handles, &Solo{
 			id:        cid,
 			role:      role,
 			world:     a.world,
@@ -231,13 +231,13 @@ func (a *AgentHandle) Children() []*AgentHandle {
 }
 
 // Parent returns a handle for this agent's parent, or nil if root (parentID == 0).
-func (a *AgentHandle) Parent() *AgentHandle {
+func (a *Solo) Parent() *Solo {
 	parentID := a.pool.ParentOf(a.id)
 	if parentID == 0 {
 		return nil
 	}
 	role := a.transport.Roles().RoleOf(agentTransportID(parentID))
-	return &AgentHandle{
+	return &Solo{
 		id:        parentID,
 		role:      role,
 		world:     a.world,
@@ -251,7 +251,7 @@ func (a *AgentHandle) Parent() *AgentHandle {
 // ---------------------------------------------------------------------------
 
 // agentID returns the transport-level identifier for this agent.
-func (a *AgentHandle) agentID() string {
+func (a *Solo) agentID() string {
 	return agentTransportID(a.id)
 }
 

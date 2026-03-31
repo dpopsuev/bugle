@@ -1,7 +1,7 @@
 // Package pool manages agent process lifecycles with Linux-inspired
 // process supervision: parent-child tracking, zombie reaping, orphan
 // adoption. Maps Bugle World entities to running processes via the
-// Launcher interface. Process-agnostic: consumers inject their own Launcher.
+// AgentSupervisor interface. Process-agnostic: consumers inject their own AgentSupervisor.
 package pool
 
 import (
@@ -27,7 +27,7 @@ type agentEntry struct {
 	ID       world.EntityID
 	ParentID world.EntityID // 0 = root agent (no parent)
 	Role     string
-	Config   LaunchConfig
+	Config   AgentConfig
 	Started  time.Time
 	ExitCode ExitCode  // set when agent finishes
 	ExitTime time.Time // zero = still running
@@ -38,7 +38,7 @@ type AgentPool struct {
 	world     *world.World
 	transport *transport.LocalTransport
 	bus       signal.Bus
-	launcher  Launcher
+	launcher  AgentSupervisor
 	mu        sync.RWMutex
 	agents    map[world.EntityID]*agentEntry   // running agents
 	zombies   map[world.EntityID]*agentEntry   // finished but not reaped
@@ -48,7 +48,7 @@ type AgentPool struct {
 }
 
 // New creates an AgentPool.
-func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l Launcher) *AgentPool {
+func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSupervisor) *AgentPool {
 	return &AgentPool{
 		world:     w,
 		transport: t,
@@ -64,7 +64,7 @@ func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l Launcher) 
 // Fork spawns a new agent with parent tracking: creates entity, attaches
 // components, starts process, registers in transport, emits signal.
 // parentID=0 means root agent (no parent).
-func (p *AgentPool) Fork(ctx context.Context, role string, config LaunchConfig, parentID world.EntityID) (world.EntityID, error) {
+func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, parentID world.EntityID) (world.EntityID, error) {
 	// 1. Create entity.
 	id := p.world.Spawn()
 

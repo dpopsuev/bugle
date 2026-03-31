@@ -28,9 +28,9 @@ func TestWait_ReapsZombie(t *testing.T) {
 	ctx := context.Background()
 
 	// GenSec (root) spawns Executor.
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false) // explicit reaping
-	executor, _ := pool.Fork(ctx, "executor", LaunchConfig{}, gensec)
+	executor, _ := pool.Fork(ctx, "executor", AgentConfig{}, gensec)
 
 	// Kill executor → becomes zombie.
 	pool.Kill(ctx, executor)
@@ -73,7 +73,7 @@ func TestWaitAny_NonBlocking(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
 
 	// No zombies yet.
@@ -83,7 +83,7 @@ func TestWaitAny_NonBlocking(t *testing.T) {
 	}
 
 	// Spawn and kill a child.
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 	pool.Kill(ctx, child)
 
 	// Now WaitAny should find the zombie.
@@ -100,9 +100,9 @@ func TestWait_BlocksUntilDone(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 
 	var status *ExitStatus
 	done := make(chan struct{})
@@ -143,9 +143,9 @@ func TestKillWithCode_Error(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 
 	pool.KillWithCode(ctx, child, ExitError)
 
@@ -159,9 +159,9 @@ func TestKillWithCode_Budget(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 
 	pool.KillWithCode(ctx, child, ExitBudget)
 	status, _ := pool.Wait(ctx, child)
@@ -174,9 +174,9 @@ func TestKillWithCode_Timeout(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 
 	pool.KillWithCode(ctx, child, ExitTimeout)
 	status, _ := pool.Wait(ctx, child)
@@ -191,8 +191,8 @@ func TestKillAs_OwnerSucceeds(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "executor", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, parent)
 
 	err := pool.KillAs(ctx, child, parent)
 	if err != nil {
@@ -204,9 +204,9 @@ func TestKillAs_NonOwnerFails(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "executor", LaunchConfig{}, parent)
-	sibling, _ := pool.Fork(ctx, "auditor", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, parent)
+	sibling, _ := pool.Fork(ctx, "auditor", AgentConfig{}, parent)
 
 	err := pool.KillAs(ctx, child, sibling)
 	if err == nil {
@@ -221,11 +221,11 @@ func TestKillAs_SubreaperCanKill(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetSubreaper(gensec)
 
-	other, _ := pool.Fork(ctx, "scheduler", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "executor", LaunchConfig{}, other)
+	other, _ := pool.Fork(ctx, "scheduler", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, other)
 
 	// Subreaper can kill anyone's children.
 	err := pool.KillAs(ctx, child, gensec)
@@ -238,10 +238,10 @@ func TestKillChildren(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	pool.Fork(ctx, "executor", LaunchConfig{}, parent)
-	pool.Fork(ctx, "auditor", LaunchConfig{}, parent)
-	pool.Fork(ctx, "scheduler", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	pool.Fork(ctx, "executor", AgentConfig{}, parent)
+	pool.Fork(ctx, "auditor", AgentConfig{}, parent)
+	pool.Fork(ctx, "scheduler", AgentConfig{}, parent)
 
 	if len(pool.Children(parent)) != 3 {
 		t.Fatalf("children = %d, want 3", len(pool.Children(parent)))
@@ -260,12 +260,12 @@ func TestOrphan_ReparentedToSubreaper(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetSubreaper(gensec)
 
-	scheduler, _ := pool.Fork(ctx, "scheduler", LaunchConfig{}, gensec)
-	exec1, _ := pool.Fork(ctx, "executor-1", LaunchConfig{}, scheduler)
-	exec2, _ := pool.Fork(ctx, "executor-2", LaunchConfig{}, scheduler)
+	scheduler, _ := pool.Fork(ctx, "scheduler", AgentConfig{}, gensec)
+	exec1, _ := pool.Fork(ctx, "executor-1", AgentConfig{}, scheduler)
+	exec2, _ := pool.Fork(ctx, "executor-2", AgentConfig{}, scheduler)
 
 	// Kill scheduler → orphans should be reparented to subreaper (gensec).
 	pool.Kill(ctx, scheduler)
@@ -288,8 +288,8 @@ func TestOrphan_DefaultSubreaperIsZero(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "parent", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "child", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "parent", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "child", AgentConfig{}, parent)
 
 	// No subreaper set — orphans go to root (0).
 	pool.Kill(ctx, parent)
@@ -304,10 +304,10 @@ func TestTree_ThreeLevels(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	root, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	mid, _ := pool.Fork(ctx, "scheduler", LaunchConfig{}, root)
-	pool.Fork(ctx, "executor-1", LaunchConfig{}, mid)
-	pool.Fork(ctx, "executor-2", LaunchConfig{}, mid)
+	root, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	mid, _ := pool.Fork(ctx, "scheduler", AgentConfig{}, root)
+	pool.Fork(ctx, "executor-1", AgentConfig{}, mid)
+	pool.Fork(ctx, "executor-2", AgentConfig{}, mid)
 
 	tree := pool.Tree(root)
 	if tree == nil {
@@ -328,9 +328,9 @@ func TestChildren_DirectOnly(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	root, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	mid, _ := pool.Fork(ctx, "scheduler", LaunchConfig{}, root)
-	pool.Fork(ctx, "executor", LaunchConfig{}, mid)
+	root, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	mid, _ := pool.Fork(ctx, "scheduler", AgentConfig{}, root)
+	pool.Fork(ctx, "executor", AgentConfig{}, mid)
 
 	// Root's direct children = [scheduler]. NOT [scheduler, executor].
 	children := pool.Children(root)
@@ -345,9 +345,9 @@ func TestAutoReap_SkipsZombie(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(parent, true)
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, parent)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, parent)
 
 	pool.Kill(ctx, child)
 
@@ -364,9 +364,9 @@ func TestAutoReap_DisabledCreatesZombie(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(parent, false) // explicit
-	child, _ := pool.Fork(ctx, "worker", LaunchConfig{}, parent)
+	child, _ := pool.Fork(ctx, "worker", AgentConfig{}, parent)
 
 	pool.Kill(ctx, child)
 
@@ -381,8 +381,8 @@ func TestParentOf(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "executor", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, parent)
 
 	if pool.ParentOf(child) != parent {
 		t.Fatalf("parent = %d, want %d", pool.ParentOf(child), parent)
@@ -396,8 +396,8 @@ func TestFork_AttachesHierarchyComponent(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	parent, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
-	child, _ := pool.Fork(ctx, "executor", LaunchConfig{}, parent)
+	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
+	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, parent)
 
 	hier, ok := world.TryGet[world.Hierarchy](pool.world, child)
 	if !ok {
@@ -414,7 +414,7 @@ func TestConcurrent_ForkWaitKill(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetAutoReap(gensec, false)
 
 	var wg sync.WaitGroup
@@ -422,7 +422,7 @@ func TestConcurrent_ForkWaitKill(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			child, err := pool.Fork(ctx, "worker", LaunchConfig{}, gensec)
+			child, err := pool.Fork(ctx, "worker", AgentConfig{}, gensec)
 			if err != nil {
 				t.Error(err)
 				return
@@ -448,7 +448,7 @@ func TestSupervision_FullLifecycleSimulation(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. GenSec boots as root agent (PID 1).
-	gensec, err := pool.Fork(ctx, "gensec", LaunchConfig{Model: "haiku"}, 0)
+	gensec, err := pool.Fork(ctx, "gensec", AgentConfig{Model: "haiku"}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -456,13 +456,13 @@ func TestSupervision_FullLifecycleSimulation(t *testing.T) {
 	pool.SetAutoReap(gensec, false) // GenSec explicitly reaps
 
 	// 2. GenSec spawns Scheduler.
-	scheduler, _ := pool.Fork(ctx, "scheduler", LaunchConfig{Model: "sonnet"}, gensec)
+	scheduler, _ := pool.Fork(ctx, "scheduler", AgentConfig{Model: "sonnet"}, gensec)
 
 	// 3. Scheduler spawns 3 Executors.
 	pool.SetAutoReap(scheduler, false)
-	exec1, _ := pool.Fork(ctx, "executor-1", LaunchConfig{Model: "opus"}, scheduler)
-	exec2, _ := pool.Fork(ctx, "executor-2", LaunchConfig{Model: "opus"}, scheduler)
-	exec3, _ := pool.Fork(ctx, "executor-3", LaunchConfig{Model: "opus"}, scheduler)
+	exec1, _ := pool.Fork(ctx, "executor-1", AgentConfig{Model: "opus"}, scheduler)
+	exec2, _ := pool.Fork(ctx, "executor-2", AgentConfig{Model: "opus"}, scheduler)
+	exec3, _ := pool.Fork(ctx, "executor-3", AgentConfig{Model: "opus"}, scheduler)
 
 	// Verify tree: gensec → scheduler → [exec1, exec2, exec3]
 	if pool.Count() != 5 {
@@ -549,14 +549,14 @@ func TestSupervision_OrphanSimulation(t *testing.T) {
 	ctx := context.Background()
 
 	// GenSec as subreaper.
-	gensec, _ := pool.Fork(ctx, "gensec", LaunchConfig{}, 0)
+	gensec, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	pool.SetSubreaper(gensec)
 	pool.SetAutoReap(gensec, false)
 
 	// Scheduler spawns executors.
-	scheduler, _ := pool.Fork(ctx, "scheduler", LaunchConfig{}, gensec)
-	exec1, _ := pool.Fork(ctx, "executor-1", LaunchConfig{}, scheduler)
-	exec2, _ := pool.Fork(ctx, "executor-2", LaunchConfig{}, scheduler)
+	scheduler, _ := pool.Fork(ctx, "scheduler", AgentConfig{}, gensec)
+	exec1, _ := pool.Fork(ctx, "executor-1", AgentConfig{}, scheduler)
+	exec2, _ := pool.Fork(ctx, "executor-2", AgentConfig{}, scheduler)
 
 	// Scheduler dies unexpectedly → executors orphaned → reparented to GenSec.
 	pool.Kill(ctx, scheduler)

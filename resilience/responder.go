@@ -21,11 +21,11 @@ func NewCircuitBreakerResponder(inner bugle.Responder, cfg CircuitConfig) *Circu
 }
 
 // Respond delegates to the inner responder if the circuit allows it.
-func (r *CircuitBreakerResponder) Respond(ctx context.Context, prompt string) (string, error) {
+func (r *CircuitBreakerResponder) RespondTo(ctx context.Context, prompt string) (string, error) {
 	var result string
 	err := r.breaker.Call(func() error {
 		var callErr error
-		result, callErr = r.inner.Respond(ctx, prompt)
+		result, callErr = r.inner.RespondTo(ctx, prompt)
 		return callErr
 	})
 	return result, err
@@ -52,11 +52,11 @@ func NewRateLimitResponder(inner bugle.Responder, cfg RateLimitConfig) *RateLimi
 }
 
 // Respond waits for a rate limit token, then delegates.
-func (r *RateLimitResponder) Respond(ctx context.Context, prompt string) (string, error) {
+func (r *RateLimitResponder) RespondTo(ctx context.Context, prompt string) (string, error) {
 	if err := r.limiter.Wait(ctx); err != nil {
 		return "", err
 	}
-	return r.inner.Respond(ctx, prompt)
+	return r.inner.RespondTo(ctx, prompt)
 }
 
 // Waits returns the total number of times a call was delayed.

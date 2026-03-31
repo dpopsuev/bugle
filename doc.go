@@ -1,6 +1,6 @@
-// Package bugle is an agent framework for AI systems.
+// Package bugle is the Jericho agent framework for AI systems.
 //
-// Bugle handles two protocol concerns:
+// Jericho handles two protocol concerns:
 //   - A2A (Agent-to-Agent) — how agents coordinate with each other
 //   - ACP (Agent Client Protocol) — how editors and clients talk to agents
 //
@@ -17,14 +17,14 @@
 //   - Process supervision (pool/ — Fork, Kill, Wait, orphan reparenting)
 //   - A2A transport (transport/ — LocalTransport, Ask, Broadcast, RoleRegistry)
 //   - ACP client (acp/ — JSON-RPC over stdio, 12 providers, shape classifier)
-//   - Facade (facade/ — Staff, AgentHandle — API for Humans)
+//   - Agent (agent/ — Staff, Solo — API for Humans)
 //   - Observable state (worldview/ — View, Snapshot, Minimap)
 //   - Billing (billing/ — per-agent cost tracking)
 //
 // Usage:
 //
-//	staff := facade.NewStaff(myLauncher)
-//	agent, _ := staff.Spawn(ctx, "executor", pool.LaunchConfig{})
+//	staff := agent.NewStaff(myLauncher)
+//	agent, _ := staff.Spawn(ctx, "executor", pool.AgentConfig{})
 //	agent.Listen(func(content string) string { return "done: " + content })
 //	response, _ := agent.Ask(ctx, "build auth module")
 //	staff.KillAll(ctx)

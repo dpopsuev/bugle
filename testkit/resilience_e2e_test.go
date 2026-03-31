@@ -2,7 +2,7 @@
 //
 // Tests: circuit breaker trips on agent crash, rate limiter throttles
 // concurrent prompts, retry recovers from transient failure,
-// budget enforcer blocks over-limit agents, service registry
+// budget enforcer blocks over-limit agents, agent lookup
 // discovers and evicts stale agents.
 package testkit
 
@@ -195,9 +195,9 @@ func TestResilienceE2E_BudgetEnforcerBlocksOverLimit(t *testing.T) {
 	}
 }
 
-// TestResilienceE2E_ServiceRegistryDiscovery proves agents can
+// TestResilienceE2E_AgentLookupDiscovery proves agents can
 // register, be discovered by role, heartbeat, and get evicted.
-func TestResilienceE2E_ServiceRegistryDiscovery(t *testing.T) {
+func TestResilienceE2E_AgentLookupDiscovery(t *testing.T) {
 	reg := transport.NewInMemoryRegistry(50 * time.Millisecond)
 
 	// Register agents.

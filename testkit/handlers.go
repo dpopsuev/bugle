@@ -8,7 +8,7 @@ import (
 )
 
 // EchoHandler returns a handler that echoes the message back with Confirm performative.
-func EchoHandler() transport.Handler {
+func EchoHandler() transport.MsgHandler {
 	return func(_ context.Context, msg transport.Message) (transport.Message, error) {
 		return transport.Message{
 			From:         msg.To,
@@ -20,7 +20,7 @@ func EchoHandler() transport.Handler {
 }
 
 // StubHandler returns a handler that replies with a fixed performative.
-func StubHandler(reply signal.Performative) transport.Handler {
+func StubHandler(reply signal.Performative) transport.MsgHandler {
 	return func(_ context.Context, msg transport.Message) (transport.Message, error) {
 		return transport.Message{
 			From:         msg.To,
@@ -32,7 +32,7 @@ func StubHandler(reply signal.Performative) transport.Handler {
 }
 
 // ErrorHandler returns a handler that always fails with the given error.
-func ErrorHandler(err error) transport.Handler {
+func ErrorHandler(err error) transport.MsgHandler {
 	return func(_ context.Context, _ transport.Message) (transport.Message, error) {
 		return transport.Message{}, err
 	}

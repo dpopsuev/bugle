@@ -38,7 +38,7 @@ func runLoop(ctx context.Context, server bugle.Server, responder bugle.Responder
 			continue
 		}
 
-		response, err := responder.Respond(ctx, pullResp.PromptContent)
+		response, err := responder.RespondTo(ctx, pullResp.PromptContent)
 
 		pushReq := bugle.PushRequest{
 			Action:     bugle.ActionPush,

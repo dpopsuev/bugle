@@ -49,9 +49,9 @@ func requireCLI(t *testing.T, command string) {
 	}
 }
 
-// cliHandler returns a transport.Handler that invokes the CLI with the
+// cliHandler returns a transport.MsgHandler that invokes the CLI with the
 // message content as a prompt argument, returning stdout as the response.
-func cliHandler(command string, args []string) transport.Handler {
+func cliHandler(command string, args []string) transport.MsgHandler {
 	return func(ctx context.Context, msg transport.Message) (transport.Message, error) {
 		cmdArgs := make([]string, len(args), len(args)+1)
 		copy(cmdArgs, args)

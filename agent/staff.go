@@ -1,4 +1,4 @@
-package facade
+package agent
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"github.com/dpopsuev/jericho/world"
 )
 
-// Staff is the top-level entry point for the Bugle facade. It wires
+// Staff is the top-level entry point for Jericho's agent package. It wires
 // together World, AgentPool, LocalTransport, and signal Bus, then
-// exposes a human-friendly API via AgentHandle.
+// exposes a human-friendly API via Solo.
 type Staff struct {
 	world     *world.World
 	pool      *pool.AgentPool
@@ -20,8 +20,8 @@ type Staff struct {
 	bus       signal.Bus
 }
 
-// NewStaff creates a fully-wired Staff with the given Launcher.
-func NewStaff(launcher pool.Launcher) *Staff {
+// NewStaff creates a fully-wired Staff with the given AgentSupervisor.
+func NewStaff(launcher pool.AgentSupervisor) *Staff {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
 	b := signal.NewMemBus()
@@ -30,7 +30,7 @@ func NewStaff(launcher pool.Launcher) *Staff {
 }
 
 // Spawn creates a root agent (parentID == 0) and returns its handle.
-func (s *Staff) Spawn(ctx context.Context, role string, config pool.LaunchConfig) (*AgentHandle, error) {
+func (s *Staff) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error) {
 	id, err := s.pool.Fork(ctx, role, config, 0)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (s *Staff) Spawn(ctx context.Context, role string, config pool.LaunchConfig
 }
 
 // SpawnUnder creates a child agent under the given parent.
-func (s *Staff) SpawnUnder(ctx context.Context, parent *AgentHandle, role string, config pool.LaunchConfig) (*AgentHandle, error) {
+func (s *Staff) SpawnUnder(ctx context.Context, parent *Solo, role string, config pool.AgentConfig) (*Solo, error) {
 	id, err := s.pool.Fork(ctx, role, config, parent.ID())
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (s *Staff) SpawnUnder(ctx context.Context, parent *AgentHandle, role string
 }
 
 // SetSubreaper registers an agent as the orphan adopter.
-func (s *Staff) SetSubreaper(agent *AgentHandle) {
+func (s *Staff) SetSubreaper(agent *Solo) {
 	s.pool.SetSubreaper(agent.ID())
 }
 
@@ -62,9 +62,9 @@ func (s *Staff) KillAll(ctx context.Context) {
 }
 
 // Active returns handles for all running (non-zombie) agents.
-func (s *Staff) Active() []*AgentHandle {
+func (s *Staff) Active() []*Solo {
 	ids := s.pool.Active()
-	handles := make([]*AgentHandle, 0, len(ids))
+	handles := make([]*Solo, 0, len(ids))
 	for _, id := range ids {
 		role := s.transport.Roles().RoleOf(agentTransportID(id))
 		handles = append(handles, s.handleFor(id, role))
@@ -78,9 +78,9 @@ func (s *Staff) Count() int {
 }
 
 // FindByRole returns handles for all agents with the given role.
-func (s *Staff) FindByRole(role string) []*AgentHandle {
+func (s *Staff) FindByRole(role string) []*Solo {
 	agentIDs := s.transport.Roles().AgentsForRole(role)
-	handles := make([]*AgentHandle, 0, len(agentIDs))
+	handles := make([]*Solo, 0, len(agentIDs))
 	for _, aid := range agentIDs {
 		// Parse entity ID from transport ID "agent-N".
 		var eid world.EntityID
@@ -93,7 +93,7 @@ func (s *Staff) FindByRole(role string) []*AgentHandle {
 }
 
 // Tree returns the hierarchical process tree rooted at the given agent.
-func (s *Staff) Tree(root *AgentHandle) *pool.TreeNode {
+func (s *Staff) Tree(root *Solo) *pool.TreeNode {
 	return s.pool.Tree(root.ID())
 }
 
@@ -106,7 +106,7 @@ func (s *Staff) OnSignal(fn func(signal.Signal)) {
 // including agents hidden inside FacadeAgent collectives.
 // Tree() shows the collapsed view (facades as single nodes).
 // TreeFull() shows every real agent.
-func (s *Staff) TreeFull(root *AgentHandle) *pool.TreeNode {
+func (s *Staff) TreeFull(root *Solo) *pool.TreeNode {
 	return s.pool.Tree(root.ID())
 }
 
@@ -130,9 +130,9 @@ func (s *Staff) Bus() signal.Bus { return s.bus }
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-// handleFor constructs an AgentHandle with all subsystem references.
-func (s *Staff) handleFor(id world.EntityID, role string) *AgentHandle {
-	return &AgentHandle{
+// handleFor constructs an Solo with all subsystem references.
+func (s *Staff) handleFor(id world.EntityID, role string) *Solo {
+	return &Solo{
 		id:        id,
 		role:      role,
 		world:     s.world,

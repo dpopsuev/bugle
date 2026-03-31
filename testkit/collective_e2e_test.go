@@ -1,6 +1,6 @@
 //go:build e2e
 
-// collective_e2e_test.go — real provider E2E for AgentCollective.
+// collective_e2e_test.go — real provider E2E for Collective.
 //
 // Spawns real ACP agents and runs dialectic debate. Costs real money.
 //
@@ -16,7 +16,7 @@ import (
 
 	"github.com/dpopsuev/jericho/acp"
 	"github.com/dpopsuev/jericho/collective"
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 )
 
@@ -31,15 +31,15 @@ func TestCollectiveE2E_DialecticWithRealAgents(t *testing.T) {
 	defer cancel()
 
 	launcher := acp.NewACPLauncher()
-	staff := facade.NewStaff(launcher)
+	staff := agent.NewStaff(launcher)
 
 	// Spawn 2 agents — both as Cursor.
-	thesis, err := staff.Spawn(ctx, "thesis", pool.LaunchConfig{Model: "cursor"})
+	thesis, err := staff.Spawn(ctx, "thesis", pool.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Fatalf("spawn thesis: %v", err)
 	}
 
-	anti, err := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{Model: "cursor"})
+	anti, err := staff.Spawn(ctx, "antithesis", pool.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Fatalf("spawn antithesis: %v", err)
 	}
@@ -87,11 +87,11 @@ func TestCollectiveE2E_DialecticWithRealAgents(t *testing.T) {
 	})
 
 	// Create collective with Dialectic strategy.
-	coll := collective.NewAgentCollective(
+	coll := collective.NewCollective(
 		thesis.ID(),
 		"code-reviewer",
 		&collective.Dialectic{MaxRounds: 2, ConvergenceWord: "CONVERGED"},
-		[]*facade.AgentHandle{thesis, anti},
+		[]*agent.Solo{thesis, anti},
 	)
 
 	// Ask the collective — this runs a real debate between 2 LLM agents.

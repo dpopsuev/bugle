@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -23,7 +23,7 @@ func newMockLauncher() *mockLauncher {
 	}
 }
 
-func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ pool.LaunchConfig) error {
+func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ pool.AgentConfig) error {
 	m.started[id] = true
 	return nil
 }
@@ -40,25 +40,25 @@ type echoStrategy struct {
 	orchestrateCalled bool
 }
 
-func (s *echoStrategy) Orchestrate(_ context.Context, prompt string, agents []*facade.AgentHandle) (string, error) {
+func (s *echoStrategy) Orchestrate(_ context.Context, prompt string, agents []*agent.Solo) (string, error) {
 	s.orchestrateCalled = true
 	return "synthesized: " + prompt, nil
 }
 
 func TestAgentCollective_ImplementsAgent(t *testing.T) {
-	var _ facade.Agent = (*AgentCollective)(nil)
-	var _ facade.FacadeAgent = (*AgentCollective)(nil)
+	var _ agent.Agent = (*Collective)(nil)
+	var _ agent.FacadeAgent = (*Collective)(nil)
 }
 
 func TestAgentCollective_Ask(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
 	strategy := &echoStrategy{}
-	coll := NewAgentCollective(a1.ID(), "debater", strategy, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2})
 
 	result, err := coll.Ask(ctx, "test prompt")
 	if err != nil {
@@ -73,13 +73,13 @@ func TestAgentCollective_Ask(t *testing.T) {
 }
 
 func TestAgentCollective_Identity(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "reviewer", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "reviewer", &echoStrategy{}, []*agent.Solo{a1, a2})
 
 	if coll.Role() != "reviewer" {
 		t.Fatalf("Role = %q", coll.Role())
@@ -94,13 +94,13 @@ func TestAgentCollective_Identity(t *testing.T) {
 }
 
 func TestAgentCollective_IsAlive(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
 	if !coll.IsAlive() {
 		t.Fatal("collective should be alive")
@@ -111,13 +111,13 @@ func TestAgentCollective_IsAlive(t *testing.T) {
 }
 
 func TestAgentCollective_Children(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
 	children := coll.Children()
 	if len(children) != 2 {
@@ -131,13 +131,13 @@ func TestAgentCollective_Children(t *testing.T) {
 }
 
 func TestAgentCollective_Kill(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
 	if err := coll.Kill(ctx); err != nil {
 		t.Fatalf("Kill: %v", err)
@@ -146,7 +146,7 @@ func TestAgentCollective_Kill(t *testing.T) {
 
 func TestDialectic_RequiresAtLeast2Agents(t *testing.T) {
 	d := &Dialectic{MaxRounds: 3}
-	_, err := d.Orchestrate(context.Background(), "test", []*facade.AgentHandle{})
+	_, err := d.Orchestrate(context.Background(), "test", []*agent.Solo{})
 	if err == nil || !strings.Contains(err.Error(), "at least 2") {
 		t.Fatalf("err = %v, want 'at least 2 agents'", err)
 	}
@@ -165,7 +165,7 @@ func TestDialectic_Defaults(t *testing.T) {
 
 func TestArbiter_RequiresAtLeast3Agents(t *testing.T) {
 	a := &Arbiter{MaxRounds: 3}
-	_, err := a.Orchestrate(context.Background(), "test", []*facade.AgentHandle{})
+	_, err := a.Orchestrate(context.Background(), "test", []*agent.Solo{})
 	if err == nil || !strings.Contains(err.Error(), "at least 3") {
 		t.Fatalf("err = %v, want 'at least 3 agents'", err)
 	}
@@ -200,10 +200,10 @@ func TestParseDecision(t *testing.T) {
 }
 
 func TestSpawnCollective_RequiresStrategy(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
 		Role:   "debater",
-		Agents: []pool.LaunchConfig{{Role: "a"}, {Role: "b"}},
+		Agents: []pool.AgentConfig{{Role: "a"}, {Role: "b"}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "strategy") {
 		t.Fatalf("err = %v, want strategy error", err)
@@ -211,11 +211,11 @@ func TestSpawnCollective_RequiresStrategy(t *testing.T) {
 }
 
 func TestSpawnCollective_RequiresAtLeast2(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
-		Agents:   []pool.LaunchConfig{{Role: "a"}},
+		Agents:   []pool.AgentConfig{{Role: "a"}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "at least 2") {
 		t.Fatalf("err = %v, want at least 2 error", err)
@@ -223,13 +223,13 @@ func TestSpawnCollective_RequiresAtLeast2(t *testing.T) {
 }
 
 func TestSpawnCollective_Success(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
 	coll, err := SpawnCollective(ctx, staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
-		Agents: []pool.LaunchConfig{
+		Agents: []pool.AgentConfig{
 			{Role: "thesis"},
 			{Role: "antithesis"},
 		},
@@ -262,7 +262,7 @@ func TestSpawnCollective_Success(t *testing.T) {
 }
 
 func TestDebateRound_Tracking(t *testing.T) {
-	coll := NewAgentCollective(1, "test", &echoStrategy{}, nil)
+	coll := NewCollective(1, "test", &echoStrategy{}, nil)
 
 	coll.addDebateRound(DebateRound{ThesisResponse: "draft", AntithesisResponse: "critique"})
 	coll.addDebateRound(DebateRound{ThesisResponse: "revised", Converged: true})
@@ -277,7 +277,7 @@ func TestDebateRound_Tracking(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Gate wiring tests — RED
+// Gatekeeper wiring tests — RED
 // ═══════════════════════════════════════════════════════════════════════
 
 type rejectGate struct{ reason string }
@@ -293,14 +293,14 @@ func (g *passGate) Pass(_ context.Context, _ string) (allowed bool, reason strin
 }
 
 func TestCollective_IngressRejects(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
 	strategy := &echoStrategy{}
-	coll := NewAgentCollective(a1.ID(), "debater", strategy, []*facade.AgentHandle{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2},
 		WithIngress(&rejectGate{reason: "destructive request"}),
 	)
 
@@ -317,17 +317,17 @@ func TestCollective_IngressRejects(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Gate wiring tests — GREEN
+// Gatekeeper wiring tests — GREEN
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestCollective_NoGates_BackwardCompat(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
 	result, err := coll.Ask(ctx, "test")
 	if err != nil {
@@ -339,13 +339,13 @@ func TestCollective_NoGates_BackwardCompat(t *testing.T) {
 }
 
 func TestCollective_BothGatesPass(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
 		WithIngress(&passGate{}),
 		WithEgress(&passGate{}),
 	)
@@ -360,13 +360,13 @@ func TestCollective_BothGatesPass(t *testing.T) {
 }
 
 func TestCollective_EgressRejects(t *testing.T) {
-	staff := facade.NewStaff(newMockLauncher())
+	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.LaunchConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.LaunchConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
 
-	coll := NewAgentCollective(a1.ID(), "debater", &echoStrategy{}, []*facade.AgentHandle{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
 		WithEgress(&rejectGate{reason: "low confidence"}),
 	)
 
@@ -380,11 +380,11 @@ func TestCollective_EgressRejects(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// BudgetGate tests — RED
+// BudgetGatekeeper tests — RED
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestBudgetGate_ZeroIsUnlimited(t *testing.T) {
-	gate := &BudgetGate{MaxTokens: 0}
+	gate := &BudgetGatekeeper{MaxTokens: 0}
 	ok, _, err := gate.Pass(context.Background(), "anything")
 	if err != nil {
 		t.Fatal(err)
@@ -395,11 +395,11 @@ func TestBudgetGate_ZeroIsUnlimited(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// BudgetGate tests — GREEN
+// BudgetGatekeeper tests — GREEN
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestBudgetGate_UnderBudget(t *testing.T) {
-	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 500 }}
+	gate := &BudgetGatekeeper{MaxTokens: 1000, Spent: func() int { return 500 }}
 	ok, _, err := gate.Pass(context.Background(), "test")
 	if err != nil {
 		t.Fatal(err)
@@ -410,7 +410,7 @@ func TestBudgetGate_UnderBudget(t *testing.T) {
 }
 
 func TestBudgetGate_OverBudget(t *testing.T) {
-	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 1500 }}
+	gate := &BudgetGatekeeper{MaxTokens: 1000, Spent: func() int { return 1500 }}
 	ok, reason, err := gate.Pass(context.Background(), "test")
 	if err != nil {
 		t.Fatal(err)
@@ -424,11 +424,11 @@ func TestBudgetGate_OverBudget(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// BudgetGate tests — BLUE
+// BudgetGatekeeper tests — BLUE
 // ═══════════════════════════════════════════════════════════════════════
 
 func TestBudgetGate_ExactBoundary(t *testing.T) {
-	gate := &BudgetGate{MaxTokens: 1000, Spent: func() int { return 1000 }}
+	gate := &BudgetGatekeeper{MaxTokens: 1000, Spent: func() int { return 1000 }}
 	ok, _, _ := gate.Pass(context.Background(), "test")
 	if ok {
 		t.Fatal("exact boundary (spent == max) should reject")
@@ -436,7 +436,7 @@ func TestBudgetGate_ExactBoundary(t *testing.T) {
 }
 
 func TestBudgetGate_NilSpentCallback(t *testing.T) {
-	gate := &BudgetGate{MaxTokens: 1000, Spent: nil}
+	gate := &BudgetGatekeeper{MaxTokens: 1000, Spent: nil}
 	ok, _, err := gate.Pass(context.Background(), "test")
 	if err != nil {
 		t.Fatal(err)

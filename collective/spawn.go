@@ -1,4 +1,4 @@
-// spawn.go — SpawnCollective creates an AgentCollective via Staff.
+// spawn.go — SpawnCollective creates an Collective via Staff.
 package collective
 
 import (
@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 )
 
@@ -16,19 +16,19 @@ var (
 	ErrNoStrategy   = errors.New("collective requires a strategy")
 )
 
-// CollectiveConfig configures a new AgentCollective.
+// CollectiveConfig configures a new Collective.
 type CollectiveConfig struct {
-	Role     string              // collective's external role name
-	Strategy CollectiveStrategy  // how agents collaborate
-	Agents   []pool.LaunchConfig // one config per internal agent
-	Ingress  *pool.LaunchConfig  // optional ingress gate agent (bouncer)
-	Egress   *pool.LaunchConfig  // optional egress gate agent (reviewer)
+	Role     string             // collective's external role name
+	Strategy CollectiveStrategy // how agents collaborate
+	Agents   []pool.AgentConfig // one config per internal agent
+	Ingress  *pool.AgentConfig  // optional ingress gate agent (bouncer)
+	Egress   *pool.AgentConfig  // optional egress gate agent (reviewer)
 }
 
-// SpawnCollective creates an AgentCollective by spawning N agents via Staff.
-// Returns a collective that implements facade.Agent — operators can't tell
+// SpawnCollective creates an Collective by spawning N agents via Staff.
+// Returns a collective that implements agent.Agent — operators can't tell
 // it's not a single agent.
-func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveConfig) (*AgentCollective, error) {
+func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConfig) (*Collective, error) {
 	if len(cfg.Agents) < 2 {
 		return nil, fmt.Errorf("%w, got %d", ErrTooFewAgents, len(cfg.Agents))
 	}
@@ -36,7 +36,7 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 		return nil, ErrNoStrategy
 	}
 
-	agents := make([]*facade.AgentHandle, 0, len(cfg.Agents))
+	agents := make([]*agent.Solo, 0, len(cfg.Agents))
 	for _, acfg := range cfg.Agents {
 		a, err := staff.Spawn(ctx, acfg.Role, acfg)
 		if err != nil {
@@ -59,7 +59,7 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 			}
 			return nil, fmt.Errorf("spawn ingress gate for %q: %w", cfg.Role, err)
 		}
-		opts = append(opts, WithIngress(&AgentGate{Agent: gateAgent}))
+		opts = append(opts, WithIngress(&AgentGatekeeper{Agent: gateAgent}))
 	}
 	if cfg.Egress != nil {
 		gateAgent, err := staff.Spawn(ctx, "egress", *cfg.Egress)
@@ -69,9 +69,9 @@ func SpawnCollective(ctx context.Context, staff *facade.Staff, cfg CollectiveCon
 			}
 			return nil, fmt.Errorf("spawn egress gate for %q: %w", cfg.Role, err)
 		}
-		opts = append(opts, WithEgress(&AgentGate{Agent: gateAgent}))
+		opts = append(opts, WithEgress(&AgentGatekeeper{Agent: gateAgent}))
 	}
 
 	id := agents[0].ID()
-	return NewAgentCollective(id, cfg.Role, cfg.Strategy, agents, opts...), nil
+	return NewCollective(id, cfg.Role, cfg.Strategy, agents, opts...), nil
 }

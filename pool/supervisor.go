@@ -1,6 +1,6 @@
 // Package pool manages agent process lifecycles.
-// Maps Bugle World entities to running OS processes via the Launcher interface.
-// Process-agnostic: consumers (Djinn, Origami) inject their own Launcher.
+// Maps Bugle World entities to running OS processes via the AgentSupervisor interface.
+// Process-agnostic: consumers (Djinn, Origami) inject their own AgentSupervisor.
 package pool
 
 import (
@@ -9,8 +9,8 @@ import (
 	"github.com/dpopsuev/jericho/world"
 )
 
-// LaunchConfig describes how to start an agent process.
-type LaunchConfig struct {
+// AgentConfig describes how to start an agent process.
+type AgentConfig struct {
 	Role    string            // staff role name (e.g., "executor", "inspector")
 	Prompt  string            // system prompt
 	Model   string            // LLM model name
@@ -21,11 +21,11 @@ type LaunchConfig struct {
 	Display *world.Display    // optional display identity (name, color, icon)
 }
 
-// Launcher is the process-agnostic interface for starting/stopping agents.
+// AgentSupervisor is the process-agnostic interface for starting/stopping agents.
 // Djinn implements this with ACP. Origami implements with CLI subprocesses.
-type Launcher interface {
+type AgentSupervisor interface {
 	// Start launches an agent process for the given entity.
-	Start(ctx context.Context, id world.EntityID, config LaunchConfig) error
+	Start(ctx context.Context, id world.EntityID, config AgentConfig) error
 
 	// Stop kills the agent process for the given entity.
 	Stop(ctx context.Context, id world.EntityID) error

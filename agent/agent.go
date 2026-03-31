@@ -1,10 +1,10 @@
 // agent.go — Agent interface for single agents and collectives.
 //
 // Agent is the common contract for anything that behaves like an agent.
-// AgentHandle (single agent) and AgentCollective (N agents) both implement it.
+// Solo (single agent) and Collective (N agents) both implement it.
 // Operators program against Agent when they don't care whether they're
 // talking to one agent or a facade over many.
-package facade
+package agent
 
 import (
 	"context"
@@ -30,13 +30,13 @@ type Agent interface {
 	Kill(ctx context.Context) error
 	KillWithReason(ctx context.Context, code pool.ExitCode) error
 	Wait(ctx context.Context) (*pool.ExitStatus, error)
-	Spawn(ctx context.Context, role string, config pool.LaunchConfig) (*AgentHandle, error)
+	Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error)
 
 	// State
 	IsAlive() bool
 	IsHealthy() bool
-	Children() []*AgentHandle
-	Parent() *AgentHandle
+	Children() []*Solo
+	Parent() *Solo
 	Progress() (world.Progress, bool)
 	SetProgress(current, total int)
 }
@@ -45,9 +45,9 @@ type Agent interface {
 // Used by Tree() vs TreeFull() to decide whether to show internals.
 type FacadeAgent interface {
 	Agent
-	InternalAgents() []*AgentHandle
+	InternalAgents() []*Solo
 	IsFacade() bool
 }
 
 // Compile-time checks.
-var _ Agent = (*AgentHandle)(nil)
+var _ Agent = (*Solo)(nil)

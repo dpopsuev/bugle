@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 )
 
 // ErrTooFewAgentsDialectic is returned when dialectic has fewer than 2 agents.
@@ -37,7 +37,7 @@ func (d *Dialectic) defaults() (maxRounds int, convergenceWord string) {
 
 // Orchestrate runs the dialectic debate between agents[0] (thesis) and
 // agents[1] (antithesis). Returns the thesis's last response as synthesis.
-func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*facade.AgentHandle) (string, error) {
+func (d *Dialectic) Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error) {
 	if len(agents) < 2 {
 		return "", fmt.Errorf("%w, got %d", ErrTooFewAgentsDialectic, len(agents))
 	}

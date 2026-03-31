@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/world"
@@ -31,7 +31,7 @@ func newPipeLauncher() *pipeLauncher {
 	}
 }
 
-func (l *pipeLauncher) Start(_ context.Context, id world.EntityID, _ pool.LaunchConfig) error {
+func (l *pipeLauncher) Start(_ context.Context, id world.EntityID, _ pool.AgentConfig) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.started[id] = true
@@ -55,11 +55,11 @@ func (l *pipeLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 // to clean shutdown. This is the "turn on the water" test.
 func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E test is intentionally comprehensive
 	launcher := newPipeLauncher()
-	staff := facade.NewStaff(launcher)
+	staff := agent.NewStaff(launcher)
 	ctx := context.Background()
 
 	// === 1. Spawn root agent (GenSec = PID 1) ===
-	gensec, err := staff.Spawn(ctx, "gensec", pool.LaunchConfig{})
+	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{})
 	if err != nil {
 		t.Fatalf("spawn gensec: %v", err)
 	}
@@ -72,9 +72,9 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	staff.SetSubreaper(gensec)
 
 	// === 2. Spawn children under GenSec ===
-	executor1, _ := gensec.Spawn(ctx, "executor", pool.LaunchConfig{})
-	executor2, _ := gensec.Spawn(ctx, "executor", pool.LaunchConfig{})
-	inspector, _ := gensec.Spawn(ctx, "inspector", pool.LaunchConfig{})
+	executor1, _ := gensec.Spawn(ctx, "executor", pool.AgentConfig{})
+	executor2, _ := gensec.Spawn(ctx, "executor", pool.AgentConfig{})
+	inspector, _ := gensec.Spawn(ctx, "inspector", pool.AgentConfig{})
 
 	if staff.Count() != 4 {
 		t.Fatalf("count = %d, want 4", staff.Count())
@@ -187,9 +187,9 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	// Already reaped by Wait — should NOT be zombie anymore.
 
 	// === 11. Orphan reparenting ===
-	scheduler, _ := gensec.Spawn(ctx, "scheduler", pool.LaunchConfig{})
-	orphan1, _ := scheduler.Spawn(ctx, "worker", pool.LaunchConfig{})
-	orphan2, _ := scheduler.Spawn(ctx, "worker", pool.LaunchConfig{})
+	scheduler, _ := gensec.Spawn(ctx, "scheduler", pool.AgentConfig{})
+	orphan1, _ := scheduler.Spawn(ctx, "worker", pool.AgentConfig{})
+	orphan2, _ := scheduler.Spawn(ctx, "worker", pool.AgentConfig{})
 
 	scheduler.Kill(ctx)
 
@@ -224,15 +224,15 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 
 // TestFacadeE2E_StressTest — 20 agents, concurrent Ask, no races.
 func TestFacadeE2E_StressTest(t *testing.T) {
-	staff := facade.NewStaff(newPipeLauncher())
+	staff := agent.NewStaff(newPipeLauncher())
 	ctx := context.Background()
 
-	root, _ := staff.Spawn(ctx, "root", pool.LaunchConfig{})
+	root, _ := staff.Spawn(ctx, "root", pool.AgentConfig{})
 
 	// Spawn 20 workers under root.
-	agents := make([]*facade.AgentHandle, 0, 20)
+	agents := make([]*agent.Solo, 0, 20)
 	for i := range 20 {
-		a, _ := root.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.LaunchConfig{})
+		a, _ := root.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.AgentConfig{})
 		a.Listen(func(content string) string {
 			return "processed: " + content
 		})
@@ -248,7 +248,7 @@ func TestFacadeE2E_StressTest(t *testing.T) {
 	var success atomic.Int32
 	for _, a := range agents {
 		wg.Add(1)
-		go func(agent *facade.AgentHandle) {
+		go func(agent *agent.Solo) {
 			defer wg.Done()
 			resp, err := agent.Ask(ctx, "work")
 			if err == nil && strings.HasPrefix(resp, "processed:") {

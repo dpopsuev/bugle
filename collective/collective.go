@@ -1,4 +1,4 @@
-// collective.go — AgentCollective: N agents behind one facade.Agent interface.
+// collective.go — Collective: N agents behind one agent.Agent interface.
 //
 // The operator calls Ask() on a collective and gets one response. Internally,
 // N agents collaborate via a pluggable CollectiveStrategy (dialectic, arbiter,
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/dpopsuev/jericho/facade"
+	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -25,7 +25,7 @@ var (
 
 // CollectiveStrategy defines how agents collaborate inside a collective.
 type CollectiveStrategy interface {
-	Orchestrate(ctx context.Context, prompt string, agents []*facade.AgentHandle) (string, error)
+	Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error)
 }
 
 // DebateRound records one debate round between agents.
@@ -35,36 +35,36 @@ type DebateRound struct {
 	Converged          bool
 }
 
-// AgentCollective wraps N agents behind the facade.Agent interface.
+// Collective wraps N agents behind the agent.Agent interface.
 // Operators see one agent. Internally, N agents debate/collaborate.
-type AgentCollective struct {
+type Collective struct {
 	id       world.EntityID
 	role     string
-	agents   []*facade.AgentHandle
+	agents   []*agent.Solo
 	strategy CollectiveStrategy
-	ingress  Gate // optional bouncer (nil = pass-through)
-	egress   Gate // optional reviewer (nil = pass-through)
+	ingress  Gatekeeper // optional bouncer (nil = pass-through)
+	egress   Gatekeeper // optional reviewer (nil = pass-through)
 	handler  func(content string) string
 	mu       sync.RWMutex
 	rounds   []DebateRound
 }
 
-// CollectiveOption configures an AgentCollective.
-type CollectiveOption func(*AgentCollective)
+// CollectiveOption configures an Collective.
+type CollectiveOption func(*Collective)
 
 // WithIngress sets the ingress gate (bouncer).
-func WithIngress(g Gate) CollectiveOption {
-	return func(c *AgentCollective) { c.ingress = g }
+func WithIngress(g Gatekeeper) CollectiveOption {
+	return func(c *Collective) { c.ingress = g }
 }
 
 // WithEgress sets the egress gate (reviewer).
-func WithEgress(g Gate) CollectiveOption {
-	return func(c *AgentCollective) { c.egress = g }
+func WithEgress(g Gatekeeper) CollectiveOption {
+	return func(c *Collective) { c.egress = g }
 }
 
-// NewAgentCollective creates a collective from existing agent handles.
-func NewAgentCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []*facade.AgentHandle, opts ...CollectiveOption) *AgentCollective {
-	c := &AgentCollective{
+// NewCollective creates a collective from existing agent handles.
+func NewCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []*agent.Solo, opts ...CollectiveOption) *Collective {
+	c := &Collective{
 		id:       id,
 		role:     role,
 		strategy: strategy,
@@ -78,9 +78,9 @@ func NewAgentCollective(id world.EntityID, role string, strategy CollectiveStrat
 
 // --- Identity ---
 
-func (c *AgentCollective) ID() world.EntityID { return c.id }
-func (c *AgentCollective) Role() string       { return c.role }
-func (c *AgentCollective) String() string {
+func (c *Collective) ID() world.EntityID { return c.id }
+func (c *Collective) Role() string       { return c.role }
+func (c *Collective) String() string {
 	return fmt.Sprintf("%s(collective-%d, %d agents)", c.role, c.id, len(c.agents))
 }
 
@@ -88,7 +88,7 @@ func (c *AgentCollective) String() string {
 
 // Ask runs the collective strategy and returns the synthesized response.
 // Applies ingress gate before entry and egress gate before exit.
-func (c *AgentCollective) Ask(ctx context.Context, content string) (string, error) {
+func (c *Collective) Ask(ctx context.Context, content string) (string, error) {
 	// Ingress gate — bouncer decides if prompt enters the room.
 	if c.ingress != nil {
 		ok, reason, err := c.ingress.Pass(ctx, content)
@@ -121,7 +121,7 @@ func (c *AgentCollective) Ask(ctx context.Context, content string) (string, erro
 }
 
 // Tell forwards to the first agent (no debate for fire-and-forget).
-func (c *AgentCollective) Tell(content string) error {
+func (c *Collective) Tell(content string) error {
 	if len(c.agents) == 0 {
 		return fmt.Errorf("%w: %s", ErrNoAgents, c.role)
 	}
@@ -130,14 +130,14 @@ func (c *AgentCollective) Tell(content string) error {
 
 // Listen registers a handler. The collective's Ask result is passed through
 // this handler before returning to the caller.
-func (c *AgentCollective) Listen(handler func(content string) string) {
+func (c *Collective) Listen(handler func(content string) string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.handler = handler
 }
 
 // Broadcast sends to all agents in the collective.
-func (c *AgentCollective) Broadcast(ctx context.Context, content string) error {
+func (c *Collective) Broadcast(ctx context.Context, content string) error {
 	for _, a := range c.agents {
 		if err := a.Tell(content); err != nil {
 			return err
@@ -149,7 +149,7 @@ func (c *AgentCollective) Broadcast(ctx context.Context, content string) error {
 // --- Lifecycle ---
 
 // Kill stops all internal agents.
-func (c *AgentCollective) Kill(ctx context.Context) error {
+func (c *Collective) Kill(ctx context.Context) error {
 	for _, a := range c.agents {
 		if err := a.Kill(ctx); err != nil {
 			return err
@@ -159,7 +159,7 @@ func (c *AgentCollective) Kill(ctx context.Context) error {
 }
 
 // KillWithReason stops all agents with the given exit code.
-func (c *AgentCollective) KillWithReason(ctx context.Context, code pool.ExitCode) error {
+func (c *Collective) KillWithReason(ctx context.Context, code pool.ExitCode) error {
 	for _, a := range c.agents {
 		if err := a.KillWithReason(ctx, code); err != nil {
 			return err
@@ -169,7 +169,7 @@ func (c *AgentCollective) KillWithReason(ctx context.Context, code pool.ExitCode
 }
 
 // Wait waits for all internal agents to finish. Returns the last exit status.
-func (c *AgentCollective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
+func (c *Collective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
 	var lastStatus *pool.ExitStatus
 	for _, a := range c.agents {
 		status, err := a.Wait(ctx)
@@ -182,7 +182,7 @@ func (c *AgentCollective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
 }
 
 // Spawn creates a child agent under the first agent in the collective.
-func (c *AgentCollective) Spawn(ctx context.Context, role string, config pool.LaunchConfig) (*facade.AgentHandle, error) {
+func (c *Collective) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*agent.Solo, error) {
 	if len(c.agents) == 0 {
 		return nil, fmt.Errorf("%w: %s (spawn)", ErrNoAgents, c.role)
 	}
@@ -192,7 +192,7 @@ func (c *AgentCollective) Spawn(ctx context.Context, role string, config pool.La
 // --- State ---
 
 // IsAlive returns true if all agents are alive.
-func (c *AgentCollective) IsAlive() bool {
+func (c *Collective) IsAlive() bool {
 	for _, a := range c.agents {
 		if !a.IsAlive() {
 			return false
@@ -202,7 +202,7 @@ func (c *AgentCollective) IsAlive() bool {
 }
 
 // IsHealthy returns true if all agents are healthy.
-func (c *AgentCollective) IsHealthy() bool {
+func (c *Collective) IsHealthy() bool {
 	for _, a := range c.agents {
 		if !a.IsHealthy() {
 			return false
@@ -212,17 +212,17 @@ func (c *AgentCollective) IsHealthy() bool {
 }
 
 // Children returns the internal agents (visible in full view).
-func (c *AgentCollective) Children() []*facade.AgentHandle {
+func (c *Collective) Children() []*agent.Solo {
 	return c.agents
 }
 
 // Parent returns nil — collectives are created by Staff, not by a parent agent.
-func (c *AgentCollective) Parent() *facade.AgentHandle {
+func (c *Collective) Parent() *agent.Solo {
 	return nil
 }
 
 // Progress returns the debate progress: current round / max rounds.
-func (c *AgentCollective) Progress() (world.Progress, bool) {
+func (c *Collective) Progress() (world.Progress, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if len(c.rounds) == 0 {
@@ -232,20 +232,20 @@ func (c *AgentCollective) Progress() (world.Progress, bool) {
 }
 
 // SetProgress is a no-op for collectives (progress is driven by rounds).
-func (c *AgentCollective) SetProgress(_, _ int) {}
+func (c *Collective) SetProgress(_, _ int) {}
 
 // --- FacadeAgent ---
 
-// InternalAgents returns the agents hidden behind the facade.
-func (c *AgentCollective) InternalAgents() []*facade.AgentHandle {
+// InternalAgents returns the agents hidden behind the agent.
+func (c *Collective) InternalAgents() []*agent.Solo {
 	return c.agents
 }
 
 // IsFacade returns true — this is a collective, not a single agent.
-func (c *AgentCollective) IsFacade() bool { return true }
+func (c *Collective) IsFacade() bool { return true }
 
 // DebateRounds returns the debate history.
-func (c *AgentCollective) DebateRounds() []DebateRound {
+func (c *Collective) DebateRounds() []DebateRound {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	out := make([]DebateRound, len(c.rounds))
@@ -254,7 +254,7 @@ func (c *AgentCollective) DebateRounds() []DebateRound {
 }
 
 // addDebateRound appends a round to the debate history.
-func (c *AgentCollective) addDebateRound(r DebateRound) {
+func (c *Collective) addDebateRound(r DebateRound) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.rounds = append(c.rounds, r)
@@ -262,6 +262,6 @@ func (c *AgentCollective) addDebateRound(r DebateRound) {
 
 // Compile-time checks.
 var (
-	_ facade.Agent       = (*AgentCollective)(nil)
-	_ facade.FacadeAgent = (*AgentCollective)(nil)
+	_ agent.Agent       = (*Collective)(nil)
+	_ agent.FacadeAgent = (*Collective)(nil)
 )

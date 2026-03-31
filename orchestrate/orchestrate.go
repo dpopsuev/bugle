@@ -24,38 +24,38 @@ var (
 	ErrStepFailed     = errors.New("pull failed")
 )
 
-// ResponderFactory creates a Responder for a worker. Called once per worker
+// AgentSpawner creates a Responder for a worker. Called once per worker
 // goroutine. The consumer controls how agents are spawned:
-//   - Origami: ACP launcher + facade.AgentHandle
+//   - Origami: ACP launcher + agent.Solo
 //   - Djinn: driver-based agent
 //   - K8s: Pod exec client
 //   - Test: StaticResponder
 //
 // The returned cleanup function is called when the worker exits.
-type ResponderFactory func(ctx context.Context, workerID string) (bugle.Responder, func(), error)
+type AgentSpawner func(ctx context.Context, workerID string) (bugle.Responder, func(), error)
 
 // Manager manages a pool of agent workers that connect to an MCP endpoint.
 type Manager struct {
-	mu               sync.Mutex
-	endpoint         string
-	cancel           context.CancelFunc
-	running          bool
-	count            int
-	session          string
-	cfg              WorkerConfig
-	completed        atomic.Int64
-	errored          atomic.Int64
-	responderFactory ResponderFactory
+	mu           sync.Mutex
+	endpoint     string
+	cancel       context.CancelFunc
+	running      bool
+	count        int
+	session      string
+	cfg          WorkerConfig
+	completed    atomic.Int64
+	errored      atomic.Int64
+	agentSpawner AgentSpawner
 }
 
 // NewManager creates a manager that spawns workers connecting to the given endpoint.
 // The factory creates a Responder for each worker goroutine.
-func NewManager(endpoint string, factory ResponderFactory, cfg WorkerConfig) *Manager {
+func NewManager(endpoint string, factory AgentSpawner, cfg WorkerConfig) *Manager {
 	cfg.defaults()
 	return &Manager{
-		endpoint:         endpoint,
-		cfg:              cfg,
-		responderFactory: factory,
+		endpoint:     endpoint,
+		cfg:          cfg,
+		agentSpawner: factory,
 	}
 }
 
@@ -88,10 +88,10 @@ func (m *Manager) Start(ctx context.Context, session string, count int) error {
 			defer wg.Done()
 			workerID := fmt.Sprintf("worker-%d", id+1)
 
-			responder, cleanup, err := m.responderFactory(workerCtx, workerID)
+			responder, cleanup, err := m.agentSpawner(workerCtx, workerID)
 			if err != nil {
 				m.errored.Add(1)
-				slog.ErrorContext(workerCtx, "responder factory failed",
+				slog.ErrorContext(workerCtx, "agent spawner failed",
 					slog.String(logKeyWorker, workerID),
 					slog.Any(logKeyError, err))
 				return

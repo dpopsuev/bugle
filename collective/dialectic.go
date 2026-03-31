@@ -1,4 +1,4 @@
-// Package collective provides AgentCollective — N agents behind one
+// Package collective provides Collective — N agents behind one
 // interface — with pluggable strategies (Dialectic, Arbiter, etc.).
 //
 // This file contains the dialectic data types (thesis-antithesis-synthesis)

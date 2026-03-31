@@ -1,7 +1,7 @@
-// gate_budget.go — BudgetGate: code-only gate for token budget enforcement.
+// gate_budget.go — BudgetGatekeeper: code-only gate for token budget enforcement.
 //
-// Proves that Gate isn't always an LLM agent — it's a contract.
-// BudgetGate checks remaining budget before allowing entry.
+// Proves that Gatekeeper isn't always an LLM agent — it's a contract.
+// BudgetGatekeeper checks remaining budget before allowing entry.
 package collective
 
 import (
@@ -9,15 +9,15 @@ import (
 	"fmt"
 )
 
-// BudgetGate implements Gate by checking token budget.
+// BudgetGatekeeper implements Gatekeeper by checking token budget.
 // A code-only gate — no LLM, no agent, just math.
-type BudgetGate struct {
+type BudgetGatekeeper struct {
 	MaxTokens int        // 0 = unlimited (always pass)
 	Spent     func() int // callback to check current spend
 }
 
 // Pass checks if the budget allows entry.
-func (g *BudgetGate) Pass(_ context.Context, _ string) (allowed bool, reason string, err error) {
+func (g *BudgetGatekeeper) Pass(_ context.Context, _ string) (allowed bool, reason string, err error) {
 	if g.MaxTokens <= 0 {
 		return true, "", nil // unlimited
 	}
@@ -32,4 +32,4 @@ func (g *BudgetGate) Pass(_ context.Context, _ string) (allowed bool, reason str
 }
 
 // Compile-time check.
-var _ Gate = (*BudgetGate)(nil)
+var _ Gatekeeper = (*BudgetGatekeeper)(nil)

@@ -6,7 +6,7 @@ Jericho is the agent platform — ECS framework for managing autonomous AI agent
 
 - Repo: github.com/dpopsuev/jericho (renamed from bugle on 2026-03-31)
 - Scribe scope: jericho (legacy artifacts use BGL- prefix)
-- Campaigns: BGL-CMP-6 (v0.1.0 Bugle Protocol), BGL-CMP-7 (v0.2.0 Cloud Native)
+- Campaigns: BGL-CMP-6 (v0.1.0 Bugle Protocol, complete), BGL-CMP-7 (v0.2.0 Cloud Native, active)
 
 ## Ecosystem Dependency Rules (JRC-SPC-2)
 
@@ -15,7 +15,6 @@ Jericho is the agent platform — ECS framework for managing autonomous AI agent
 - Jericho NEVER imports origami/ or djinn/ or hegemony/
 - Jericho defines interfaces (Responder, Server), consumers implement them
 - Consumer-to-consumer communication goes through Bugle Protocol, not Go imports
-- dispatch/ is being evicted to Origami (circuit-specific, not platform)
 
 Dependency direction: `Origami -> Jericho <- Djinn`
 
@@ -27,9 +26,9 @@ orchestrate/  — Protocol client loop (uses Responder interface)
 resilience/   — Circuit breaker, rate limiter, retry (pure algorithms)
 acp/          — Agent Context Protocol launcher
 pool/         — Agent process lifecycle (Fork/Kill/Wait)
-facade/       — Staff, AgentHandle, Agent interface
-collective/   — Multi-agent facades (Dialectic, Arbiter strategies)
-transport/    — A2A messaging (LocalTransport, role-based routing)
+agent/        — Staff, Solo, Agent interface (was facade/)
+collective/   — Multi-agent collectives (Dialectic, Arbiter strategies)
+transport/    — A2A messaging (LocalTransport, role-based routing, AgentLookup)
 signal/       — Event bus (Bus, DurableBus)
 world/        — ECS entity-component store
 palette/      — Color identity engine (56 colors, registry)

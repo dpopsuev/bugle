@@ -95,4 +95,4 @@ func TestInMemoryRegistry_DiscoverEmpty(t *testing.T) {
 }
 
 // Compile-time interface check.
-var _ ServiceRegistry = (*InMemoryRegistry)(nil)
+var _ AgentLookup = (*InMemoryRegistry)(nil)

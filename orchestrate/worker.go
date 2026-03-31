@@ -118,7 +118,7 @@ func RunWorker(ctx context.Context, session *sdkmcp.ClientSession, responder bug
 			continue
 		}
 
-		response, err := responder.Respond(ctx, pullResp.PromptContent)
+		response, err := responder.RespondTo(ctx, pullResp.PromptContent)
 		if err != nil {
 			slog.ErrorContext(ctx, "responder failed",
 				slog.String(logKeyWorker, workerID),

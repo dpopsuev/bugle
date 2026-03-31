@@ -1,4 +1,4 @@
-// registry.go — ServiceRegistry for agent discovery with metadata and health.
+// registry.go — AgentLookup for agent discovery with metadata and health tracking.
 //
 // Extends RoleRegistry with metadata storage, heartbeat tracking, and
 // stale entry eviction. InMemoryRegistry is the Day 1 implementation;
@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// ServiceEntry describes a registered agent with metadata and health.
-type ServiceEntry struct {
+// LookupEntry describes a registered agent with metadata and health.
+type LookupEntry struct {
 	ID       string
 	Role     string
 	Meta     map[string]string
@@ -19,19 +19,19 @@ type ServiceEntry struct {
 	Healthy  bool
 }
 
-// ServiceRegistry is the interface for agent discovery.
-type ServiceRegistry interface {
+// AgentLookup is the interface for agent discovery.
+type AgentLookup interface {
 	Register(id, role string, meta map[string]string) error
 	Unregister(id string) error
-	Discover(role string) []ServiceEntry
+	Discover(role string) []LookupEntry
 	Heartbeat(id string) error
-	All() []ServiceEntry
+	All() []LookupEntry
 }
 
-// InMemoryRegistry implements ServiceRegistry with stale eviction.
+// InMemoryRegistry implements AgentLookup with stale eviction.
 type InMemoryRegistry struct {
 	mu       sync.RWMutex
-	entries  map[string]*ServiceEntry
+	entries  map[string]*LookupEntry
 	staleTTL time.Duration // entries older than this are considered stale
 }
 
@@ -42,7 +42,7 @@ func NewInMemoryRegistry(staleTTL time.Duration) *InMemoryRegistry {
 		staleTTL = 30 * time.Second
 	}
 	return &InMemoryRegistry{
-		entries:  make(map[string]*ServiceEntry),
+		entries:  make(map[string]*LookupEntry),
 		staleTTL: staleTTL,
 	}
 }
@@ -51,7 +51,7 @@ func (r *InMemoryRegistry) Register(id, role string, meta map[string]string) err
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.entries[id] = &ServiceEntry{
+	r.entries[id] = &LookupEntry{
 		ID:       id,
 		Role:     role,
 		Meta:     meta,
@@ -68,11 +68,11 @@ func (r *InMemoryRegistry) Unregister(id string) error {
 	return nil
 }
 
-func (r *InMemoryRegistry) Discover(role string) []ServiceEntry {
+func (r *InMemoryRegistry) Discover(role string) []LookupEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	result := make([]ServiceEntry, 0, len(r.entries))
+	result := make([]LookupEntry, 0, len(r.entries))
 	now := time.Now()
 	for _, e := range r.entries {
 		if e.Role != role {
@@ -100,12 +100,12 @@ func (r *InMemoryRegistry) Heartbeat(id string) error {
 	return nil
 }
 
-func (r *InMemoryRegistry) All() []ServiceEntry {
+func (r *InMemoryRegistry) All() []LookupEntry {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	now := time.Now()
-	result := make([]ServiceEntry, 0, len(r.entries))
+	result := make([]LookupEntry, 0, len(r.entries))
 	for _, e := range r.entries {
 		entry := *e
 		if now.Sub(e.LastSeen) > r.staleTTL {

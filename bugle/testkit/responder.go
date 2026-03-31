@@ -13,8 +13,8 @@ type StaticResponder struct {
 	Response string
 }
 
-// Respond returns the static response.
-func (r *StaticResponder) Respond(_ context.Context, _ string) (string, error) {
+// RespondTo returns the static response.
+func (r *StaticResponder) RespondTo(_ context.Context, _ string) (string, error) {
 	return r.Response, nil
 }
 
@@ -23,8 +23,8 @@ type FailingResponder struct {
 	Err error
 }
 
-// Respond returns the configured error.
-func (r *FailingResponder) Respond(_ context.Context, _ string) (string, error) {
+// RespondTo returns the configured error.
+func (r *FailingResponder) RespondTo(_ context.Context, _ string) (string, error) {
 	return "", r.Err
 }
 
@@ -41,8 +41,8 @@ func NewScriptedResponder(responses ...string) *ScriptedResponder {
 	return &ScriptedResponder{responses: responses}
 }
 
-// Respond returns the next response in the script.
-func (r *ScriptedResponder) Respond(_ context.Context, _ string) (string, error) {
+// RespondTo returns the next response in the script.
+func (r *ScriptedResponder) RespondTo(_ context.Context, _ string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.idx >= len(r.responses) {
@@ -53,7 +53,7 @@ func (r *ScriptedResponder) Respond(_ context.Context, _ string) (string, error)
 	return resp, nil
 }
 
-// CallCount returns how many times Respond was called.
+// CallCount returns how many times RespondTo was called.
 func (r *ScriptedResponder) CallCount() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
