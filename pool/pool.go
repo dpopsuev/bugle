@@ -181,12 +181,86 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 	}
 
 	// Notify Wait() callers — LAST, after all cleanup is done.
-	// Wait() → reap() → Despawn() is safe because Health is already set.
+	// Wait() → reap() → Despawn() is safe because Alive is already set.
 	if ch != nil {
 		close(ch)
 	}
 
+	// Check restart policy — auto-restart if configured.
+	if shouldRestart(entry) {
+		go p.restartAgent(ctx, entry)
+	}
+
 	return nil
+}
+
+// KillGraceful sends a stop signal and waits up to gracePeriod for the agent
+// to finish current work before force-killing. If gracePeriod is 0, defaults
+// to the agent's configured GracePeriod (or 30s).
+func (p *AgentPool) KillGraceful(ctx context.Context, id world.EntityID, gracePeriod time.Duration) error {
+	p.mu.RLock()
+	entry, ok := p.agents[id]
+	p.mu.RUnlock()
+	if !ok {
+		return fmt.Errorf("%w: %d", ErrNotFound, id)
+	}
+
+	if gracePeriod == 0 {
+		gracePeriod = entry.Config.GracePeriod
+	}
+	if gracePeriod == 0 {
+		gracePeriod = 30 * time.Second
+	}
+
+	// Mark not-ready so scheduler stops routing work.
+	world.Attach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "terminating"})
+
+	// Wait for grace period or context cancellation.
+	graceCtx, cancel := context.WithTimeout(ctx, gracePeriod)
+	defer cancel()
+
+	// Check if agent finishes naturally during grace period.
+	ch := p.waitCh[id]
+	if ch != nil {
+		select {
+		case <-ch:
+			return nil // agent finished on its own
+		case <-graceCtx.Done():
+			// grace period expired, force kill
+		}
+	}
+
+	return p.Kill(ctx, id)
+}
+
+// shouldRestart returns true if the agent should be restarted based on its
+// restart policy and exit code.
+func shouldRestart(entry *agentEntry) bool {
+	switch entry.Config.RestartPolicy {
+	case RestartAlways:
+		return entry.ExitCode != ExitBudget // never restart budget-exceeded
+	case RestartOnFailure:
+		return entry.ExitCode != ExitSuccess && entry.ExitCode != ExitBudget
+	default: // RestartNever or empty
+		return false
+	}
+}
+
+// restartAgent re-forks a terminated agent with the same config under the same parent.
+func (p *AgentPool) restartAgent(ctx context.Context, entry *agentEntry) {
+	_, err := p.Fork(ctx, entry.Role, entry.Config, entry.ParentID)
+	if err != nil {
+		p.bus.Emit(&signal.Signal{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Event:     signal.EventWorkerError,
+			Agent:     signal.AgentSupervisor,
+			Meta: map[string]string{
+				"role":   entry.Role,
+				"error":  fmt.Sprintf("restart failed: %v", err),
+				"reason": "restart_failure",
+			},
+		})
+	}
 }
 
 // KillAll stops all running agents. Called on shutdown.

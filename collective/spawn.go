@@ -37,8 +37,8 @@ func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConf
 	}
 
 	agents := make([]*agent.Solo, 0, len(cfg.Agents))
-	for _, acfg := range cfg.Agents {
-		a, err := staff.Spawn(ctx, acfg.Role, acfg)
+	for i := range cfg.Agents {
+		a, err := staff.Spawn(ctx, cfg.Agents[i].Role, cfg.Agents[i])
 		if err != nil {
 			// Kill any already-spawned agents on failure.
 			for _, spawned := range agents {

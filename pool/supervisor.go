@@ -5,20 +5,32 @@ package pool
 
 import (
 	"context"
+	"time"
 
 	"github.com/dpopsuev/jericho/world"
 )
 
+// RestartPolicy controls automatic restart behavior after an agent exits.
+type RestartPolicy string
+
+const (
+	RestartNever     RestartPolicy = "never"      // reap only, no restart (default)
+	RestartOnFailure RestartPolicy = "on_failure" // restart on non-zero exit
+	RestartAlways    RestartPolicy = "always"     // restart on any exit
+)
+
 // AgentConfig describes how to start an agent process.
 type AgentConfig struct {
-	Role    string            // staff role name (e.g., "executor", "inspector")
-	Prompt  string            // system prompt
-	Model   string            // LLM model name
-	Tools   []string          // allowed tool names
-	WorkDir string            // working directory
-	Env     map[string]string // environment variables
-	Budget  float64           // cost ceiling (0 = unlimited)
-	Display *world.Display    // optional display identity (name, color, icon)
+	Role          string            // staff role name (e.g., "executor", "inspector")
+	Prompt        string            // system prompt
+	Model         string            // LLM model name
+	Tools         []string          // allowed tool names
+	WorkDir       string            // working directory
+	Env           map[string]string // environment variables
+	Budget        float64           // cost ceiling (0 = unlimited)
+	Display       *world.Display    // optional display identity (name, color, icon)
+	RestartPolicy RestartPolicy     // restart behavior (default: never)
+	GracePeriod   time.Duration     // graceful shutdown window (default: 30s)
 }
 
 // AgentSupervisor is the process-agnostic interface for starting/stopping agents.

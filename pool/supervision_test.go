@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -584,5 +585,138 @@ func TestSupervision_OrphanSimulation(t *testing.T) {
 	// Verify all clean.
 	if pool.Count() != 1 { // only gensec
 		t.Fatalf("count = %d, want 1", pool.Count())
+	}
+}
+
+// === RESTART POLICIES ===
+
+func TestRestartPolicy_Never(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{RestartPolicy: RestartNever}, 0)
+	pool.KillWithCode(ctx, id, ExitError)
+
+	time.Sleep(50 * time.Millisecond) // give restart goroutine time
+	if pool.Count() != 0 {
+		t.Fatalf("count = %d, want 0 (RestartNever should not restart)", pool.Count())
+	}
+}
+
+func TestRestartPolicy_OnFailure_Restarts(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{RestartPolicy: RestartOnFailure}, 0)
+	pool.KillWithCode(ctx, id, ExitError)
+
+	time.Sleep(50 * time.Millisecond)
+	if pool.Count() != 1 {
+		t.Fatalf("count = %d, want 1 (OnFailure should restart on error)", pool.Count())
+	}
+}
+
+func TestRestartPolicy_OnFailure_NoRestartOnSuccess(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{RestartPolicy: RestartOnFailure}, 0)
+	pool.KillWithCode(ctx, id, ExitSuccess)
+
+	time.Sleep(50 * time.Millisecond)
+	if pool.Count() != 0 {
+		t.Fatalf("count = %d, want 0 (OnFailure should NOT restart on success)", pool.Count())
+	}
+}
+
+func TestRestartPolicy_Always_Restarts(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{RestartPolicy: RestartAlways}, 0)
+	pool.KillWithCode(ctx, id, ExitSuccess)
+
+	time.Sleep(50 * time.Millisecond)
+	if pool.Count() != 1 {
+		t.Fatalf("count = %d, want 1 (Always should restart even on success)", pool.Count())
+	}
+}
+
+func TestRestartPolicy_NeverOnBudgetExceeded(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{RestartPolicy: RestartAlways}, 0)
+	pool.KillWithCode(ctx, id, ExitBudget)
+
+	time.Sleep(50 * time.Millisecond)
+	if pool.Count() != 0 {
+		t.Fatalf("count = %d, want 0 (budget-exceeded should never restart)", pool.Count())
+	}
+}
+
+// === GRACEFUL TERMINATION ===
+
+func TestKillGraceful_ForcesAfterTimeout(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{}, 0)
+
+	err := pool.KillGraceful(ctx, id, 50*time.Millisecond)
+	if err != nil {
+		t.Fatalf("KillGraceful: %v", err)
+	}
+	if pool.Count() != 0 {
+		t.Fatalf("count = %d, want 0 after graceful kill", pool.Count())
+	}
+}
+
+func TestKillGraceful_MarksNotReady(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{}, 0)
+
+	// Start graceful kill with long timeout — check Ready state during grace period.
+	var readyDuringGrace atomic.Bool
+	go func() {
+		time.Sleep(10 * time.Millisecond) // after grace starts
+		r, ok := world.TryGet[world.Ready](pool.world, id)
+		if ok && !r.Ready && r.Reason == "terminating" {
+			readyDuringGrace.Store(true)
+		}
+	}()
+
+	pool.KillGraceful(ctx, id, 100*time.Millisecond)
+
+	if !readyDuringGrace.Load() {
+		t.Fatal("agent should be marked not-ready during grace period")
+	}
+}
+
+func TestKillGraceful_UsesConfigGracePeriod(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	id, _ := pool.Fork(ctx, "worker", AgentConfig{GracePeriod: 20 * time.Millisecond}, 0)
+
+	start := time.Now()
+	pool.KillGraceful(ctx, id, 0) // 0 = use config
+	elapsed := time.Since(start)
+
+	// Should complete around 20ms (config grace), not 30s (default).
+	if elapsed > 500*time.Millisecond {
+		t.Fatalf("KillGraceful took %v, should use config grace period (20ms)", elapsed)
+	}
+}
+
+func TestKillGraceful_NotFound(t *testing.T) {
+	pool, _ := setupSupervision()
+	ctx := context.Background()
+
+	err := pool.KillGraceful(ctx, 999, 0)
+	if !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
 	}
 }

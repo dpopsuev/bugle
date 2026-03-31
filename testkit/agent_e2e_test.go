@@ -222,6 +222,92 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	t.Logf("full pipe test passed: 4 agents spawned, messages exchanged, hierarchy verified, orphans reparented, clean shutdown")
 }
 
+// TestFacadeE2E_AIAsOperator — Agent 0 is an AI (bugle.Responder), not a human.
+// Proves the World doesn't care whether Agent 0 is human or AI.
+// This is the Origami production pattern: Claude/Cursor acts as operator.
+// Per JRC-NED-4: World = primordial collective, Agent 0 = PID 0 (kernel).
+func TestFacadeE2E_AIAsOperator(t *testing.T) {
+	staff := agent.NewStaff(newPipeLauncher())
+	ctx := context.Background()
+
+	// AI operator (Agent 0) creates a GenSec (Agent 1).
+	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{
+		RestartPolicy: pool.RestartOnFailure,
+	})
+	if err != nil {
+		t.Fatalf("spawn gensec: %v", err)
+	}
+	gensec.Listen(func(content string) string {
+		return "gensec: acknowledged " + content
+	})
+
+	// GenSec spawns workers — recursive agent creation (AI spawning AI).
+	workers := make([]*agent.Solo, 0, 3)
+	for i := range 3 {
+		w, err := gensec.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.AgentConfig{})
+		if err != nil {
+			t.Fatalf("spawn worker-%d: %v", i, err)
+		}
+		idx := i
+		w.Listen(func(content string) string {
+			return fmt.Sprintf("worker-%d: done with %s", idx, content)
+		})
+		workers = append(workers, w)
+	}
+
+	// AI operator sends work through GenSec to workers.
+	resp, err := gensec.Ask(ctx, "classify PTP defects")
+	if err != nil {
+		t.Fatalf("ask gensec: %v", err)
+	}
+	if !strings.Contains(resp, "acknowledged") {
+		t.Fatalf("gensec resp = %q", resp)
+	}
+
+	// Workers do work (RespondTo pattern).
+	for _, w := range workers {
+		resp, err := w.Ask(ctx, "investigate")
+		if err != nil {
+			t.Fatalf("ask worker: %v", err)
+		}
+		if !strings.Contains(resp, "done with") {
+			t.Fatalf("worker resp = %q", resp)
+		}
+	}
+
+	// Verify hierarchy: all workers are children of GenSec.
+	children := gensec.Children()
+	if len(children) != 3 {
+		t.Fatalf("gensec children = %d, want 3", len(children))
+	}
+
+	// Kill an intermediate worker — orphan reparenting should work.
+	workers[1].Kill(ctx) //nolint:errcheck // test cleanup
+
+	// Spawn a child under worker-0 to test recursive hierarchy.
+	subWorker, err := workers[0].Spawn(ctx, "sub-worker", pool.AgentConfig{})
+	if err != nil {
+		t.Fatalf("spawn sub-worker: %v", err)
+	}
+	subWorker.Listen(func(content string) string {
+		return "sub: " + content
+	})
+
+	// Kill worker-0 — sub-worker should be reparented.
+	workers[0].Kill(ctx) //nolint:errcheck // test cleanup
+
+	// Sub-worker is alive, reparented to subreaper (0 by default).
+	if !subWorker.IsAlive() {
+		t.Fatal("sub-worker should survive parent death (orphan reparenting)")
+	}
+
+	// AI operator does graceful shutdown.
+	staff.KillAll(ctx)
+	if staff.Count() != 0 {
+		t.Fatalf("count after AI operator shutdown = %d", staff.Count())
+	}
+}
+
 // TestFacadeE2E_StressTest — 20 agents, concurrent Ask, no races.
 func TestFacadeE2E_StressTest(t *testing.T) {
 	staff := agent.NewStaff(newPipeLauncher())
