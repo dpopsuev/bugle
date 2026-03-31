@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -45,6 +46,7 @@ type AgentPool struct {
 	subreaper world.EntityID                   // orphan adopter (0 = pool-level)
 	autoReap  map[world.EntityID]bool          // parents with auto-reap enabled
 	waitCh    map[world.EntityID]chan struct{} // notify Wait() callers
+	registry  *symbol.Registry                 // optional color registry (nil = no color assignment)
 }
 
 // New creates an AgentPool.
@@ -74,6 +76,13 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 	world.Attach(p.world, id, world.Hierarchy{Parent: parentID})
 	if config.Budget > 0 {
 		world.Attach(p.world, id, world.Budget{Ceiling: config.Budget})
+	}
+
+	// 2b. Assign color identity if registry is set.
+	if p.registry != nil {
+		if color, err := p.registry.Assign(role, ""); err == nil {
+			world.Attach(p.world, id, color)
+		}
 	}
 
 	// 3. Start process via launcher.
@@ -109,6 +118,10 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 	}
 	if parentID > 0 {
 		meta["parent"] = agentTransportID(parentID)
+	}
+	if color, ok := world.TryGet[symbol.Color](p.world, id); ok {
+		meta[signal.MetaKeyShade] = color.Shade
+		meta[signal.MetaKeyColor] = color.Name
 	}
 	p.bus.Emit(&signal.Signal{
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -160,9 +173,9 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 	p.transport.Unregister(agentID)
 
 	// Update liveness — BEFORE notifying Wait() callers, because reap()
-	// calls Despawn() which would make this Attach panic on a dead entity.
-	world.Attach(p.world, id, world.Alive{State: world.AliveTerminated, ExitedAt: time.Now()})
-	world.Attach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "terminated"})
+	// calls Despawn() which could race. TryAttach is safe on dead entities.
+	world.TryAttach(p.world, id, world.Alive{State: world.AliveTerminated, ExitedAt: time.Now()})
+	world.TryAttach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonTerminated})
 
 	// Emit signal.
 	p.bus.Emit(&signal.Signal{
@@ -213,7 +226,7 @@ func (p *AgentPool) KillGraceful(ctx context.Context, id world.EntityID, gracePe
 	}
 
 	// Mark not-ready so scheduler stops routing work.
-	world.Attach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "terminating"})
+	world.Attach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonTerminating})
 
 	// Wait for grace period or context cancellation.
 	graceCtx, cancel := context.WithTimeout(ctx, gracePeriod)
@@ -316,6 +329,11 @@ func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
 	defer p.mu.RUnlock()
 	e, ok := p.agents[id]
 	return e, ok
+}
+
+// SetRegistry sets the color registry for automatic color assignment on Fork.
+func (p *AgentPool) SetRegistry(reg *symbol.Registry) {
+	p.registry = reg
 }
 
 func agentTransportID(id world.EntityID) string {

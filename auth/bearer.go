@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"os"
 
@@ -35,7 +36,7 @@ func (b *Bearer) Authenticate(_ context.Context, token string) (bugle.Identity, 
 	if expected == "" {
 		return bugle.Identity{}, ErrMissingToken
 	}
-	if token != expected {
+	if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
 		return bugle.Identity{}, ErrInvalidToken
 	}
 	return bugle.Identity{Subject: "bearer:" + b.envVar}, nil

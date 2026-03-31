@@ -138,6 +138,44 @@ func Attach[T Component](w *World, id EntityID, c T) {
 	}
 }
 
+// TryAttach adds a component if the entity exists. Returns false if dead.
+// Safe alternative to Attach for cleanup paths where the entity may already
+// be despawned.
+func TryAttach[T Component](w *World, id EntityID, c T) bool {
+	ct := c.ComponentType()
+
+	var (
+		old   Component
+		kind  DiffKind
+		hooks []DiffHook
+	)
+
+	w.mu.Lock()
+	bag, ok := w.components[id]
+	if !ok {
+		w.mu.Unlock()
+		return false
+	}
+	prev, existed := bag[ct]
+	bag[ct] = c
+	if len(w.diffHooks) > 0 {
+		hooks = make([]DiffHook, len(w.diffHooks))
+		copy(hooks, w.diffHooks)
+		if existed {
+			kind = DiffUpdated
+			old = prev
+		} else {
+			kind = DiffAttached
+		}
+	}
+	w.mu.Unlock()
+
+	for _, h := range hooks {
+		h(id, ct, kind, old, c)
+	}
+	return true
+}
+
 // Get retrieves a component. Panics if the entity or component is not present.
 func Get[T Component](w *World, id EntityID) T {
 	w.mu.RLock()

@@ -31,14 +31,25 @@ const (
 	AliveTerminated AliveState = "terminated" // process exited
 )
 
+// ReadyReason describes why an agent is not ready.
+type ReadyReason string
+
+const (
+	ReasonIdle        ReadyReason = "idle"
+	ReasonStale       ReadyReason = "stale"
+	ReasonErrored     ReadyReason = "errored"
+	ReasonTerminating ReadyReason = "terminating"
+	ReasonTerminated  ReadyReason = "terminated"
+)
+
 // Ready tracks whether the agent can accept work (readiness probe).
 // Independent of Alive — an agent can be alive but not ready
 // (starting up, overloaded, errored).
 type Ready struct {
-	Ready    bool      `json:"ready"`
-	LastSeen time.Time `json:"last_seen"`
-	Reason   string    `json:"reason,omitempty"` // why not ready (idle, stale, errored, ...)
-	Error    string    `json:"error,omitempty"`
+	Ready    bool        `json:"ready"`
+	LastSeen time.Time   `json:"last_seen"`
+	Reason   ReadyReason `json:"reason,omitempty"`
+	Error    string      `json:"error,omitempty"`
 }
 
 // ComponentType implements Component.

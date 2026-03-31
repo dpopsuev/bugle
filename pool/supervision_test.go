@@ -683,7 +683,7 @@ func TestKillGraceful_MarksNotReady(t *testing.T) {
 	go func() {
 		time.Sleep(10 * time.Millisecond) // after grace starts
 		r, ok := world.TryGet[world.Ready](pool.world, id)
-		if ok && !r.Ready && r.Reason == "terminating" {
+		if ok && !r.Ready && r.Reason == world.ReasonTerminating {
 			readyDuringGrace.Store(true)
 		}
 	}()

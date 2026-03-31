@@ -34,6 +34,8 @@ const (
 	MetaKeyQueueDepth     = "queue_depth"
 	MetaKeyHookName       = "hook_name"
 	MetaKeyHookPhase      = "hook_phase"
+	MetaKeyShade          = "shade"
+	MetaKeyColor          = "color"
 )
 
 // Agent name constants used as the agent field in Signal.

@@ -45,7 +45,7 @@ func CardFromEntity(w *world.World, id world.EntityID) AgentCard {
 		if ready.Ready {
 			card.Metadata["ready"] = "true"
 		} else {
-			card.Metadata["ready"] = ready.Reason
+			card.Metadata["ready"] = string(ready.Reason)
 		}
 	}
 

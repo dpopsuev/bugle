@@ -23,7 +23,7 @@ func TestSnapshot_MatchesComponentTypes(t *testing.T) {
 	world.Attach(w, a, symbol.Color{Name: "Denim", Collective: "Refactor"})
 
 	world.Attach(w, b, world.Alive{State: world.AliveRunning, Since: time.Now()})
-	world.Attach(w, b, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "idle"})
+	world.Attach(w, b, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonIdle})
 	world.Attach(w, b, symbol.Color{Name: "Scarlet", Collective: "Triage"})
 
 	// c has only Health — should NOT match a 2-type query.
@@ -81,11 +81,11 @@ func TestSnapshot_ReflectsLatestState(t *testing.T) {
 	}
 
 	// Update ready and re-snapshot.
-	world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "errored", Error: "timeout"})
+	world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonErrored, Error: "timeout"})
 
 	snaps = v.Snapshot(world.ReadyType)
 	r := snaps[0].Components[world.ReadyType].(world.Ready)
-	if r.Reason != "errored" {
+	if r.Reason != world.ReasonErrored {
 		t.Errorf("reason = %s, want errored", r.Reason)
 	}
 }
@@ -134,7 +134,7 @@ func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
 	ch := v.Subscribe()
 
 	// Second attach of same component triggers DiffUpdated.
-	world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "errored", Error: "timeout"})
+	world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonErrored, Error: "timeout"})
 
 	select {
 	case d := <-ch:
@@ -149,7 +149,7 @@ func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
 			t.Errorf("old ready = false, want true")
 		}
 		newR := d.New.(world.Ready)
-		if newR.Reason != "errored" {
+		if newR.Reason != world.ReasonErrored {
 			t.Errorf("new reason = %s, want errored", newR.Reason)
 		}
 	case <-time.After(time.Second):
@@ -336,12 +336,12 @@ func TestStats_CountsByAliveAndReady(t *testing.T) {
 	for range 2 {
 		id := w.Spawn()
 		world.Attach(w, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
-		world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "idle"})
+		world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonIdle})
 	}
 	{
 		id := w.Spawn()
 		world.Attach(w, id, world.Alive{State: world.AliveTerminated, ExitedAt: time.Now()})
-		world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: "terminated"})
+		world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonTerminated})
 	}
 
 	v := worldview.NewView(w)

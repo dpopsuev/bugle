@@ -5,14 +5,24 @@ import (
 	"time"
 )
 
+// WorkerStatus describes the operational state of a worker.
+type WorkerStatus string
+
+const (
+	WorkerStatusActive  WorkerStatus = "active"
+	WorkerStatusIdle    WorkerStatus = "idle"
+	WorkerStatusErrored WorkerStatus = "errored"
+	WorkerStatusStopped WorkerStatus = "stopped"
+)
+
 // WorkerState tracks the health state of a single worker.
 type WorkerState struct {
-	WorkerID      string    `json:"worker_id"`
-	Status        string    `json:"status"` // "active", "idle", "errored", "stopped"
-	ErrorCount    int       `json:"error_count"`
-	StepsComplete int       `json:"steps_complete"`
-	LastSeen      time.Time `json:"last_seen"`
-	LastError     string    `json:"last_error,omitempty"`
+	WorkerID      string       `json:"worker_id"`
+	Status        WorkerStatus `json:"status"`
+	ErrorCount    int          `json:"error_count"`
+	StepsComplete int          `json:"steps_complete"`
+	LastSeen      time.Time    `json:"last_seen"`
+	LastError     string       `json:"last_error,omitempty"`
 }
 
 // HealthSummary is a snapshot of all tracked workers and overall circuit health.
@@ -99,20 +109,20 @@ func (s *Supervisor) Process() {
 		case EventWorkerStarted:
 			s.workers[wid] = &WorkerState{
 				WorkerID: wid,
-				Status:   "active",
+				Status:   WorkerStatusActive,
 				LastSeen: s.parseTime(sig.Timestamp),
 			}
 
 		case EventWorkerStopped:
 			if w, ok := s.workers[wid]; ok {
-				w.Status = "stopped"
+				w.Status = WorkerStatusStopped
 				w.LastSeen = s.parseTime(sig.Timestamp)
 			}
 
 		case EventWorkerStart, EventWorkerDone:
 			if w, ok := s.workers[wid]; ok {
 				w.LastSeen = s.parseTime(sig.Timestamp)
-				w.Status = "active"
+				w.Status = WorkerStatusActive
 				if sig.Event == EventWorkerDone {
 					w.StepsComplete++
 				}
@@ -124,7 +134,7 @@ func (s *Supervisor) Process() {
 				w.LastError = sig.Meta[MetaKeyError]
 				w.LastSeen = s.parseTime(sig.Timestamp)
 				if w.ErrorCount >= s.errorThreshold {
-					w.Status = "errored"
+					w.Status = WorkerStatusErrored
 				}
 			}
 
@@ -159,15 +169,15 @@ func (s *Supervisor) Health() HealthSummary {
 		summary.Workers = append(summary.Workers, *w)
 
 		switch w.Status {
-		case "active":
+		case WorkerStatusActive:
 			summary.TotalActive++
 			if s.silenceThreshold > 0 && now.Sub(w.LastSeen) > s.silenceThreshold {
 				summary.ShouldReplace = append(summary.ShouldReplace, w.WorkerID)
 			}
-		case "errored":
+		case WorkerStatusErrored:
 			summary.TotalErrored++
 			summary.ShouldReplace = append(summary.ShouldReplace, w.WorkerID)
-		case "stopped":
+		case WorkerStatusStopped:
 			summary.TotalStopped++
 		}
 	}

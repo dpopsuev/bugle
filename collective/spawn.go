@@ -24,6 +24,7 @@ type CollectiveConfig struct {
 	Role       string             // collective's external role name
 	Strategy   CollectiveStrategy // how agents collaborate
 	Agents     []pool.AgentConfig // one config per internal agent
+	Shade      string             // shade family for all agents (empty = random)
 	Init       []pool.AgentConfig // init agents — run to completion before main agents start
 	InitPrompt string             // prompt to send to each init agent (empty = skip Ask)
 	Ingress    *pool.AgentConfig  // optional ingress gate agent (bouncer)

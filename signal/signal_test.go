@@ -633,7 +633,7 @@ func TestSupervisor_MultipleWorkersIndependent(t *testing.T) {
 		switch w.WorkerID {
 		case "w1":
 			w1found = true
-			if w.Status != "errored" {
+			if w.Status != signal.WorkerStatusErrored {
 				t.Errorf("w1 expected errored, got %s", w.Status)
 			}
 			if w.ErrorCount != 2 {
@@ -641,7 +641,7 @@ func TestSupervisor_MultipleWorkersIndependent(t *testing.T) {
 			}
 		case "w2":
 			w2found = true
-			if w.Status != "active" {
+			if w.Status != signal.WorkerStatusActive {
 				t.Errorf("w2 expected active, got %s", w.Status)
 			}
 			if w.StepsComplete != 1 {

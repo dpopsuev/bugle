@@ -53,6 +53,25 @@ func (c Color) Label() string { //nolint:gocritic // value receiver needed for E
 // Short returns just the color name: "Denim".
 func (c Color) Short() string { return c.Name } //nolint:gocritic // value receiver
 
+// ContrastMode indicates whether the terminal uses light or dark background.
+type ContrastMode string
+
+const (
+	ContrastAuto  ContrastMode = "auto" // detect from terminal
+	ContrastDark  ContrastMode = "dark"
+	ContrastLight ContrastMode = "light"
+)
+
+// ANSI returns a 24-bit true color ANSI escape sequence for foreground text.
+func (c Color) ANSI() string { //nolint:gocritic // value receiver for ECS
+	if len(c.Hex) != 7 {
+		return ""
+	}
+	var r, g, b uint8
+	fmt.Sscanf(c.Hex, "#%02x%02x%02x", &r, &g, &b) //nolint:errcheck // hex format guaranteed by palette
+	return fmt.Sprintf("\033[38;2;%d;%d;%dm", r, g, b)
+}
+
 // Reservation is a color preference, not an assignment.
 // Used by persona templates to express preferred shade/color without
 // locking in a specific assignment (the Registry handles collisions).
