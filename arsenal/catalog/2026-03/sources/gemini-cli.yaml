@@ -1,0 +1,6 @@
+source: gemini
+kind: cli
+binary: gemini
+provider: google
+access:
+  - gemini-2.5-pro

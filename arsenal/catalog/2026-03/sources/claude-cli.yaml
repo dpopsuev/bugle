@@ -1,0 +1,10 @@
+source: claude
+kind: cli
+binary: claude
+provider: anthropic
+modifiers:
+  context_cap: 1000000
+access:
+  - claude-opus-4-6
+  - claude-sonnet-4-6
+  - claude-haiku-4-5

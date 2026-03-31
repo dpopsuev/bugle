@@ -1,0 +1,17 @@
+source: cursor
+kind: cli
+binary: cursor
+provider: cursor
+modifiers:
+  context_cap: 120000
+  token_overhead: 5.5
+  pipeline: multi-model
+models:
+  - id: cursor-composer
+    provider: cursor
+access:
+  - claude-opus-4-6
+  - claude-sonnet-4-6
+  - claude-haiku-4-5
+  - gpt-4o
+  - gemini-2.5-pro

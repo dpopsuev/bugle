@@ -1,0 +1,19 @@
+provider: google
+models:
+  - id: gemini-2.5-pro
+    context: 1000000
+    benchmarks:
+      swe_bench: 43.8
+      human_eval: 89.7
+      live_code_bench: 58.1
+      gpqa_diamond: 58.2
+      mmlu_pro: 78.9
+      aime_2025: 62.4
+      ifeval: 85.0
+      chatbot_arena: 1300
+      terminal_bench: 42.1
+      mmmu_pro: 65.5
+      cost_efficiency: 80.0
+    cost:
+      input_per_m: 1.25
+      output_per_m: 5.00

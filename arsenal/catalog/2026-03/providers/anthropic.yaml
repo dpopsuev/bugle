@@ -1,0 +1,55 @@
+provider: anthropic
+models:
+  - id: claude-opus-4-6
+    context: 200000
+    benchmarks:
+      swe_bench: 52.0
+      human_eval: 92.1
+      live_code_bench: 65.2
+      gpqa_diamond: 72.1
+      mmlu_pro: 84.2
+      aime_2025: 78.3
+      ifeval: 89.5
+      chatbot_arena: 1380
+      terminal_bench: 48.7
+      mmmu_pro: 68.0
+      cost_efficiency: 40.0
+    cost:
+      input_per_m: 15.00
+      output_per_m: 75.00
+
+  - id: claude-sonnet-4-6
+    context: 200000
+    benchmarks:
+      swe_bench: 49.2
+      human_eval: 93.7
+      live_code_bench: 62.1
+      gpqa_diamond: 65.8
+      mmlu_pro: 80.1
+      aime_2025: 68.5
+      ifeval: 87.2
+      chatbot_arena: 1320
+      terminal_bench: 45.3
+      mmmu_pro: 62.0
+      cost_efficiency: 75.0
+    cost:
+      input_per_m: 3.00
+      output_per_m: 15.00
+
+  - id: claude-haiku-4-5
+    context: 200000
+    benchmarks:
+      swe_bench: 38.1
+      human_eval: 88.5
+      live_code_bench: 48.9
+      gpqa_diamond: 52.3
+      mmlu_pro: 72.4
+      aime_2025: 45.2
+      ifeval: 84.1
+      chatbot_arena: 1200
+      terminal_bench: 35.8
+      mmmu_pro: 50.0
+      cost_efficiency: 95.0
+    cost:
+      input_per_m: 0.80
+      output_per_m: 4.00

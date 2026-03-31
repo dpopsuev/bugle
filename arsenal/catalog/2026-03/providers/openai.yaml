@@ -1,0 +1,19 @@
+provider: openai
+models:
+  - id: gpt-4o
+    context: 128000
+    benchmarks:
+      swe_bench: 41.5
+      human_eval: 90.2
+      live_code_bench: 55.3
+      gpqa_diamond: 53.6
+      mmlu_pro: 76.8
+      aime_2025: 52.1
+      ifeval: 86.3
+      chatbot_arena: 1280
+      terminal_bench: 40.2
+      mmmu_pro: 63.8
+      cost_efficiency: 70.0
+    cost:
+      input_per_m: 2.50
+      output_per_m: 10.00

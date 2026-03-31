@@ -1,0 +1,8 @@
+source: anthropic-api
+kind: api
+env_key: ANTHROPIC_API_KEY
+provider: anthropic
+access:
+  - claude-opus-4-6
+  - claude-sonnet-4-6
+  - claude-haiku-4-5

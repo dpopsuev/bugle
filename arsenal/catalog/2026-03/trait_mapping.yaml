@@ -1,0 +1,29 @@
+speed:
+  cost_efficiency: 1.0
+
+reasoning:
+  gpqa_diamond: 0.50
+  mmlu_pro: 0.30
+  aime_2025: 0.20
+
+rigor:
+  gpqa_diamond: 0.60
+  mmlu_pro: 0.40
+
+coding:
+  swe_bench: 0.40
+  human_eval: 0.20
+  live_code_bench: 0.30
+  terminal_bench: 0.10
+
+discipline:
+  ifeval: 1.0
+
+tooluse:
+  terminal_bench: 1.0
+
+discourse:
+  chatbot_arena: 1.0
+
+visual:
+  mmmu_pro: 1.0

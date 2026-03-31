@@ -1,0 +1,19 @@
+provider: cursor
+models:
+  - id: cursor-composer
+    context: 200000
+    benchmarks:
+      swe_bench: 47.3
+      human_eval: 88.5
+      live_code_bench: 53.2
+      gpqa_diamond: 48.1
+      mmlu_pro: 70.5
+      aime_2025: 40.3
+      ifeval: 82.0
+      chatbot_arena: 1250
+      terminal_bench: 61.7
+      mmmu_pro: 45.0
+      cost_efficiency: 85.0
+    cost:
+      input_per_m: 0.00
+      output_per_m: 0.00
