@@ -189,9 +189,9 @@ func TestE2E_FullStack_WorldIdentityTransportSignalView(t *testing.T) {
 			t.Errorf("entity %d missing health in snapshot", snap.ID)
 			continue
 		}
-		health := h.(world.Alive)
-		if healta.State != world.AliveRunning {
-			t.Errorf("entity %d state = %s, want active", snap.ID, healta.State)
+		alive := h.(world.Alive)
+		if alive.State != world.AliveRunning {
+			t.Errorf("entity %d state = %s, want running", snap.ID, alive.State)
 		}
 	}
 
