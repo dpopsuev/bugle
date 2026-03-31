@@ -3,7 +3,7 @@ package testkit
 import (
 	"fmt"
 
-	"github.com/dpopsuev/jericho/palette"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -12,8 +12,8 @@ import (
 // Returns the World and slice of EntityIDs.
 func QuickWorld(n int, collective string) (*world.World, []world.EntityID) {
 	w := world.NewWorld()
-	reg := palette.NewRegistry()
-	strategy := palette.NewDefaultStrategy(w, reg)
+	reg := symbol.NewRegistry()
+	strategy := symbol.NewDefaultStrategy(w, reg)
 
 	agents := make([]world.EntityID, 0, n)
 	for i := range n {
@@ -30,7 +30,7 @@ func QuickWorld(n int, collective string) (*world.World, []world.EntityID) {
 func QuickTransport(w *world.World, agents []world.EntityID) *transport.LocalTransport {
 	tr := transport.NewLocalTransport()
 	for _, id := range agents {
-		color := world.Get[palette.ColorIdentity](w, id)
+		color := world.Get[symbol.Color](w, id)
 		tr.Register(color.Short(), EchoHandler())
 	}
 	return tr

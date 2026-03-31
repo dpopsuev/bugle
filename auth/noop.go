@@ -11,7 +11,7 @@ import (
 // Noop allows all requests. Use for development and testing.
 type Noop struct{}
 
-// Authenticate always succeeds with a generic identity.
+// Authenticate always succeeds with a generic symbol.
 func (Noop) Authenticate(_ context.Context, token string) (bugle.Identity, error) {
 	return bugle.Identity{Subject: "anonymous"}, nil
 }

@@ -8,7 +8,7 @@ type Identity struct {
 	Claims  map[string]string `json:"claims,omitempty"`
 }
 
-// Authenticator resolves a token to an identity.
+// Authenticator resolves a token to an symbol.
 // Infrastructure-specific: bearer token, ServiceAccount, mTLS, SPIFFE.
 type Authenticator interface {
 	Authenticate(ctx context.Context, token string) (Identity, error)

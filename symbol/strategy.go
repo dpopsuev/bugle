@@ -1,4 +1,4 @@
-package palette
+package symbol
 
 import (
 	"time"
@@ -7,7 +7,6 @@ import (
 )
 
 // DefaultStrategy assigns random colors from the palette.
-// Used when no consumer strategy is provided.
 type DefaultStrategy struct {
 	w   *world.World
 	reg *Registry
@@ -18,7 +17,7 @@ func NewDefaultStrategy(w *world.World, r *Registry) *DefaultStrategy {
 	return &DefaultStrategy{w: w, reg: r}
 }
 
-// Resolve creates a new entity with ColorIdentity + Health(Active).
+// Resolve creates a new entity with Color + Alive + Ready.
 func (s *DefaultStrategy) Resolve(role, collective string) (world.EntityID, error) {
 	color, err := s.reg.Assign(role, collective)
 	if err != nil {

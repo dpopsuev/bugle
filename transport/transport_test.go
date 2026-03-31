@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/jericho/palette"
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -249,8 +249,8 @@ func TestLocal_Close(t *testing.T) {
 func TestCardFromEntity_ColorIdentity(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
-	world.Attach(w, agent, palette.ColorIdentity{
-		Shade: "Indigo", Color: "Denim", Role: "Writer", Collective: "Refactor",
+	world.Attach(w, agent, symbol.Color{
+		Shade: "Indigo", Name: "Denim", Role: "Writer", Collective: "Refactor",
 	})
 
 	card := CardFromEntity(w, agent)
@@ -272,8 +272,8 @@ func TestCardFromEntity_ColorIdentity(t *testing.T) {
 func TestCardFromEntity_WithHealth(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
-	world.Attach(w, agent, palette.ColorIdentity{
-		Shade: "Azure", Color: "Cerulean", Role: "Reviewer", Collective: "QA",
+	world.Attach(w, agent, symbol.Color{
+		Shade: "Azure", Name: "Cerulean", Role: "Reviewer", Collective: "QA",
 	})
 	world.Attach(w, agent, world.Alive{State: world.AliveRunning, Since: time.Now()})
 	world.Attach(w, agent, world.Ready{Ready: true, LastSeen: time.Now()})

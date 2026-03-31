@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/dpopsuev/jericho/palette"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -263,14 +263,14 @@ func (v *View) Stats() Stats {
 		}
 	}
 
-	colorIDs := v.world.QueryType(palette.ColorIdentityType)
+	colorIDs := v.world.QueryType(symbol.ColorType)
 	collectives := make(map[string]bool)
 	for _, id := range colorIDs {
-		c, ok := v.world.GetType(id, palette.ColorIdentityType)
+		c, ok := v.world.GetType(id, symbol.ColorType)
 		if !ok {
 			continue
 		}
-		ci := c.(palette.ColorIdentity) //nolint:errcheck // type guaranteed by QueryType
+		ci := c.(symbol.Color) //nolint:errcheck // type guaranteed by QueryType
 		if ci.Collective != "" {
 			collectives[ci.Collective] = true
 		}

@@ -3,7 +3,7 @@ package transport
 import (
 	"fmt"
 
-	"github.com/dpopsuev/jericho/palette"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -33,7 +33,7 @@ func CardFromEntity(w *world.World, id world.EntityID) AgentCard {
 		Metadata:  make(map[string]string),
 	}
 
-	if color, ok := world.TryGet[palette.ColorIdentity](w, id); ok {
+	if color, ok := world.TryGet[symbol.Color](w, id); ok {
 		card.Name = color.Title()
 		card.Role = color.Role
 	}

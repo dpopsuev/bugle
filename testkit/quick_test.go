@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/dpopsuev/jericho/palette"
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -24,7 +24,7 @@ func TestQuickWorld_CreatesNAgents(t *testing.T) {
 		if !w.Alive(id) {
 			t.Errorf("agent %d (id=%d) should be alive", i, id)
 		}
-		AssertEntityHas[palette.ColorIdentity](t, w, id)
+		AssertEntityHas[symbol.Color](t, w, id)
 		AssertEntityHas[world.Alive](t, w, id)
 	}
 }
@@ -47,7 +47,7 @@ func TestQuickTransport_RegistersHandlers(t *testing.T) {
 
 	// Each agent's Short() (color name) should be registered as a handler.
 	for _, id := range agents {
-		color := world.Get[palette.ColorIdentity](w, id)
+		color := world.Get[symbol.Color](w, id)
 		task, err := tr.SendMessage(context.Background(), color.Short(), transport.Message{
 			From:         "test-sender",
 			To:           color.Short(),

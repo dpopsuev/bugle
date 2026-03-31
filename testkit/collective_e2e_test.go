@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/acp"
-	"github.com/dpopsuev/jericho/collective"
 	"github.com/dpopsuev/jericho/agent"
+	"github.com/dpopsuev/jericho/collective"
 	"github.com/dpopsuev/jericho/pool"
 )
 

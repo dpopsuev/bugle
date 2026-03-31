@@ -3,8 +3,7 @@ package persona
 import (
 	"testing"
 
-	"github.com/dpopsuev/jericho/element"
-	"github.com/dpopsuev/jericho/identity"
+	"github.com/dpopsuev/jericho/symbol"
 )
 
 func TestAll_Count(t *testing.T) {
@@ -20,8 +19,8 @@ func TestThesis_Count(t *testing.T) {
 		t.Errorf("len(Thesis) = %d, want 4", len(thesis))
 	}
 	for _, p := range thesis {
-		if p.Identity.Alignment != identity.AlignmentThesis {
-			t.Errorf("persona %q has alignment %q, want thesis", p.Identity.PersonaName, p.Identity.Alignment)
+		if p.Alignment != symbol.AlignmentThesis {
+			t.Errorf("persona %q has alignment %q, want thesis", p.Name, p.Alignment)
 		}
 	}
 }
@@ -32,8 +31,8 @@ func TestAntithesis_Count(t *testing.T) {
 		t.Errorf("len(Antithesis) = %d, want 4", len(antithesis))
 	}
 	for _, p := range antithesis {
-		if p.Identity.Alignment != identity.AlignmentAntithesis {
-			t.Errorf("persona %q has alignment %q, want antithesis", p.Identity.PersonaName, p.Identity.Alignment)
+		if p.Alignment != symbol.AlignmentAntithesis {
+			t.Errorf("persona %q has alignment %q, want antithesis", p.Name, p.Alignment)
 		}
 	}
 }
@@ -43,17 +42,17 @@ func TestByName_Herald(t *testing.T) {
 	if !ok {
 		t.Fatal("ByName(Herald) not found")
 	}
-	if p.Identity.Color.Name != "Crimson" {
-		t.Errorf("Herald color = %q, want Crimson", p.Identity.Color.Name)
+	if p.ColorPref.Color != "Scarlet" {
+		t.Errorf("Herald color pref = %q, want Scarlet", p.ColorPref.Color)
 	}
-	if p.Identity.Element != element.ElementFire {
-		t.Errorf("Herald element = %q, want fire", p.Identity.Element)
+	if p.Element != symbol.ElementFire {
+		t.Errorf("Herald element = %q, want fire", p.Element)
 	}
-	if p.Identity.Position != identity.PositionPG {
-		t.Errorf("Herald position = %q, want PG", p.Identity.Position)
+	if p.Position != symbol.PositionPG {
+		t.Errorf("Herald position = %q, want PG", p.Position)
 	}
-	if p.Identity.Alignment != identity.AlignmentThesis {
-		t.Errorf("Herald alignment = %q, want thesis", p.Identity.Alignment)
+	if p.Alignment != symbol.AlignmentThesis {
+		t.Errorf("Herald alignment = %q, want thesis", p.Alignment)
 	}
 }
 
@@ -79,30 +78,17 @@ func TestPersonas_UniqueNames(t *testing.T) {
 	all := All()
 	seen := make(map[string]bool, len(all))
 	for _, p := range all {
-		name := p.Identity.PersonaName
-		if seen[name] {
-			t.Errorf("duplicate persona name: %s", name)
+		if seen[p.Name] {
+			t.Errorf("duplicate persona name: %s", p.Name)
 		}
-		seen[name] = true
-	}
-}
-
-func TestPersonas_UniqueColors(t *testing.T) {
-	all := All()
-	seen := make(map[string]bool, len(all))
-	for _, p := range all {
-		hex := p.Identity.Color.Hex
-		if seen[hex] {
-			t.Errorf("duplicate color hex: %s (persona %s)", hex, p.Identity.PersonaName)
-		}
-		seen[hex] = true
+		seen[p.Name] = true
 	}
 }
 
 func TestPersonas_AllPositionsCovered(t *testing.T) {
-	positions := map[identity.Position]int{identity.PositionPG: 0, identity.PositionSG: 0, identity.PositionPF: 0, identity.PositionC: 0}
+	positions := map[symbol.Position]int{symbol.PositionPG: 0, symbol.PositionSG: 0, symbol.PositionPF: 0, symbol.PositionC: 0}
 	for _, p := range All() {
-		positions[p.Identity.Position]++
+		positions[p.Position]++
 	}
 	for pos, count := range positions {
 		if count != 2 {
@@ -113,41 +99,37 @@ func TestPersonas_AllPositionsCovered(t *testing.T) {
 
 func TestPersonas_AllHaveStepAffinity(t *testing.T) {
 	for _, p := range All() {
-		if len(p.Identity.StepAffinity) == 0 {
-			t.Errorf("persona %s has no step affinity", p.Identity.PersonaName)
+		if len(p.StepAffinity) == 0 {
+			t.Errorf("persona %s has no step affinity", p.Name)
 		}
 	}
 }
 
 func TestPersonas_AllHavePromptPreamble(t *testing.T) {
 	for _, p := range All() {
-		if p.Identity.PromptPreamble == "" {
-			t.Errorf("persona %s has empty prompt preamble", p.Identity.PersonaName)
+		if p.PromptPreamble == "" {
+			t.Errorf("persona %s has empty prompt preamble", p.Name)
 		}
 	}
 }
 
 func TestPersonas_HomeZoneMatchesPosition(t *testing.T) {
 	for _, p := range All() {
-		expected := identity.HomeZoneFor(p.Identity.Position)
-		if p.Identity.HomeZone != expected {
+		expected := symbol.HomeZoneFor(p.Position)
+		if p.HomeZone != expected {
 			t.Errorf("persona %s: HomeZone=%q but HomeZoneFor(%s)=%q",
-				p.Identity.PersonaName, p.Identity.HomeZone, p.Identity.Position, expected)
+				p.Name, p.HomeZone, p.Position, expected)
 		}
 	}
 }
 
-func TestColorPalette_HexFormat(t *testing.T) {
-	colors := []identity.Color{
-		ColorCrimson, ColorCerulean, ColorCobalt, ColorAmber,
-		ColorScarlet, ColorSapphire, ColorObsidian, ColorSteel,
-	}
-	for _, c := range colors {
-		if len(c.Hex) != 7 || c.Hex[0] != '#' {
-			t.Errorf("color %s has invalid hex: %q", c.Name, c.Hex)
+func TestPersonas_AllHaveColorPref(t *testing.T) {
+	for _, p := range All() {
+		if p.ColorPref.Shade == "" {
+			t.Errorf("persona %s has empty color preference shade", p.Name)
 		}
-		if c.Family == "" {
-			t.Errorf("color %s has empty family", c.Name)
+		if p.ColorPref.Color == "" {
+			t.Errorf("persona %s has empty color preference color", p.Name)
 		}
 	}
 }

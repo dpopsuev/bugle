@@ -1,12 +1,4 @@
-// Package element defines behavioral archetypes for agent circuit traversal.
-//
-// Elements are the internal identity behind approaches: they drive color
-// coding, personas, and scheduling. Circuit authors write approach names
-// in YAML (e.g. "analytical"); the framework resolves them to Elements.
-//
-// This package is a standalone leaf with zero dependencies on the parent
-// framework package.
-package element
+package symbol
 
 import "fmt"
 
