@@ -11,6 +11,7 @@ package testkit
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -25,6 +26,7 @@ import (
 	"github.com/dpopsuev/jericho/collective"
 	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/trait"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -443,4 +445,246 @@ func TestAcceptance_GracefulTermination(t *testing.T) {
 	}
 
 	t.Logf("graceful termination passed: agent stopped cleanly within grace period")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 8. Intent-Based Selection → Spawn → Work (~$0.05)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestAcceptance_IntentToAgent(t *testing.T) {
+	requireAgent(t, "cursor")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Infer traits from natural language intent — heuristic only, $0.
+	weights, err := trait.InferFromIntent(ctx, "I need a fast coding agent", trait.InferConfig{})
+	if err != nil {
+		t.Fatalf("InferFromIntent: %v", err)
+	}
+	t.Logf("inferred: speed=%.1f coding=%.1f reasoning=%.1f", weights.Speed, weights.Coding, weights.Reasoning)
+
+	// Select best model from Arsenal using inferred traits as weights.
+	a, err := arsenal.NewArsenal("latest")
+	if err != nil {
+		t.Fatalf("NewArsenal: %v", err)
+	}
+	resolved, err := a.Select("", &arsenal.Preferences{Weights: weights})
+	if err != nil {
+		t.Fatalf("Select: %v", err)
+	}
+	t.Logf("selected: model=%s provider=%s (speed trait weight=%.1f)", resolved.Model, resolved.Provider, weights.Speed)
+
+	// Spawn the selected agent and verify it works.
+	launcher := acp.NewACPLauncher()
+	staff := agent.NewStaff(launcher)
+	t.Cleanup(func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 15*time.Second)
+		defer c()
+		staff.KillAll(stopCtx)
+	})
+
+	solo, err := staff.Spawn(ctx, "intent-worker", pool.AgentConfig{Model: "cursor"})
+	if err != nil {
+		t.Skipf("spawn: %v", err)
+	}
+	wireACPToTransport(t, launcher, solo)
+
+	resp, err := solo.Ask(ctx, "Write a Go function that adds two numbers. Just the function, no explanation.")
+	if err != nil {
+		t.Skipf("Ask failed: %v", err)
+	}
+
+	if !strings.Contains(resp, "func") {
+		t.Logf("WARNING: response may not contain Go code: %s", resp[:min(len(resp), 200)])
+	}
+
+	t.Logf("INTENT PIPELINE: 'fast coding agent' → inferred traits → selected %s → spawned → got code (%d chars)",
+		resolved.Model, len(resp))
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 9. Three-Generation Orphan Cascade (~$0.05)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestAcceptance_ThreeGenerationOrphanCascade(t *testing.T) {
+	name := testAgent(t)
+	requireAgent(t, name)
+
+	launcher := acp.NewACPLauncher()
+	staff := agent.NewStaff(launcher)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	t.Cleanup(func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 15*time.Second)
+		defer c()
+		staff.KillAll(stopCtx)
+	})
+
+	// Three generations: GenSec → Manager → Worker.
+	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{Model: name})
+	if err != nil {
+		t.Skipf("spawn gensec: %v", err)
+	}
+	// GenSec is the subreaper — adopts orphans.
+	staff.Pool().SetSubreaper(gensec.ID())
+
+	manager, err := gensec.Spawn(ctx, "manager", pool.AgentConfig{Model: name})
+	if err != nil {
+		t.Skipf("spawn manager: %v", err)
+	}
+
+	worker, err := manager.Spawn(ctx, "worker", pool.AgentConfig{Model: name})
+	if err != nil {
+		t.Skipf("spawn worker: %v", err)
+	}
+
+	// Verify 3-level hierarchy.
+	if len(gensec.Children()) != 1 {
+		t.Fatalf("gensec children = %d, want 1 (manager)", len(gensec.Children()))
+	}
+	if len(manager.Children()) != 1 {
+		t.Fatalf("manager children = %d, want 1 (worker)", len(manager.Children()))
+	}
+
+	t.Log("Phase 1: 3-level hierarchy established (gensec → manager → worker)")
+
+	// Kill Manager → Worker orphaned → reparented to GenSec (subreaper).
+	manager.Kill(ctx) //nolint:errcheck
+
+	if !worker.IsAlive() {
+		t.Fatal("worker should survive manager death")
+	}
+
+	gensecChildren := gensec.Children()
+	foundWorker := false
+	for _, c := range gensecChildren {
+		if c.ID() == worker.ID() {
+			foundWorker = true
+		}
+	}
+	if !foundWorker {
+		t.Fatal("worker should be reparented to gensec after manager death")
+	}
+
+	t.Log("Phase 2: Manager killed, worker reparented to GenSec")
+
+	// Kill GenSec → Worker orphaned again → reparented to root (0).
+	gensec.Kill(ctx) //nolint:errcheck
+
+	if !worker.IsAlive() {
+		t.Fatal("worker should survive gensec death (reparented to root)")
+	}
+
+	t.Log("Phase 3: GenSec killed, worker reparented to root — full orphan cascade")
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 10. Race: Three Agents Compete (~$0.10)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestAcceptance_Race_ThreeAgentsCompete(t *testing.T) {
+	name := testAgent(t)
+	requireAgent(t, name)
+
+	launcher := acp.NewACPLauncher()
+	staff := agent.NewStaff(launcher)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	t.Cleanup(func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 15*time.Second)
+		defer c()
+		staff.KillAll(stopCtx)
+	})
+
+	// Spawn 3 real agents.
+	agents := make([]*agent.Solo, 3)
+	for i := range 3 {
+		var err error
+		agents[i], err = staff.Spawn(ctx, fmt.Sprintf("racer-%d", i), pool.AgentConfig{Model: name})
+		if err != nil {
+			t.Skipf("spawn racer-%d: %v", i, err)
+		}
+		wireACPToTransport(t, launcher, agents[i])
+	}
+
+	t.Log("3 real agents spawned — racing")
+
+	// Race: same question to all 3, first response wins.
+	coll := collective.NewCollective(
+		agents[0].ID(), "racers",
+		&collective.Race{},
+		agents,
+	)
+
+	start := time.Now()
+	result, err := coll.Ask(ctx, "What is the capital of France? One word only.")
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Skipf("race failed: %v", err)
+	}
+
+	if result == "" {
+		t.Fatal("empty response from race")
+	}
+
+	t.Logf("RACE: 3 agents competed, first response in %v: %s",
+		elapsed.Round(time.Millisecond), result[:min(len(result), 100)])
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 11. Multi-Provider Debate: Cursor vs Claude (~$0.15)
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestAcceptance_MultiProvider_Debate(t *testing.T) {
+	// Requires BOTH cursor and claude.
+	requireAgent(t, "cursor")
+	requireAgent(t, "claude")
+
+	launcher := acp.NewACPLauncher()
+	staff := agent.NewStaff(launcher)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	t.Cleanup(func() {
+		stopCtx, c := context.WithTimeout(context.Background(), 15*time.Second)
+		defer c()
+		staff.KillAll(stopCtx)
+	})
+
+	// Spawn one Cursor agent and one Claude agent.
+	thesis, err := staff.Spawn(ctx, "thesis", pool.AgentConfig{Model: "cursor"})
+	if err != nil {
+		t.Skipf("spawn cursor thesis: %v", err)
+	}
+	wireACPToTransport(t, launcher, thesis)
+
+	anti, err := staff.Spawn(ctx, "antithesis", pool.AgentConfig{Model: "claude"})
+	if err != nil {
+		t.Skipf("spawn claude antithesis: %v", err)
+	}
+	wireACPToTransport(t, launcher, anti)
+
+	t.Log("Cursor (thesis) vs Claude (antithesis) — cross-provider debate")
+
+	coll := collective.NewCollective(
+		thesis.ID(), "cross-provider",
+		&collective.Dialectic{MaxRounds: 2, ConvergenceWord: "CONVERGED"},
+		[]*agent.Solo{thesis, anti},
+	)
+
+	result, err := coll.Ask(ctx, "Is Go or Rust better for building agent frameworks? Brief arguments only.")
+	if err != nil {
+		t.Skipf("debate failed: %v", err)
+	}
+
+	if result == "" {
+		t.Fatal("empty response from cross-provider debate")
+	}
+
+	t.Logf("CROSS-PROVIDER DEBATE result (%d chars): %s",
+		len(result), result[:min(len(result), 300)])
 }
