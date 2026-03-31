@@ -187,6 +187,7 @@ func (c *Client) doStart(ctx context.Context) error {
 
 	c.cmd = c.cmdFactory(ctx, c.agentCmd, args...)
 	c.cmd.Stderr = os.Stderr
+	c.cmd.WaitDelay = 5 * time.Second // drain grandchild I/O after process exits
 	c.cmd.Env = safeEnv(c.extraEnv)
 
 	stdinPipe, err := c.cmd.StdinPipe()
