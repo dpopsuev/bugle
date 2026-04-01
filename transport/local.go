@@ -25,7 +25,7 @@ var (
 // coordination (Papercup pattern).
 type LocalTransport struct {
 	mu          sync.RWMutex
-	handlers    map[string]MsgHandler
+	handlers    map[AgentID]MsgHandler
 	tasks       map[string]*taskEntry
 	nextID      uint64
 	closed      bool
@@ -42,7 +42,7 @@ type taskEntry struct {
 // NewLocalTransport creates a new in-process transport.
 func NewLocalTransport() *LocalTransport {
 	return &LocalTransport{
-		handlers:    make(map[string]MsgHandler),
+		handlers:    make(map[AgentID]MsgHandler),
 		tasks:       make(map[string]*taskEntry),
 		roles:       NewRoleRegistry(),
 		roleCounter: make(map[string]int),
@@ -57,7 +57,7 @@ func (t *LocalTransport) Roles() *RoleRegistry {
 // Register associates a MsgHandler with the given agent ID.
 // Returns ErrAlreadyRegistered if the agent ID is already registered.
 // Use Unregister first to replace an existing handler.
-func (t *LocalTransport) Register(agentID string, handler MsgHandler) error {
+func (t *LocalTransport) Register(agentID AgentID, handler MsgHandler) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if _, exists := t.handlers[agentID]; exists {
@@ -68,7 +68,7 @@ func (t *LocalTransport) Register(agentID string, handler MsgHandler) error {
 }
 
 // Unregister removes the handler for the given agent ID.
-func (t *LocalTransport) Unregister(agentID string) {
+func (t *LocalTransport) Unregister(agentID AgentID) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	delete(t.handlers, agentID)
@@ -77,7 +77,7 @@ func (t *LocalTransport) Unregister(agentID string) {
 // SendMessage dispatches a message to the agent identified by `to`.
 // The handler runs in a goroutine; the returned Task starts in TaskSubmitted
 // state and transitions to TaskWorking, then TaskCompleted or TaskFailed.
-func (t *LocalTransport) SendMessage(ctx context.Context, to string, msg Message) (*Task, error) { //nolint:gocritic // interface conformance requires value param
+func (t *LocalTransport) SendMessage(ctx context.Context, to AgentID, msg Message) (*Task, error) { //nolint:gocritic // interface conformance requires value param
 	t.mu.RLock()
 	handler, ok := t.handlers[to]
 	closed := t.closed
@@ -169,7 +169,7 @@ func (t *LocalTransport) Subscribe(_ context.Context, taskID string) (<-chan Eve
 func (t *LocalTransport) Close() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.handlers = make(map[string]MsgHandler)
+	t.handlers = make(map[AgentID]MsgHandler)
 	t.closed = true
 	return nil
 }
@@ -177,7 +177,7 @@ func (t *LocalTransport) Close() error {
 // Ask sends a message to the named agent and blocks until the handler
 // responds or the context is canceled. Returns the response message
 // on success, or an error if the handler failed or the context expired.
-func (t *LocalTransport) Ask(ctx context.Context, to string, msg Message) (Message, error) {
+func (t *LocalTransport) Ask(ctx context.Context, to AgentID, msg Message) (Message, error) {
 	task, err := t.SendMessage(ctx, to, msg)
 	if err != nil {
 		return Message{}, err
@@ -222,7 +222,7 @@ func (t *LocalTransport) SendToRole(ctx context.Context, role string, msg Messag
 	t.roleCounter[role] = idx + 1
 	t.mu.Unlock()
 
-	target := agents[idx%len(agents)]
+	target := AgentID(agents[idx%len(agents)])
 	return t.SendMessage(ctx, target, msg)
 }
 
@@ -239,7 +239,7 @@ func (t *LocalTransport) AskRole(ctx context.Context, role string, msg Message) 
 	t.roleCounter[role] = idx + 1
 	t.mu.Unlock()
 
-	target := agents[idx%len(agents)]
+	target := AgentID(agents[idx%len(agents)])
 	return t.Ask(ctx, target, msg)
 }
 
@@ -252,10 +252,10 @@ func (t *LocalTransport) Broadcast(ctx context.Context, role string, msg Message
 	}
 
 	tasks := make([]*Task, 0, len(agents))
-	for _, agentID := range agents {
-		task, err := t.SendMessage(ctx, agentID, msg)
+	for _, aid := range agents {
+		task, err := t.SendMessage(ctx, AgentID(aid), msg)
 		if err != nil {
-			return tasks, fmt.Errorf("transport: broadcast to %s: %w", agentID, err)
+			return tasks, fmt.Errorf("transport: broadcast to %s: %w", aid, err)
 		}
 		tasks = append(tasks, task)
 	}

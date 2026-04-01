@@ -21,7 +21,7 @@ func TestLocal_SendMessage_RegisteredHandler(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("agent-a", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register(AgentID("agent-a"), func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:    "agent-a",
 			To:      msg.From,
@@ -83,7 +83,7 @@ func TestLocal_Subscribe_ReceivesEvents(t *testing.T) {
 
 	// Use a channel to control when the handler proceeds.
 	gate := make(chan struct{})
-	_ = tr.Register("agent-a", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register(AgentID("agent-a"), func(_ context.Context, _ Message) (Message, error) {
 		<-gate
 		return Message{Content: "done"}, nil
 	})
@@ -129,7 +129,7 @@ func TestLocal_HandlerError_TaskFailed(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("agent-a", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register(AgentID("agent-a"), func(_ context.Context, _ Message) (Message, error) {
 		return Message{}, fmt.Errorf("boom")
 	})
 
@@ -162,8 +162,8 @@ func TestLocal_Concurrent_10Agents(t *testing.T) {
 	const messagesPerAgent = 10
 
 	for i := range agents {
-		agentID := fmt.Sprintf("agent-%d", i)
-		_ = tr.Register(agentID, func(_ context.Context, msg Message) (Message, error) {
+		aid := AgentID(fmt.Sprintf("agent-%d", i))
+		_ = tr.Register(aid, func(_ context.Context, msg Message) (Message, error) {
 			return Message{Content: "ack:" + msg.Content}, nil
 		})
 	}
@@ -176,13 +176,13 @@ func TestLocal_Concurrent_10Agents(t *testing.T) {
 			wg.Add(1)
 			go func(agentIdx, msgIdx int) {
 				defer wg.Done()
-				agentID := fmt.Sprintf("agent-%d", agentIdx)
-				task, err := tr.SendMessage(context.Background(), agentID, Message{
+				aid := AgentID(fmt.Sprintf("agent-%d", agentIdx))
+				task, err := tr.SendMessage(context.Background(), aid, Message{
 					From:    "sender",
 					Content: fmt.Sprintf("msg-%d-%d", agentIdx, msgIdx),
 				})
 				if err != nil {
-					t.Errorf("SendMessage to %s: %v", agentID, err)
+					t.Errorf("SendMessage to %s: %v", aid, err)
 					return
 				}
 
@@ -214,7 +214,7 @@ func TestLocal_Unregister(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("agent-a", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register(AgentID("agent-a"), func(_ context.Context, _ Message) (Message, error) {
 		return Message{}, nil
 	})
 	tr.Unregister("agent-a")
@@ -228,7 +228,7 @@ func TestLocal_Unregister(t *testing.T) {
 func TestLocal_Close(t *testing.T) {
 	tr := NewLocalTransport()
 
-	_ = tr.Register("agent-a", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register(AgentID("agent-a"), func(_ context.Context, _ Message) (Message, error) {
 		return Message{}, nil
 	})
 
@@ -326,7 +326,7 @@ func TestAcceptance_LocalRoundTrip(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("responder", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register(AgentID("responder"), func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:         "responder",
 			To:           msg.From,
@@ -377,7 +377,7 @@ func TestAcceptance_PerformativeInMessage(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("worker", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register(AgentID("worker"), func(_ context.Context, msg Message) (Message, error) {
 		// Echo the received performative back.
 		return Message{
 			From:         "worker",

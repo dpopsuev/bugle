@@ -12,7 +12,7 @@ func TestAsk_RespondsCorrectly(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("echo", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register(AgentID("echo"), func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:    "echo",
 			To:      msg.From,
@@ -40,7 +40,7 @@ func TestAsk_Timeout(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("slow", func(_ context.Context, _ Message) (Message, error) {
+	_ = tr.Register(AgentID("slow"), func(_ context.Context, _ Message) (Message, error) {
 		time.Sleep(200 * time.Millisecond)
 		return Message{Content: "late"}, nil
 	})
@@ -48,7 +48,7 @@ func TestAsk_Timeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 
-	_, err := tr.Ask(ctx, "slow", Message{From: "caller"})
+	_, err := tr.Ask(ctx, AgentID("slow"), Message{From: "caller"})
 	if err == nil {
 		t.Fatal("expected error from timeout")
 	}
@@ -75,11 +75,11 @@ func TestSendToRole_RoundRobin(t *testing.T) {
 	var mu sync.Mutex
 
 	for i := range 3 {
-		agentID := fmt.Sprintf("exec-%d", i)
-		_ = tr.Register(agentID, func(_ context.Context, _ Message) (Message, error) {
+		aid := AgentID(fmt.Sprintf("exec-%d", i))
+		_ = tr.Register(aid, func(_ context.Context, _ Message) (Message, error) {
 			return Message{Content: "done"}, nil
 		})
-		tr.Roles().Register(agentID, "executor")
+		tr.Roles().Register(string(aid), "executor")
 	}
 
 	// Send 6 messages — expect 2 per agent (round-robin).
@@ -126,15 +126,15 @@ func TestSendToRole_RoundRobin_Distribution(t *testing.T) {
 	var mu sync.Mutex
 
 	for i := range 3 {
-		agentID := fmt.Sprintf("w-%d", i)
-		id := agentID // capture
+		aid := AgentID(fmt.Sprintf("w-%d", i))
+		id := aid // capture
 		_ = tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
 			mu.Lock()
-			hits[id]++
+			hits[string(id)]++
 			mu.Unlock()
 			return Message{Content: "ok"}, nil
 		})
-		tr.Roles().Register(id, "executor")
+		tr.Roles().Register(string(id), "executor")
 	}
 
 	// Send 6 messages — expect each agent gets exactly 2.
@@ -154,9 +154,9 @@ func TestSendToRole_RoundRobin_Distribution(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	for i := range 3 {
-		agentID := fmt.Sprintf("w-%d", i)
-		if hits[agentID] != 2 {
-			t.Errorf("hits[%s] = %d, want 2", agentID, hits[agentID])
+		key := fmt.Sprintf("w-%d", i)
+		if hits[key] != 2 {
+			t.Errorf("hits[%s] = %d, want 2", key, hits[key])
 		}
 	}
 }
@@ -165,7 +165,7 @@ func TestAskRole_BlocksForResponse(t *testing.T) {
 	tr := NewLocalTransport()
 	defer tr.Close()
 
-	_ = tr.Register("worker-0", func(_ context.Context, msg Message) (Message, error) {
+	_ = tr.Register(AgentID("worker-0"), func(_ context.Context, msg Message) (Message, error) {
 		return Message{
 			From:    "worker-0",
 			Content: "reply: " + msg.Content,
@@ -192,13 +192,13 @@ func TestBroadcast_AllReceive(t *testing.T) {
 	var received sync.Map
 
 	for i := range 3 {
-		agentID := fmt.Sprintf("agent-%d", i)
-		id := agentID // capture
+		aid := AgentID(fmt.Sprintf("agent-%d", i))
+		id := aid // capture
 		_ = tr.Register(id, func(_ context.Context, _ Message) (Message, error) {
 			received.Store(id, true)
 			return Message{From: id, Content: "ack"}, nil
 		})
-		tr.Roles().Register(id, "executor")
+		tr.Roles().Register(string(id), "executor")
 	}
 
 	tasks, err := tr.Broadcast(context.Background(), "executor", Message{

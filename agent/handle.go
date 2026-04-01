@@ -237,7 +237,7 @@ func (a *Solo) Children() []*Solo {
 	childIDs := a.pool.Children(a.id)
 	handles := make([]*Solo, 0, len(childIDs))
 	for _, cid := range childIDs {
-		role := a.transport.Roles().RoleOf(agentTransportID(cid))
+		role := a.transport.Roles().RoleOf(string(agentTransportID(cid)))
 		handles = append(handles, &Solo{
 			id:        cid,
 			role:      role,
@@ -255,7 +255,7 @@ func (a *Solo) Parent() *Solo {
 	if parentID == 0 {
 		return nil
 	}
-	role := a.transport.Roles().RoleOf(agentTransportID(parentID))
+	role := a.transport.Roles().RoleOf(string(agentTransportID(parentID)))
 	return &Solo{
 		id:        parentID,
 		role:      role,
@@ -270,11 +270,11 @@ func (a *Solo) Parent() *Solo {
 // ---------------------------------------------------------------------------
 
 // agentID returns the transport-level identifier for this agent.
-func (a *Solo) agentID() string {
+func (a *Solo) agentID() transport.AgentID {
 	return agentTransportID(a.id)
 }
 
 // agentTransportID converts an EntityID to the transport agent ID string.
-func agentTransportID(id world.EntityID) string {
-	return fmt.Sprintf("agent-%d", id)
+func agentTransportID(id world.EntityID) transport.AgentID {
+	return transport.AgentID(fmt.Sprintf("agent-%d", id))
 }

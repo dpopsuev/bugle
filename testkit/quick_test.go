@@ -48,14 +48,14 @@ func TestQuickTransport_RegistersHandlers(t *testing.T) {
 	// Each agent's Short() (color name) should be registered as a handler.
 	for _, id := range agents {
 		color := world.Get[symbol.Color](w, id)
-		task, err := tr.SendMessage(context.Background(), color.Short(), transport.Message{
+		task, err := tr.SendMessage(context.Background(), transport.AgentID(color.Short()), transport.Message{
 			From:         "test-sender",
-			To:           color.Short(),
+			To:           transport.AgentID(color.Short()),
 			Performative: signal.Request,
 			Content:      "ping",
 		})
 		if err != nil {
-			t.Fatalf("SendMessage to %s: %v", color.Short(), err)
+			t.Fatalf("SendMessage to %s: %v", transport.AgentID(color.Short()), err)
 		}
 
 		ch, err := tr.Subscribe(context.Background(), task.ID)
@@ -70,7 +70,7 @@ func TestQuickTransport_RegistersHandlers(t *testing.T) {
 			}
 		}
 		if !completed {
-			t.Errorf("handler for %s did not complete", color.Short())
+			t.Errorf("handler for %s did not complete", transport.AgentID(color.Short()))
 		}
 	}
 }

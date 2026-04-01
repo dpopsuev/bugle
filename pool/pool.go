@@ -107,7 +107,7 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 		p.world.Despawn(id)
 		return 0, fmt.Errorf("fork %s transport register: %w", role, err)
 	}
-	p.transport.Roles().Register(agentID, role)
+	p.transport.Roles().Register(string(agentID), role)
 
 	// 5. Track with parent.
 	p.mu.Lock()
@@ -124,11 +124,11 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 
 	// 6. Emit signal with parent info.
 	meta := map[string]string{
-		signal.MetaKeyWorkerID: agentID,
+		signal.MetaKeyWorkerID: string(agentID),
 		"role":                 role,
 	}
 	if parentID > 0 {
-		meta["parent"] = agentTransportID(parentID)
+		meta["parent"] = string(agentTransportID(parentID))
 	}
 	if color, ok := world.TryGet[symbol.Color](p.world, id); ok {
 		meta[signal.MetaKeyShade] = color.Shade
@@ -180,7 +180,7 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 
 	// Unregister transport.
 	agentID := agentTransportID(id)
-	p.transport.Roles().Unregister(agentID)
+	p.transport.Roles().Unregister(string(agentID))
 	p.transport.Unregister(agentID)
 
 	// Update liveness — BEFORE notifying Wait() callers, because reap()
@@ -194,7 +194,7 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 		Event:     signal.EventWorkerStopped,
 		Agent:     signal.AgentWorker,
 		Meta: map[string]string{
-			signal.MetaKeyWorkerID: agentID,
+			signal.MetaKeyWorkerID: string(agentID),
 			"role":                 entry.Role,
 		},
 	})
@@ -353,6 +353,6 @@ func (p *AgentPool) SetMaxAgents(n int) {
 	p.maxAgents = n
 }
 
-func agentTransportID(id world.EntityID) string {
-	return fmt.Sprintf("agent-%d", id)
+func agentTransportID(id world.EntityID) transport.AgentID {
+	return transport.AgentID(fmt.Sprintf("agent-%d", id))
 }

@@ -66,7 +66,7 @@ func (s *Staff) Active() []*Solo {
 	ids := s.pool.Active()
 	handles := make([]*Solo, 0, len(ids))
 	for _, id := range ids {
-		role := s.transport.Roles().RoleOf(agentTransportID(id))
+		role := s.transport.Roles().RoleOf(string(agentTransportID(id)))
 		handles = append(handles, s.handleFor(id, role))
 	}
 	return handles

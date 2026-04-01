@@ -12,6 +12,10 @@ import (
 	"github.com/dpopsuev/jericho/signal"
 )
 
+// AgentID is a typed identifier for agents in the transport layer.
+// Prevents accidental mixing with role names, session IDs, or other strings.
+type AgentID string
+
 // Transport is the send/subscribe interface for agent-to-agent communication.
 type Transport interface {
 	// SendMessage dispatches a message to the named agent and returns a Task
@@ -29,8 +33,8 @@ type Transport interface {
 
 // Message is the envelope for agent-to-agent communication.
 type Message struct {
-	From         string              `json:"from"`
-	To           string              `json:"to"`
+	From         AgentID             `json:"from"`
+	To           AgentID             `json:"to"`
 	Performative signal.Performative `json:"performative"`
 	Content      string              `json:"content"`
 	Metadata     map[string]string   `json:"metadata,omitempty"`

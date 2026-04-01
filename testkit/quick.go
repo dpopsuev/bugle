@@ -31,7 +31,7 @@ func QuickTransport(w *world.World, agents []world.EntityID) *transport.LocalTra
 	tr := transport.NewLocalTransport()
 	for _, id := range agents {
 		color := world.Get[symbol.Color](w, id)
-		tr.Register(color.Short(), EchoHandler())
+		tr.Register(transport.AgentID(color.Short()), EchoHandler())
 	}
 	return tr
 }
