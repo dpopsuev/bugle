@@ -1,9 +1,7 @@
-package persona
+package identity
 
 import (
 	"testing"
-
-	"github.com/dpopsuev/jericho/symbol"
 )
 
 func TestAll_Count(t *testing.T) {
@@ -19,7 +17,7 @@ func TestThesis_Count(t *testing.T) {
 		t.Errorf("len(Thesis) = %d, want 4", len(thesis))
 	}
 	for _, p := range thesis {
-		if p.Alignment != symbol.AlignmentThesis {
+		if p.Alignment != AlignmentThesis {
 			t.Errorf("persona %q has alignment %q, want thesis", p.Name, p.Alignment)
 		}
 	}
@@ -31,7 +29,7 @@ func TestAntithesis_Count(t *testing.T) {
 		t.Errorf("len(Antithesis) = %d, want 4", len(antithesis))
 	}
 	for _, p := range antithesis {
-		if p.Alignment != symbol.AlignmentAntithesis {
+		if p.Alignment != AlignmentAntithesis {
 			t.Errorf("persona %q has alignment %q, want antithesis", p.Name, p.Alignment)
 		}
 	}
@@ -45,13 +43,13 @@ func TestByName_Herald(t *testing.T) {
 	if p.ColorPref.Color != "Scarlet" {
 		t.Errorf("Herald color pref = %q, want Scarlet", p.ColorPref.Color)
 	}
-	if p.Element != symbol.ElementFire {
+	if p.Element != ElementFire {
 		t.Errorf("Herald element = %q, want fire", p.Element)
 	}
-	if p.Position != symbol.PositionPG {
+	if p.Position != PositionPG {
 		t.Errorf("Herald position = %q, want PG", p.Position)
 	}
-	if p.Alignment != symbol.AlignmentThesis {
+	if p.Alignment != AlignmentThesis {
 		t.Errorf("Herald alignment = %q, want thesis", p.Alignment)
 	}
 }
@@ -86,7 +84,7 @@ func TestPersonas_UniqueNames(t *testing.T) {
 }
 
 func TestPersonas_AllPositionsCovered(t *testing.T) {
-	positions := map[symbol.Position]int{symbol.PositionPG: 0, symbol.PositionSG: 0, symbol.PositionPF: 0, symbol.PositionC: 0}
+	positions := map[Position]int{PositionPG: 0, PositionSG: 0, PositionPF: 0, PositionC: 0}
 	for _, p := range All() {
 		positions[p.Position]++
 	}
@@ -115,7 +113,7 @@ func TestPersonas_AllHavePromptPreamble(t *testing.T) {
 
 func TestPersonas_HomeZoneMatchesPosition(t *testing.T) {
 	for _, p := range All() {
-		expected := symbol.HomeZoneFor(p.Position)
+		expected := HomeZoneFor(p.Position)
 		if p.HomeZone != expected {
 			t.Errorf("persona %s: HomeZone=%q but HomeZoneFor(%s)=%q",
 				p.Name, p.HomeZone, p.Position, expected)

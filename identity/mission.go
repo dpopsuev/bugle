@@ -2,7 +2,7 @@
 // Intent is a consumer-defined string describing what the agent is for.
 // Independent of symbols and traits — changing intent doesn't change
 // how the agent looks or behaves.
-package intent
+package identity
 
 import "github.com/dpopsuev/jericho/world"
 

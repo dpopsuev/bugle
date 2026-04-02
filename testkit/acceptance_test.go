@@ -26,7 +26,7 @@ import (
 	"github.com/dpopsuev/jericho/collective"
 	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/trait"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -473,7 +473,7 @@ func TestAcceptance_IntentToAgent(t *testing.T) {
 	defer cancel()
 
 	// Infer traits from natural language intent — heuristic only, $0.
-	weights, err := trait.InferFromIntent(ctx, "I need a fast coding agent", trait.InferConfig{})
+	weights, err := identity.InferFromIntent(ctx, "I need a fast coding agent", identity.InferConfig{})
 	if err != nil {
 		t.Fatalf("InferFromIntent: %v", err)
 	}

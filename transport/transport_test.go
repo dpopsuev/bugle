@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -249,7 +249,7 @@ func TestLocal_Close(t *testing.T) {
 func TestCardFromEntity_ColorIdentity(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
-	world.Attach(w, agent, symbol.Color{
+	world.Attach(w, agent, identity.Color{
 		Shade: "Indigo", Name: "Denim", Role: "Writer", Collective: "Refactor",
 	})
 
@@ -272,7 +272,7 @@ func TestCardFromEntity_ColorIdentity(t *testing.T) {
 func TestCardFromEntity_WithHealth(t *testing.T) {
 	w := world.NewWorld()
 	agent := w.Spawn()
-	world.Attach(w, agent, symbol.Color{
+	world.Attach(w, agent, identity.Color{
 		Shade: "Azure", Name: "Cerulean", Role: "Reviewer", Collective: "QA",
 	})
 	world.Attach(w, agent, world.Alive{State: world.AliveRunning, Since: time.Now()})

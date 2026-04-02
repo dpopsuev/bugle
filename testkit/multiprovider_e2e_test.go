@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/symbol"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 	"github.com/dpopsuev/jericho/worldview"
@@ -80,7 +80,7 @@ func cliHandler(command string, args []string) transport.MsgHandler {
 
 // spawnAgent creates an entity with ColorIdentity + Health, registers it on
 // the transport with a CLI-backed handler, and returns the agent ID string.
-func spawnAgent(t *testing.T, w *world.World, reg *symbol.Registry, tr *transport.LocalTransport, role, collective string, p providerSpec) string {
+func spawnAgent(t *testing.T, w *world.World, reg *identity.Registry, tr *transport.LocalTransport, role, collective string, p providerSpec) string {
 	t.Helper()
 	color, err := reg.Assign(role, collective)
 	if err != nil {
@@ -99,7 +99,7 @@ func spawnAgent(t *testing.T, w *world.World, reg *symbol.Registry, tr *transpor
 func runPairTest(t *testing.T, p providerSpec) {
 	t.Helper()
 	w := world.NewWorld()
-	reg := symbol.NewRegistry()
+	reg := identity.NewRegistry()
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
 	view := worldview.NewView(w)
@@ -193,7 +193,7 @@ func TestE2E_MixedQuartet(t *testing.T) {
 	}
 
 	w := world.NewWorld()
-	reg := symbol.NewRegistry()
+	reg := identity.NewRegistry()
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
 	bus := signal.NewMemBus()

@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/symbol"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -47,7 +47,7 @@ type AgentPool struct {
 	subreaper world.EntityID                   // orphan adopter (0 = pool-level)
 	autoReap  map[world.EntityID]bool          // parents with auto-reap enabled
 	waitCh    map[world.EntityID]chan struct{} // notify Wait() callers
-	registry  *symbol.Registry                 // optional color registry (nil = no color assignment)
+	registry  *identity.Registry               // optional color registry (nil = no color assignment)
 	maxAgents int                              // 0 = unlimited
 }
 
@@ -130,7 +130,7 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 	if parentID > 0 {
 		meta["parent"] = string(agentTransportID(parentID))
 	}
-	if color, ok := world.TryGet[symbol.Color](p.world, id); ok {
+	if color, ok := world.TryGet[identity.Color](p.world, id); ok {
 		meta[signal.MetaKeyShade] = color.Shade
 		meta[signal.MetaKeyColor] = color.Name
 	}
@@ -343,7 +343,7 @@ func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
 }
 
 // SetRegistry sets the color registry for automatic color assignment on Fork.
-func (p *AgentPool) SetRegistry(reg *symbol.Registry) {
+func (p *AgentPool) SetRegistry(reg *identity.Registry) {
 	p.registry = reg
 }
 

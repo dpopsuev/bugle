@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/symbol"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -30,10 +30,10 @@ func TestStress_10Agents_50Messages(t *testing.T) {
 		wg.Add(1)
 		go func(sender int) {
 			defer wg.Done()
-			senderColor := world.Get[symbol.Color](w, agents[sender])
+			senderColor := world.Get[identity.Color](w, agents[sender])
 			for j := range messagesPerAgent {
 				target := (sender + j + 1) % len(agents)
-				targetColor := world.Get[symbol.Color](w, agents[target])
+				targetColor := world.Get[identity.Color](w, agents[target])
 				task, err := tr.SendMessage(ctx, targetColor.Short(), transport.Message{
 					From:         senderColor.Short(),
 					To:           targetColor.Short(),

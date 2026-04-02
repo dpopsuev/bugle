@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/signal"
-	"github.com/dpopsuev/jericho/symbol"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 	"github.com/dpopsuev/jericho/worldview"
@@ -21,8 +21,8 @@ func TestE2E_TwoAgents_RequestConfirm(t *testing.T) {
 	defer tr.Close()
 
 	ctx := context.Background()
-	color0 := world.Get[symbol.Color](w, agents[0])
-	color1 := world.Get[symbol.Color](w, agents[1])
+	color0 := world.Get[identity.Color](w, agents[0])
+	color1 := world.Get[identity.Color](w, agents[1])
 
 	task, err := tr.SendMessage(ctx, color1.Short(), transport.Message{
 		From:         color0.Short(),
@@ -62,7 +62,7 @@ func TestE2E_TwoAgents_RequestConfirm(t *testing.T) {
 // Feature: Mixed elements collaborate.
 func TestE2E_MixedElements_Collaborate(t *testing.T) {
 	w := world.NewWorld()
-	reg := symbol.NewRegistry()
+	reg := identity.NewRegistry()
 
 	fire, err := reg.AssignInGroup("Crimson", "Coder", "Team")
 	if err != nil {
@@ -133,9 +133,9 @@ func TestE2E_FullStack_WorldIdentityTransportSignalView(t *testing.T) {
 	diffs := view.Subscribe(world.AliveType)
 
 	ctx := context.Background()
-	color0 := world.Get[symbol.Color](w, agents[0])
-	color1 := world.Get[symbol.Color](w, agents[1])
-	color2 := world.Get[symbol.Color](w, agents[2])
+	color0 := world.Get[identity.Color](w, agents[0])
+	color1 := world.Get[identity.Color](w, agents[1])
+	color2 := world.Get[identity.Color](w, agents[2])
 
 	// 2. Agent 0 sends to Agent 1.
 	task01, err := tr.SendMessage(ctx, color1.Short(), transport.Message{

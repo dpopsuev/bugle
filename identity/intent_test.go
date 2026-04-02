@@ -1,11 +1,9 @@
-package trait
+package identity
 
 import (
 	"context"
 	"math"
 	"testing"
-
-	"github.com/dpopsuev/jericho/arsenal"
 )
 
 func TestHeuristicInfer_FastCoding(t *testing.T) {
@@ -93,8 +91,8 @@ func TestExtractJSON(t *testing.T) {
 }
 
 func TestMergeVectors(t *testing.T) {
-	heuristic := arsenal.TraitVector{Speed: 0.9, Coding: 0.0}
-	agentVec := arsenal.TraitVector{Speed: 0.0, Coding: 0.8, Reasoning: 0.7}
+	heuristic := TraitVector{Speed: 0.9, Coding: 0.0}
+	agentVec := TraitVector{Speed: 0.0, Coding: 0.8, Reasoning: 0.7}
 
 	merged := mergeVectors(heuristic, agentVec, 0.3) // low heuristic confidence
 
@@ -113,8 +111,8 @@ func TestMergeVectors(t *testing.T) {
 }
 
 func TestMergeVectors_BothHaveValues(t *testing.T) {
-	heuristic := arsenal.TraitVector{Speed: 0.9}
-	agentVec := arsenal.TraitVector{Speed: 0.5}
+	heuristic := TraitVector{Speed: 0.9}
+	agentVec := TraitVector{Speed: 0.5}
 
 	merged := mergeVectors(heuristic, agentVec, 0.3)
 

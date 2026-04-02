@@ -7,7 +7,11 @@
 // Zero Jericho imports — stdlib + yaml.v3 only.
 package arsenal
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/dpopsuev/jericho/identity"
+)
 
 // Sentinel errors.
 var (
@@ -17,42 +21,8 @@ var (
 	ErrEmptyCatalog = errors.New("arsenal: no snapshots found in embedded catalog")
 )
 
-// TraitVector holds normalized trait scores (0.0-1.0) for the 8-trait vocabulary.
-type TraitVector struct {
-	Speed      float64 `yaml:"speed"      json:"speed"`
-	Reasoning  float64 `yaml:"reasoning"  json:"reasoning"`
-	Rigor      float64 `yaml:"rigor"      json:"rigor"`
-	Coding     float64 `yaml:"coding"     json:"coding"`
-	Discipline float64 `yaml:"discipline" json:"discipline"`
-	ToolUse    float64 `yaml:"tooluse"    json:"tooluse"`
-	Discourse  float64 `yaml:"discourse"  json:"discourse"`
-	Visual     float64 `yaml:"visual"     json:"visual"`
-}
-
-// Score returns the dot product of this vector with a weight vector.
-func (v TraitVector) Score(w TraitVector) float64 {
-	return v.Speed*w.Speed +
-		v.Reasoning*w.Reasoning +
-		v.Rigor*w.Rigor +
-		v.Coding*w.Coding +
-		v.Discipline*w.Discipline +
-		v.ToolUse*w.ToolUse +
-		v.Discourse*w.Discourse +
-		v.Visual*w.Visual
-}
-
-// meetsMinimum returns true if every non-zero field in min is <= the
-// corresponding field in v.
-func (v TraitVector) meetsMinimum(floor TraitVector) bool {
-	return (floor.Speed == 0 || v.Speed >= floor.Speed) &&
-		(floor.Reasoning == 0 || v.Reasoning >= floor.Reasoning) &&
-		(floor.Rigor == 0 || v.Rigor >= floor.Rigor) &&
-		(floor.Coding == 0 || v.Coding >= floor.Coding) &&
-		(floor.Discipline == 0 || v.Discipline >= floor.Discipline) &&
-		(floor.ToolUse == 0 || v.ToolUse >= floor.ToolUse) &&
-		(floor.Discourse == 0 || v.Discourse >= floor.Discourse) &&
-		(floor.Visual == 0 || v.Visual >= floor.Visual)
-}
+// TraitVector is defined in identity/. Type alias for backward compat.
+type TraitVector = identity.TraitVector
 
 // CostEntry holds per-million-token pricing.
 type CostEntry struct {

@@ -20,13 +20,13 @@ func TestTraitVector_Score(t *testing.T) {
 func TestTraitVector_MeetsMinimum(t *testing.T) {
 	v := TraitVector{Coding: 0.8, Reasoning: 0.6}
 
-	if !v.meetsMinimum(TraitVector{Coding: 0.7}) {
+	if !v.MeetsMinimum(TraitVector{Coding: 0.7}) {
 		t.Error("0.8 should meet minimum 0.7")
 	}
-	if v.meetsMinimum(TraitVector{Coding: 0.9}) {
+	if v.MeetsMinimum(TraitVector{Coding: 0.9}) {
 		t.Error("0.8 should NOT meet minimum 0.9")
 	}
-	if !v.meetsMinimum(TraitVector{}) {
+	if !v.MeetsMinimum(TraitVector{}) {
 		t.Error("zero minimum should always pass")
 	}
 }

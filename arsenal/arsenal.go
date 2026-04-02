@@ -121,7 +121,7 @@ func (a *Arsenal) Select(_ string, prefs *Preferences) (ResolvedAgent, error) {
 			}
 
 			// Min traits gate.
-			if !model.Traits.meetsMinimum(prefs.MinTraits) {
+			if !model.Traits.MeetsMinimum(prefs.MinTraits) {
 				continue
 			}
 

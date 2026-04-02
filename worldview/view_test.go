@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/jericho/symbol"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/world"
 	"github.com/dpopsuev/jericho/worldview"
 )
@@ -20,17 +20,17 @@ func TestSnapshot_MatchesComponentTypes(t *testing.T) {
 	c := w.Spawn()
 
 	world.Attach(w, a, world.Alive{State: world.AliveRunning, Since: time.Now()})
-	world.Attach(w, a, symbol.Color{Name: "Denim", Collective: "Refactor"})
+	world.Attach(w, a, identity.Color{Name: "Denim", Collective: "Refactor"})
 
 	world.Attach(w, b, world.Alive{State: world.AliveRunning, Since: time.Now()})
 	world.Attach(w, b, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonIdle})
-	world.Attach(w, b, symbol.Color{Name: "Scarlet", Collective: "Triage"})
+	world.Attach(w, b, identity.Color{Name: "Scarlet", Collective: "Triage"})
 
 	// c has only Health — should NOT match a 2-type query.
 	world.Attach(w, c, world.Alive{State: world.AliveTerminated, ExitedAt: time.Now()})
 
 	v := worldview.NewView(w)
-	snaps := v.Snapshot(world.AliveType, symbol.ColorType)
+	snaps := v.Snapshot(world.AliveType, identity.ColorType)
 
 	if len(snaps) != 2 {
 		t.Fatalf("Snapshot returned %d entities, want 2", len(snaps))
@@ -192,7 +192,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 
 	id := w.Spawn()
 	// Attach a ColorIdentity (should NOT trigger diff on this channel).
-	world.Attach(w, id, symbol.Color{Name: "Denim"})
+	world.Attach(w, id, identity.Color{Name: "Denim"})
 
 	select {
 	case d := <-ch:
@@ -370,11 +370,11 @@ func TestStats_CountsCollectives(t *testing.T) {
 	// 3 in "Refactor", 2 in "Triage".
 	for range 3 {
 		id := w.Spawn()
-		world.Attach(w, id, symbol.Color{Name: "A", Collective: "Refactor"})
+		world.Attach(w, id, identity.Color{Name: "A", Collective: "Refactor"})
 	}
 	for range 2 {
 		id := w.Spawn()
-		world.Attach(w, id, symbol.Color{Name: "B", Collective: "Triage"})
+		world.Attach(w, id, identity.Color{Name: "B", Collective: "Triage"})
 	}
 
 	v := worldview.NewView(w)
@@ -408,7 +408,7 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 
 	for _, a := range agents {
 		id := w.Spawn()
-		world.Attach(w, id, symbol.Color{
+		world.Attach(w, id, identity.Color{
 			Shade:      a.shade,
 			Name:       a.color,
 			Role:       a.role,
@@ -421,14 +421,14 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 	v := worldview.NewView(w)
 
 	// Snapshot all agents with both components.
-	snaps := v.Snapshot(symbol.ColorType, world.AliveType)
+	snaps := v.Snapshot(identity.ColorType, world.AliveType)
 	if len(snaps) != 3 {
 		t.Fatalf("expected 3 snapshots, got %d", len(snaps))
 	}
 
 	// Verify each snapshot has readable data.
 	for _, s := range snaps {
-		ci := s.Components[symbol.ColorType].(symbol.Color)
+		ci := s.Components[identity.ColorType].(identity.Color)
 		alive := s.Components[world.AliveType].(world.Alive)
 		if ci.Name == "" {
 			t.Errorf("entity %d: empty Color", s.ID)

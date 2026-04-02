@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/dpopsuev/jericho/symbol"
+	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -263,14 +263,14 @@ func (v *View) Stats() Stats {
 		}
 	}
 
-	colorIDs := v.world.QueryType(symbol.ColorType)
+	colorIDs := v.world.QueryType(identity.ColorType)
 	collectives := make(map[string]bool)
 	for _, id := range colorIDs {
-		c, ok := v.world.GetType(id, symbol.ColorType)
+		c, ok := v.world.GetType(id, identity.ColorType)
 		if !ok {
 			continue
 		}
-		ci := c.(symbol.Color) //nolint:errcheck // type guaranteed by QueryType
+		ci := c.(identity.Color) //nolint:errcheck // type guaranteed by QueryType
 		if ci.Collective != "" {
 			collectives[ci.Collective] = true
 		}

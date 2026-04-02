@@ -1,30 +1,28 @@
 // Package persona provides the 8 perennial agent identity templates
 // (4 Thesis + 4 Antithesis) and registers a PersonaResolver with the
 // framework on import. Consumers that build walkers with persona names
-// should add: import _ "github.com/dpopsuev/jericho/persona"
-package persona
+// should add: import _ "github.com/dpopsuev/jericho/identity"
+package identity
 
 import (
 	"strings"
-
-	"github.com/dpopsuev/jericho/symbol"
 )
 
 func init() {
-	symbol.DefaultPersonaResolver = ByName
+	DefaultPersonaResolver = ByName
 }
 
 // Thesis returns the 4 perennial Thesis (Cadai) personas.
-func Thesis() []symbol.Persona {
-	return []symbol.Persona{
+func Thesis() []Persona {
+	return []Persona{
 		{
 			Name:            "Herald",
 			Description:     "Fast intake, optimistic classification",
-			ColorPref:       symbol.Reservation{Shade: "Crimson", Color: "Scarlet"},
-			Element:         symbol.ElementFire,
-			Position:        symbol.PositionPG,
-			Alignment:       symbol.AlignmentThesis,
-			HomeZone:        symbol.MetaPhaseBk,
+			ColorPref:       Reservation{Shade: "Crimson", Color: "Scarlet"},
+			Element:         ElementFire,
+			Position:        PositionPG,
+			Alignment:       AlignmentThesis,
+			HomeZone:        MetaPhaseBk,
 			StickinessLevel: 0,
 			StepAffinity: map[string]float64{
 				"recall": 0.9, "triage": 0.8,
@@ -37,11 +35,11 @@ func Thesis() []symbol.Persona {
 		{
 			Name:            "Seeker",
 			Description:     "Deep investigator, builds evidence chains",
-			ColorPref:       symbol.Reservation{Shade: "Azure", Color: "Cerulean"},
-			Element:         symbol.ElementWater,
-			Position:        symbol.PositionC,
-			Alignment:       symbol.AlignmentThesis,
-			HomeZone:        symbol.MetaPhaseFc,
+			ColorPref:       Reservation{Shade: "Azure", Color: "Cerulean"},
+			Element:         ElementWater,
+			Position:        PositionC,
+			Alignment:       AlignmentThesis,
+			HomeZone:        MetaPhaseFc,
 			StickinessLevel: 3,
 			StepAffinity: map[string]float64{
 				"recall": 0.2, "triage": 0.3,
@@ -54,11 +52,11 @@ func Thesis() []symbol.Persona {
 		{
 			Name:            "Sentinel",
 			Description:     "Steady resolver, follows proven paths",
-			ColorPref:       symbol.Reservation{Shade: "Azure", Color: "Cobalt"},
-			Element:         symbol.ElementEarth,
-			Position:        symbol.PositionPF,
-			Alignment:       symbol.AlignmentThesis,
-			HomeZone:        symbol.MetaPhaseFc,
+			ColorPref:       Reservation{Shade: "Azure", Color: "Cobalt"},
+			Element:         ElementEarth,
+			Position:        PositionPF,
+			Alignment:       AlignmentThesis,
+			HomeZone:        MetaPhaseFc,
 			StickinessLevel: 2,
 			StepAffinity: map[string]float64{
 				"recall": 0.3, "triage": 0.4,
@@ -71,11 +69,11 @@ func Thesis() []symbol.Persona {
 		{
 			Name:            "Weaver",
 			Description:     "Holistic closer, synthesizes findings",
-			ColorPref:       symbol.Reservation{Shade: "Amber", Color: "Saffron"},
-			Element:         symbol.ElementAir,
-			Position:        symbol.PositionSG,
-			Alignment:       symbol.AlignmentThesis,
-			HomeZone:        symbol.MetaPhasePt,
+			ColorPref:       Reservation{Shade: "Amber", Color: "Saffron"},
+			Element:         ElementAir,
+			Position:        PositionSG,
+			Alignment:       AlignmentThesis,
+			HomeZone:        MetaPhasePt,
 			StickinessLevel: 1,
 			StepAffinity: map[string]float64{
 				"recall": 0.3, "triage": 0.4,
@@ -89,16 +87,16 @@ func Thesis() []symbol.Persona {
 }
 
 // Antithesis returns the 4 perennial Antithesis (Cytharai) personas.
-func Antithesis() []symbol.Persona {
-	return []symbol.Persona{
+func Antithesis() []Persona {
+	return []Persona{
 		{
 			Name:            "Challenger",
 			Description:     "Aggressive skeptic, rejects weak triage",
-			ColorPref:       symbol.Reservation{Shade: "Crimson", Color: "Vermillion"},
-			Element:         symbol.ElementFire,
-			Position:        symbol.PositionPG,
-			Alignment:       symbol.AlignmentAntithesis,
-			HomeZone:        symbol.MetaPhaseBk,
+			ColorPref:       Reservation{Shade: "Crimson", Color: "Vermillion"},
+			Element:         ElementFire,
+			Position:        PositionPG,
+			Alignment:       AlignmentAntithesis,
+			HomeZone:        MetaPhaseBk,
 			StickinessLevel: 0,
 			StepAffinity: map[string]float64{
 				"challenge": 0.9, "cross-examine": 0.7,
@@ -110,11 +108,11 @@ func Antithesis() []symbol.Persona {
 		{
 			Name:            "Abyss",
 			Description:     "Deep adversary, finds counter-evidence",
-			ColorPref:       symbol.Reservation{Shade: "Azure", Color: "Sapphire"},
-			Element:         symbol.ElementWater,
-			Position:        symbol.PositionC,
-			Alignment:       symbol.AlignmentAntithesis,
-			HomeZone:        symbol.MetaPhaseFc,
+			ColorPref:       Reservation{Shade: "Azure", Color: "Sapphire"},
+			Element:         ElementWater,
+			Position:        PositionC,
+			Alignment:       AlignmentAntithesis,
+			HomeZone:        MetaPhaseFc,
 			StickinessLevel: 3,
 			StepAffinity: map[string]float64{
 				"challenge": 0.3, "cross-examine": 0.5,
@@ -126,11 +124,11 @@ func Antithesis() []symbol.Persona {
 		{
 			Name:            "Bulwark",
 			Description:     "Precision verifier, shatters ambiguity",
-			ColorPref:       symbol.Reservation{Shade: "Slate", Color: "Iron"},
-			Element:         symbol.ElementDiamond,
-			Position:        symbol.PositionPF,
-			Alignment:       symbol.AlignmentAntithesis,
-			HomeZone:        symbol.MetaPhaseFc,
+			ColorPref:       Reservation{Shade: "Slate", Color: "Iron"},
+			Element:         ElementDiamond,
+			Position:        PositionPF,
+			Alignment:       AlignmentAntithesis,
+			HomeZone:        MetaPhaseFc,
 			StickinessLevel: 2,
 			StepAffinity: map[string]float64{
 				"challenge": 0.4, "cross-examine": 0.8,
@@ -142,11 +140,11 @@ func Antithesis() []symbol.Persona {
 		{
 			Name:            "Specter",
 			Description:     "Fastest path to contradiction",
-			ColorPref:       symbol.Reservation{Shade: "Slate", Color: "Charcoal"},
-			Element:         symbol.ElementLightning,
-			Position:        symbol.PositionSG,
-			Alignment:       symbol.AlignmentAntithesis,
-			HomeZone:        symbol.MetaPhasePt,
+			ColorPref:       Reservation{Shade: "Slate", Color: "Charcoal"},
+			Element:         ElementLightning,
+			Position:        PositionSG,
+			Alignment:       AlignmentAntithesis,
+			HomeZone:        MetaPhasePt,
 			StickinessLevel: 0,
 			StepAffinity: map[string]float64{
 				"challenge": 0.5, "cross-examine": 0.4,
@@ -159,17 +157,17 @@ func Antithesis() []symbol.Persona {
 }
 
 // All returns all 8 perennial personas (4 Thesis + 4 Antithesis).
-func All() []symbol.Persona {
+func All() []Persona {
 	return append(Thesis(), Antithesis()...)
 }
 
 // ByName looks up a persona by name (case-insensitive).
-func ByName(name string) (symbol.Persona, bool) {
+func ByName(name string) (Persona, bool) {
 	all := All()
 	for i := range all {
 		if strings.EqualFold(all[i].Name, name) {
 			return all[i], true
 		}
 	}
-	return symbol.Persona{}, false
+	return Persona{}, false
 }
