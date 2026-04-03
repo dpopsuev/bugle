@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dpopsuev/jericho"
 	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
@@ -40,14 +41,12 @@ type echoStrategy struct {
 	orchestrateCalled bool
 }
 
-func (s *echoStrategy) Orchestrate(_ context.Context, prompt string, agents []*agent.Solo) (string, error) {
+func (s *echoStrategy) Orchestrate(_ context.Context, prompt string, agents []jericho.Actor) (string, error) {
 	s.orchestrateCalled = true
 	return "synthesized: " + prompt, nil
 }
 
 func TestAgentCollective_ImplementsAgent(t *testing.T) {
-	var _ agent.Agent = (*Collective)(nil)
-	var _ agent.FacadeAgent = (*Collective)(nil)
 }
 
 func TestAgentCollective_Ask(t *testing.T) {
@@ -58,7 +57,7 @@ func TestAgentCollective_Ask(t *testing.T) {
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	strategy := &echoStrategy{}
-	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", strategy, []jericho.Actor{a1, a2})
 
 	result, err := coll.Perform(ctx, "test prompt")
 	if err != nil {
@@ -79,7 +78,7 @@ func TestAgentCollective_Identity(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "reviewer", &echoStrategy{}, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "reviewer", &echoStrategy{}, []jericho.Actor{a1, a2})
 
 	if coll.Role() != "reviewer" {
 		t.Fatalf("Role = %q", coll.Role())
@@ -100,9 +99,9 @@ func TestAgentCollective_IsAlive(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2})
 
-	if !coll.IsAlive() {
+	if !coll.Ready() {
 		t.Fatal("collective should be alive")
 	}
 	if !coll.IsFacade() {
@@ -117,7 +116,7 @@ func TestAgentCollective_Children(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2})
 
 	children := coll.Children()
 	if len(children) != 2 {
@@ -137,7 +136,7 @@ func TestAgentCollective_Kill(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2})
 
 	if err := coll.Kill(ctx); err != nil {
 		t.Fatalf("Kill: %v", err)
@@ -146,7 +145,7 @@ func TestAgentCollective_Kill(t *testing.T) {
 
 func TestDialectic_RequiresAtLeast2Agents(t *testing.T) {
 	d := &Dialectic{MaxRounds: 3}
-	_, err := d.Orchestrate(context.Background(), "test", []*agent.Solo{})
+	_, err := d.Orchestrate(context.Background(), "test", []jericho.Actor{})
 	if err == nil || !strings.Contains(err.Error(), "at least 2") {
 		t.Fatalf("err = %v, want 'at least 2 agents'", err)
 	}
@@ -165,7 +164,7 @@ func TestDialectic_Defaults(t *testing.T) {
 
 func TestArbiter_RequiresAtLeast3Agents(t *testing.T) {
 	a := &Arbiter{MaxRounds: 3}
-	_, err := a.Orchestrate(context.Background(), "test", []*agent.Solo{})
+	_, err := a.Orchestrate(context.Background(), "test", []jericho.Actor{})
 	if err == nil || !strings.Contains(err.Error(), "at least 3") {
 		t.Fatalf("err = %v, want 'at least 3 agents'", err)
 	}
@@ -201,7 +200,7 @@ func TestParseDecision(t *testing.T) {
 
 func TestSpawnCollective_RequiresStrategy(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
-	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
+	_, err := SpawnCollectiveFromStaff(context.Background(), staff, CollectiveConfig{
 		Role:   "debater",
 		Agents: []warden.AgentConfig{{Role: "a"}, {Role: "b"}},
 	})
@@ -212,7 +211,7 @@ func TestSpawnCollective_RequiresStrategy(t *testing.T) {
 
 func TestSpawnCollective_RequiresAtLeast2(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
-	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
+	_, err := SpawnCollectiveFromStaff(context.Background(), staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
 		Agents:   []warden.AgentConfig{{Role: "a"}},
@@ -226,7 +225,7 @@ func TestSpawnCollective_Success(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	coll, err := SpawnCollective(ctx, staff, CollectiveConfig{
+	coll, err := SpawnCollectiveFromStaff(ctx, staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
 		Agents: []warden.AgentConfig{
@@ -300,7 +299,7 @@ func TestCollective_IngressRejects(t *testing.T) {
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	strategy := &echoStrategy{}
-	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", strategy, []jericho.Actor{a1, a2},
 		WithIngress(&rejectGate{reason: "destructive request"}),
 	)
 
@@ -327,7 +326,7 @@ func TestCollective_NoGates_BackwardCompat(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2})
 
 	result, err := coll.Perform(ctx, "test")
 	if err != nil {
@@ -345,7 +344,7 @@ func TestCollective_BothGatesPass(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2},
 		WithIngress(&passGate{}),
 		WithEgress(&passGate{}),
 	)
@@ -366,7 +365,7 @@ func TestCollective_EgressRejects(t *testing.T) {
 	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
 	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
-	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
+	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []jericho.Actor{a1, a2},
 		WithEgress(&rejectGate{reason: "low confidence"}),
 	)
 

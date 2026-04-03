@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/dpopsuev/jericho"
+
 	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
@@ -30,18 +32,18 @@ var (
 // Implementations should also implement Selector and Executor individually
 // so consumers can reuse selection logic without triggering execution.
 type CollectiveStrategy interface {
-	Orchestrate(ctx context.Context, prompt string, agents []*agent.Solo) (string, error)
+	Orchestrate(ctx context.Context, prompt string, agents []jericho.Actor) (string, error)
 }
 
 // Selector picks which agents handle a unit of work.
 // Pure decision — no side effects, no execution.
 type Selector interface {
-	Select(ctx context.Context, agents []*agent.Solo) []*agent.Solo
+	Select(ctx context.Context, agents []jericho.Actor) []jericho.Actor
 }
 
 // Executor coordinates selected agents to produce a response.
 type Executor interface {
-	Execute(ctx context.Context, prompt string, agents []*agent.Solo) (string, error)
+	Execute(ctx context.Context, prompt string, agents []jericho.Actor) (string, error)
 }
 
 // DebateRound records one debate round between agents.
@@ -66,11 +68,10 @@ const (
 type Collective struct {
 	id           world.EntityID
 	role         string
-	agents       []*agent.Solo
+	agents       []jericho.Actor
 	strategy     CollectiveStrategy
 	ingress      Gatekeeper // optional bouncer (nil = pass-through)
 	egress       Gatekeeper // optional reviewer (nil = pass-through)
-	handler      func(content string) string
 	mu           sync.RWMutex
 	rounds       []DebateRound
 	phase        Phase
@@ -103,7 +104,7 @@ func WithMinAvailable(n int) CollectiveOption {
 }
 
 // NewCollective creates a collective from existing agent handles.
-func NewCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []*agent.Solo, opts ...CollectiveOption) *Collective {
+func NewCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []jericho.Actor, opts ...CollectiveOption) *Collective {
 	c := &Collective{
 		id:       id,
 		role:     role,
@@ -161,32 +162,6 @@ func (c *Collective) Perform(ctx context.Context, content string) (string, error
 	return result, nil
 }
 
-// Tell forwards to the first agent (no debate for fire-and-forget).
-func (c *Collective) Tell(content string) error {
-	if len(c.agents) == 0 {
-		return fmt.Errorf("%w: %s", ErrNoAgents, c.role)
-	}
-	return c.agents[0].Tell(content)
-}
-
-// Listen registers a handler. The collective's Ask result is passed through
-// this handler before returning to the caller.
-func (c *Collective) Listen(handler func(content string) string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.handler = handler
-}
-
-// Broadcast sends to all agents in the collective.
-func (c *Collective) Broadcast(ctx context.Context, content string) error {
-	for _, a := range c.agents {
-		if err := a.Tell(content); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // --- Lifecycle ---
 
 // Kill stops all internal agents and transitions to Succeeded or Failed.
@@ -207,53 +182,10 @@ func (c *Collective) Kill(ctx context.Context) error {
 	return firstErr
 }
 
-// KillWithReason stops all agents with the given exit code.
-func (c *Collective) KillWithReason(ctx context.Context, code warden.ExitCode) error {
+// Ready returns true if all agents are ready.
+func (c *Collective) Ready() bool {
 	for _, a := range c.agents {
-		if err := a.KillWithReason(ctx, code); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Wait waits for all internal agents to finish. Returns the last exit status.
-func (c *Collective) Wait(ctx context.Context) (*warden.ExitStatus, error) {
-	var lastStatus *warden.ExitStatus
-	for _, a := range c.agents {
-		status, err := a.Wait(ctx)
-		if err != nil {
-			return nil, err
-		}
-		lastStatus = status
-	}
-	return lastStatus, nil
-}
-
-// Spawn creates a child agent under the first agent in the collective.
-func (c *Collective) Spawn(ctx context.Context, role string, config warden.AgentConfig) (*agent.Solo, error) {
-	if len(c.agents) == 0 {
-		return nil, fmt.Errorf("%w: %s (spawn)", ErrNoAgents, c.role)
-	}
-	return c.agents[0].Spawn(ctx, role, config)
-}
-
-// --- State ---
-
-// IsAlive returns true if all agents are alive.
-func (c *Collective) IsAlive() bool {
-	for _, a := range c.agents {
-		if !a.IsAlive() {
-			return false
-		}
-	}
-	return len(c.agents) > 0
-}
-
-// IsHealthy returns true if all agents are healthy.
-func (c *Collective) IsHealthy() bool {
-	for _, a := range c.agents {
-		if !a.IsHealthy() {
+		if !a.Ready() {
 			return false
 		}
 	}
@@ -261,12 +193,12 @@ func (c *Collective) IsHealthy() bool {
 }
 
 // Children returns the internal agents (visible in full view).
-func (c *Collective) Children() []*agent.Solo {
+func (c *Collective) Children() []jericho.Actor {
 	return c.agents
 }
 
 // Parent returns nil — collectives are created by Staff, not by a parent agent.
-func (c *Collective) Parent() *agent.Solo {
+func (c *Collective) Parent() jericho.Actor {
 	return nil
 }
 
@@ -286,7 +218,7 @@ func (c *Collective) SetProgress(_, _ int) {}
 // --- FacadeAgent ---
 
 // InternalAgents returns the agents hidden behind the agent.
-func (c *Collective) InternalAgents() []*agent.Solo {
+func (c *Collective) InternalAgents() []jericho.Actor {
 	return c.agents
 }
 
@@ -354,8 +286,5 @@ func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentC
 	return nil
 }
 
-// Compile-time checks.
-var (
-	_ agent.Agent       = (*Collective)(nil)
-	_ agent.FacadeAgent = (*Collective)(nil)
-)
+// Compile-time check: Collective implements jericho.Actor.
+var _ jericho.Actor = (*Collective)(nil)

@@ -6,8 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dpopsuev/jericho"
+
 	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/warden"
+	"github.com/dpopsuev/jericho/world"
 )
 
 // Sentinel errors for collective spawning.
@@ -34,7 +37,7 @@ type CollectiveConfig struct {
 // SpawnCollective creates an Collective by spawning N agents via Staff.
 // Returns a collective that implements agent.Agent — operators can't tell
 // it's not a single agent.
-func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConfig) (*Collective, error) {
+func SpawnCollectiveFromStaff(ctx context.Context, staff *agent.Staff, cfg CollectiveConfig) (*Collective, error) {
 	if len(cfg.Agents) < 2 {
 		return nil, fmt.Errorf("%w, got %d", ErrTooFewAgents, len(cfg.Agents))
 	}
@@ -58,7 +61,7 @@ func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConf
 	}
 
 	// Phase: Spawning main agents.
-	agents := make([]*agent.Solo, 0, len(cfg.Agents))
+	agents := make([]jericho.Actor, 0, len(cfg.Agents))
 	for i := range cfg.Agents {
 		a, err := staff.Spawn(ctx, cfg.Agents[i].Role, cfg.Agents[i])
 		if err != nil {
@@ -94,6 +97,6 @@ func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConf
 		opts = append(opts, WithEgress(&AgentGatekeeper{Agent: gateAgent}))
 	}
 
-	id := agents[0].ID()
+	id := world.EntityID(0) // collective has no entity ID
 	return NewCollective(id, cfg.Role, cfg.Strategy, agents, opts...), nil
 }

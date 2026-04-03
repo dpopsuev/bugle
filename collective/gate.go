@@ -9,7 +9,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/dpopsuev/jericho/agent"
+	"github.com/dpopsuev/jericho"
 )
 
 // Gatekeeper decides if content should pass through a collective boundary.
@@ -23,7 +23,7 @@ type Gatekeeper interface {
 // defines its gating policy. The agent is asked to evaluate content
 // and respond with PASS or REJECT.
 type AgentGatekeeper struct {
-	Agent *agent.Solo
+	Agent jericho.Actor
 }
 
 // Pass asks the agent to evaluate the content. The agent should respond

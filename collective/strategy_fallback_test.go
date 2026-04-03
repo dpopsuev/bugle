@@ -5,18 +5,18 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dpopsuev/jericho/agent"
+	"github.com/dpopsuev/jericho"
 )
 
 type succeedStrategy struct{ response string }
 
-func (s *succeedStrategy) Orchestrate(_ context.Context, _ string, _ []*agent.Solo) (string, error) {
+func (s *succeedStrategy) Orchestrate(_ context.Context, _ string, _ []jericho.Actor) (string, error) {
 	return s.response, nil
 }
 
 type failStrategy struct{ err error }
 
-func (s *failStrategy) Orchestrate(_ context.Context, _ string, _ []*agent.Solo) (string, error) {
+func (s *failStrategy) Orchestrate(_ context.Context, _ string, _ []jericho.Actor) (string, error) {
 	return "", s.err
 }
 
