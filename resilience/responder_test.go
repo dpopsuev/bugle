@@ -5,11 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dpopsuev/jericho/bugle/testkit"
+	"github.com/dpopsuev/jericho/testkit/mcp"
 )
 
 func TestCircuitBreakerResponder_Opens(t *testing.T) {
-	inner := &testkit.FailingResponder{Err: errors.New("fail")}
+	inner := &mcp.FailingResponder{Err: errors.New("fail")}
 	r := NewCircuitBreakerResponder(inner, CircuitConfig{Threshold: 2})
 
 	// Two failures should open the circuit.
@@ -28,7 +28,7 @@ func TestCircuitBreakerResponder_Opens(t *testing.T) {
 }
 
 func TestCircuitBreakerResponder_Passes(t *testing.T) {
-	inner := &testkit.StaticResponder{Response: "ok"}
+	inner := &mcp.StaticResponder{Response: "ok"}
 	r := NewCircuitBreakerResponder(inner, CircuitConfig{Threshold: 5})
 
 	result, err := r.RespondTo(context.Background(), "prompt")
@@ -44,7 +44,7 @@ func TestCircuitBreakerResponder_Passes(t *testing.T) {
 }
 
 func TestRateLimitResponder_Passes(t *testing.T) {
-	inner := &testkit.StaticResponder{Response: "ok"}
+	inner := &mcp.StaticResponder{Response: "ok"}
 	r := NewRateLimitResponder(inner, RateLimitConfig{Rate: 100, Burst: 10})
 
 	result, err := r.RespondTo(context.Background(), "prompt")

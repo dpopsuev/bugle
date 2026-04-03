@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // Progress tracks work item counts in a session.
 type Progress struct {

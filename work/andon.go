@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // AndonLevel identifies a health state. Reserved levels have standard meaning.
 // Custom levels use any name with a declared priority and color.

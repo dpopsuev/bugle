@@ -1,9 +1,9 @@
-package testkit
+package mcp
 
 import (
 	"testing"
 
-	"github.com/dpopsuev/jericho/bugle"
+	"github.com/dpopsuev/jericho/work"
 )
 
 // AssertPushCount verifies the number of push calls.
@@ -15,7 +15,7 @@ func AssertPushCount(t *testing.T, server *MockServer, want int) {
 }
 
 // AssertPushStatus verifies the last push has the given status.
-func AssertPushStatus(t *testing.T, server *MockServer, want bugle.SubmitStatus) {
+func AssertPushStatus(t *testing.T, server *MockServer, want work.SubmitStatus) {
 	t.Helper()
 	if server.PushCount() == 0 {
 		t.Fatal("no pushes received")
@@ -27,7 +27,7 @@ func AssertPushStatus(t *testing.T, server *MockServer, want bugle.SubmitStatus)
 }
 
 // AssertAndonLevel verifies the last push has the given andon level.
-func AssertAndonLevel(t *testing.T, server *MockServer, want bugle.AndonLevel) {
+func AssertAndonLevel(t *testing.T, server *MockServer, want work.AndonLevel) {
 	t.Helper()
 	if server.PushCount() == 0 {
 		t.Fatal("no pushes received")

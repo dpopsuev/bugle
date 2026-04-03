@@ -1,6 +1,6 @@
 // Package testkit provides test doubles for the Bugle Protocol.
 // Mock responders, mock servers, assertion helpers, and conformance contracts.
-package testkit
+package mcp
 
 import (
 	"context"

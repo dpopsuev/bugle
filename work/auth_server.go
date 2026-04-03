@@ -1,4 +1,4 @@
-package bugle
+package work
 
 import (
 	"context"

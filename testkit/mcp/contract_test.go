@@ -1,13 +1,13 @@
-package testkit
+package mcp
 
 import (
 	"testing"
 
-	"github.com/dpopsuev/jericho/bugle"
+	"github.com/dpopsuev/jericho/work"
 )
 
 func TestServerContract_MockServer(t *testing.T) {
-	RunServerContract(t, func() bugle.Server {
+	RunServerContract(t, func() work.Server {
 		return NewMockServer()
 	})
 }

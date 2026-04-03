@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/dpopsuev/jericho/bugle"
+	"github.com/dpopsuev/jericho/work"
 )
 
 func TestNoop_Authenticate(t *testing.T) {
@@ -21,7 +21,7 @@ func TestNoop_Authenticate(t *testing.T) {
 
 func TestNoop_Authorize(t *testing.T) {
 	n := Noop{}
-	if err := n.Authorize(bugle.Identity{}, bugle.ActionStart); err != nil {
+	if err := n.Authorize(work.Identity{}, work.ActionStart); err != nil {
 		t.Fatalf("Noop.Authorize() error: %v", err)
 	}
 }

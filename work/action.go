@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // Action identifies a Bugle Protocol operation.
 type Action string

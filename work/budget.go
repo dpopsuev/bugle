@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // BudgetActual reports resource consumption for a single dispatch (worker → server).
 type BudgetActual struct {

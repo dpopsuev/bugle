@@ -1,21 +1,21 @@
-package testkit
+package mcp
 
 import (
 	"context"
 	"encoding/json"
 	"testing"
 
-	"github.com/dpopsuev/jericho/bugle"
+	"github.com/dpopsuev/jericho/work"
 )
 
-// RunServerContract validates any bugle.Server implementation against the
+// RunServerContract validates any work.Server implementation against the
 // Bugle Protocol spec. Reusable by Origami, Hegemony, and any future server.
-func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:funlen // contract suite
+func RunServerContract(t *testing.T, factory func() work.Server) { //nolint:funlen // contract suite
 	t.Helper()
 
 	t.Run("Start returns session_id and total_items", func(t *testing.T) {
 		s := factory()
-		resp, err := s.Start(context.Background(), bugle.StartRequest{Action: bugle.ActionStart})
+		resp, err := s.Start(context.Background(), work.StartRequest{Action: work.ActionStart})
 		if err != nil {
 			t.Fatalf("Start() error: %v", err)
 		}
@@ -29,8 +29,8 @@ func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:fun
 
 	t.Run("Pull returns valid response shape", func(t *testing.T) {
 		s := factory()
-		resp, err := s.Pull(context.Background(), bugle.PullRequest{
-			Action:    bugle.ActionPull,
+		resp, err := s.Pull(context.Background(), work.PullRequest{
+			Action:    work.ActionPull,
 			SessionID: "test",
 		})
 		if err != nil {
@@ -49,12 +49,12 @@ func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:fun
 
 	t.Run("Push accepts all status values", func(t *testing.T) {
 		s := factory()
-		for _, status := range []bugle.SubmitStatus{
-			bugle.StatusOk, bugle.StatusBlocked, bugle.StatusResolved,
-			bugle.StatusCanceled, bugle.StatusError,
+		for _, status := range []work.SubmitStatus{
+			work.StatusOk, work.StatusBlocked, work.StatusResolved,
+			work.StatusCanceled, work.StatusError,
 		} {
-			_, err := s.Push(context.Background(), bugle.PushRequest{
-				Action:     bugle.ActionPush,
+			_, err := s.Push(context.Background(), work.PushRequest{
+				Action:     work.ActionPush,
 				SessionID:  "test",
 				DispatchID: 1,
 				Item:       "test-item",
@@ -69,8 +69,8 @@ func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:fun
 
 	t.Run("Cancel at session level", func(t *testing.T) {
 		s := factory()
-		resp, err := s.Cancel(context.Background(), bugle.CancelRequest{
-			Action:    bugle.ActionCancel,
+		resp, err := s.Cancel(context.Background(), work.CancelRequest{
+			Action:    work.ActionCancel,
 			SessionID: "test",
 		})
 		if err != nil {
@@ -83,8 +83,8 @@ func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:fun
 
 	t.Run("Cancel at item level", func(t *testing.T) {
 		s := factory()
-		resp, err := s.Cancel(context.Background(), bugle.CancelRequest{
-			Action:     bugle.ActionCancel,
+		resp, err := s.Cancel(context.Background(), work.CancelRequest{
+			Action:     work.ActionCancel,
 			SessionID:  "test",
 			DispatchID: 42,
 		})
@@ -98,8 +98,8 @@ func RunServerContract(t *testing.T, factory func() bugle.Server) { //nolint:fun
 
 	t.Run("Status returns progress", func(t *testing.T) {
 		s := factory()
-		resp, err := s.Status(context.Background(), bugle.StatusRequest{
-			Action:    bugle.ActionStatus,
+		resp, err := s.Status(context.Background(), work.StatusRequest{
+			Action:    work.ActionStatus,
 			SessionID: "test",
 		})
 		if err != nil {

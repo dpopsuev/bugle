@@ -1,6 +1,6 @@
 // Package orchestrate manages agent workers that connect to MCP endpoints
 // and loop pull/push via the Bugle Protocol.
-package orchestrate
+package work
 
 import (
 	"context"
@@ -9,8 +9,6 @@ import (
 	"log/slog"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
-
-	"github.com/dpopsuev/jericho/bugle"
 )
 
 // Log key constants for sloglint compliance.
@@ -23,34 +21,34 @@ const (
 
 // WorkerConfig configures the Bugle Protocol pull/push loop.
 type WorkerConfig struct {
-	// MCP tool name (default: bugle.DefaultToolName).
+	// MCP tool name (default: DefaultToolName).
 	ToolName string
-	// Action for pulling work (default: bugle.ActionPull).
+	// Action for pulling work (default: ActionPull).
 	PullAction string
-	// Action for pushing results (default: bugle.ActionPush).
+	// Action for pushing results (default: ActionPush).
 	PushAction string
-	// Session key name in arguments (default: bugle.DefaultSessionKey).
+	// Session key name in arguments (default: DefaultSessionKey).
 	SessionKey string
 	// AndonFunc is called before push to report worker health. Nil = omit.
-	AndonFunc func() *bugle.Andon
+	AndonFunc func() *Andon
 	// BudgetFunc is called before push to report resource consumption. Nil = omit.
-	BudgetFunc func() *bugle.BudgetActual
+	BudgetFunc func() *BudgetActual
 	// OnPull is called after each pull response with protocol metadata. Nil = no-op.
-	OnPull func(bugle.PullMeta)
+	OnPull func(PullMeta)
 }
 
 func (c *WorkerConfig) defaults() {
 	if c.ToolName == "" {
-		c.ToolName = bugle.DefaultToolName
+		c.ToolName = DefaultToolName
 	}
 	if c.PullAction == "" {
-		c.PullAction = string(bugle.ActionPull)
+		c.PullAction = string(ActionPull)
 	}
 	if c.PushAction == "" {
-		c.PushAction = string(bugle.ActionPush)
+		c.PushAction = string(ActionPush)
 	}
 	if c.SessionKey == "" {
-		c.SessionKey = bugle.DefaultSessionKey
+		c.SessionKey = DefaultSessionKey
 	}
 }
 
@@ -60,7 +58,7 @@ func (c *WorkerConfig) defaults() {
 // The caller owns agent lifecycle and MCP connection — RunWorker is pure protocol.
 //
 //nolint:funlen // protocol loop with pull/push/abort/blocked paths
-func RunWorker(ctx context.Context, session *sdkmcp.ClientSession, responder bugle.Responder, sessionID, workerID string, cfg WorkerConfig) error {
+func RunWorker(ctx context.Context, session *sdkmcp.ClientSession, responder Responder, sessionID, workerID string, cfg WorkerConfig) error {
 	cfg.defaults()
 
 	items := 0
@@ -88,21 +86,21 @@ func RunWorker(ctx context.Context, session *sdkmcp.ClientSession, responder bug
 		}
 
 		text := textContent(result)
-		var pullResp bugle.PullResponse
+		var pullResp PullResponse
 		if err := json.Unmarshal([]byte(text), &pullResp); err != nil {
 			return fmt.Errorf("parse pull response: %w", err)
 		}
 
 		// Notify callback with protocol metadata.
 		if cfg.OnPull != nil {
-			cfg.OnPull(bugle.PullMeta{
+			cfg.OnPull(PullMeta{
 				Andon:           pullResp.Andon,
 				BudgetRemaining: pullResp.BudgetRemaining,
 			})
 		}
 
 		// Andon dead = abort signal.
-		if pullResp.Andon == bugle.AndonDead {
+		if pullResp.Andon == AndonDead {
 			slog.WarnContext(ctx, "abort signal received",
 				slog.String(logKeyWorker, workerID))
 			return nil
@@ -164,14 +162,14 @@ func RunWorker(ctx context.Context, session *sdkmcp.ClientSession, responder bug
 }
 
 // pushBlocked sends a blocked status when the responder fails.
-func pushBlocked(ctx context.Context, session *sdkmcp.ClientSession, cfg WorkerConfig, sessionID, workerID string, pullResp bugle.PullResponse, respondErr error) {
+func pushBlocked(ctx context.Context, session *sdkmcp.ClientSession, cfg WorkerConfig, sessionID, workerID string, pullResp PullResponse, respondErr error) {
 	blockedArgs := map[string]any{
 		"action":       cfg.PushAction,
 		cfg.SessionKey: sessionID,
 		"worker_id":    workerID,
 		"dispatch_id":  pullResp.DispatchID,
 		"item":         pullResp.Item,
-		"status":       bugle.StatusBlocked,
+		"status":       StatusBlocked,
 		"fields":       map[string]any{"reason": respondErr.Error()},
 	}
 	_, err := session.CallTool(ctx, &sdkmcp.CallToolParams{

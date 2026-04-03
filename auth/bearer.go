@@ -6,8 +6,8 @@ import (
 	"errors"
 	"os"
 
-	"github.com/dpopsuev/jericho/bugle"
 	"github.com/dpopsuev/jericho/resilience"
+	"github.com/dpopsuev/jericho/work"
 )
 
 // Sentinel errors.
@@ -45,21 +45,21 @@ func NewBearer(envVar string, opts ...BearerOption) *Bearer {
 
 // Authenticate compares the provided token against the env var value.
 // If rate limiting is configured, blocks until a token is available.
-func (b *Bearer) Authenticate(ctx context.Context, token string) (bugle.Identity, error) {
+func (b *Bearer) Authenticate(ctx context.Context, token string) (work.Identity, error) {
 	if b.limiter != nil {
 		if err := b.limiter.Wait(ctx); err != nil {
-			return bugle.Identity{}, err
+			return work.Identity{}, err
 		}
 	}
 	if token == "" {
-		return bugle.Identity{}, ErrMissingToken
+		return work.Identity{}, ErrMissingToken
 	}
 	expected := os.Getenv(b.envVar)
 	if expected == "" {
-		return bugle.Identity{}, ErrMissingToken
+		return work.Identity{}, ErrMissingToken
 	}
 	if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
-		return bugle.Identity{}, ErrInvalidToken
+		return work.Identity{}, ErrInvalidToken
 	}
-	return bugle.Identity{Subject: "bearer:" + b.envVar}, nil
+	return work.Identity{Subject: "bearer:" + b.envVar}, nil
 }

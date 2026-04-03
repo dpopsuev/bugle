@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // SubmitStatus is the outcome of a submitted work item. Closed set.
 type SubmitStatus string

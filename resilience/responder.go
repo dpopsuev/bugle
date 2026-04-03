@@ -3,17 +3,17 @@ package resilience
 import (
 	"context"
 
-	"github.com/dpopsuev/jericho/bugle"
+	"github.com/dpopsuev/jericho/work"
 )
 
-// CircuitBreakerResponder wraps a bugle.Responder with circuit breaker protection.
+// CircuitBreakerResponder wraps a work.Responder with circuit breaker protection.
 type CircuitBreakerResponder struct {
-	inner   bugle.Responder
+	inner   work.Responder
 	breaker *CircuitBreaker
 }
 
 // NewCircuitBreakerResponder wraps inner with circuit breaker protection.
-func NewCircuitBreakerResponder(inner bugle.Responder, cfg CircuitConfig) *CircuitBreakerResponder {
+func NewCircuitBreakerResponder(inner work.Responder, cfg CircuitConfig) *CircuitBreakerResponder {
 	return &CircuitBreakerResponder{
 		inner:   inner,
 		breaker: NewCircuitBreaker(cfg),
@@ -35,16 +35,16 @@ func (r *CircuitBreakerResponder) RespondTo(ctx context.Context, prompt string) 
 func (r *CircuitBreakerResponder) State() CircuitState { return r.breaker.State() }
 
 // Inner returns the wrapped responder.
-func (r *CircuitBreakerResponder) Inner() bugle.Responder { return r.inner }
+func (r *CircuitBreakerResponder) Inner() work.Responder { return r.inner }
 
-// RateLimitResponder wraps a bugle.Responder with token bucket rate limiting.
+// RateLimitResponder wraps a work.Responder with token bucket rate limiting.
 type RateLimitResponder struct {
-	inner   bugle.Responder
+	inner   work.Responder
 	limiter *RateLimiter
 }
 
 // NewRateLimitResponder wraps inner with rate limiting.
-func NewRateLimitResponder(inner bugle.Responder, cfg RateLimitConfig) *RateLimitResponder {
+func NewRateLimitResponder(inner work.Responder, cfg RateLimitConfig) *RateLimitResponder {
 	return &RateLimitResponder{
 		inner:   inner,
 		limiter: NewRateLimiter(cfg),
@@ -63,4 +63,4 @@ func (r *RateLimitResponder) RespondTo(ctx context.Context, prompt string) (stri
 func (r *RateLimitResponder) Waits() int64 { return r.limiter.Waits() }
 
 // Inner returns the wrapped responder.
-func (r *RateLimitResponder) Inner() bugle.Responder { return r.inner }
+func (r *RateLimitResponder) Inner() work.Responder { return r.inner }

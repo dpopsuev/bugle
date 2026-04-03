@@ -1,4 +1,4 @@
-package bugle
+package work
 
 // ProtocolVersion is the current Bugle Protocol version.
 const ProtocolVersion = "bugle/v1"
