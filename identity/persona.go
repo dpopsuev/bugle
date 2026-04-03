@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// Persona is a perennial agent identity template — stable across model
+// Archetype is a perennial agent identity template — stable across model
 // releases while the models behind them shift. Flat struct replaces the
 // old AgentIdentity monolith with direct fields.
-type Persona struct {
+type Archetype struct {
 	Name            string             `json:"name"`
 	Description     string             `json:"description"`
 	ColorPref       Reservation        `json:"color_pref"`       // preferred color (not assigned)
@@ -23,25 +23,25 @@ type Persona struct {
 	PromptPreamble  string             `json:"prompt_preamble,omitempty"`
 }
 
-// Tag returns a log-friendly tag like "[crimson/herald]".
-func (p Persona) Tag() string { //nolint:gocritic // value receiver for log formatting
-	color := strings.ToLower(p.ColorPref.Color)
+// Tag returns a log-friendly tag like "[iron/judge]".
+func (a Archetype) Tag() string { //nolint:gocritic // value receiver for log formatting
+	color := strings.ToLower(a.ColorPref.Color)
 	if color == "" {
 		color = "none"
 	}
-	name := strings.ToLower(p.Name)
+	name := strings.ToLower(a.Name)
 	if name == "" {
 		name = "anon"
 	}
 	return fmt.Sprintf("[%s/%s]", color, name)
 }
 
-// PersonaResolver looks up a persona by name.
-type PersonaResolver func(name string) (Persona, bool) //nolint:revive // kept for Origami alias compat
+// ArchetypeResolver looks up a persona by name.
+type ArchetypeResolver func(name string) (Archetype, bool) //nolint:revive // kept for Origami alias compat
 
-// DefaultPersonaResolver is the active persona lookup function. Nil until
+// DefaultArchetypeResolver is the active persona lookup function. Nil until
 // a persona package registers itself via init().
-var DefaultPersonaResolver PersonaResolver //nolint:revive // kept for Origami alias compat
+var DefaultArchetypeResolver ArchetypeResolver //nolint:revive // kept for Origami alias compat
 
 // Alignment represents an agent's motivational orientation.
 type Alignment string

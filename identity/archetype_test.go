@@ -1,133 +1,138 @@
 package identity
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestAll_Count(t *testing.T) {
-	all := All()
-	if len(all) != 8 {
-		t.Errorf("len(All) = %d, want 8", len(all))
+	if got := len(All()); got != 5 {
+		t.Errorf("All() = %d, want 5", got)
 	}
 }
 
 func TestThesis_Count(t *testing.T) {
-	thesis := Thesis()
-	if len(thesis) != 4 {
-		t.Errorf("len(Thesis) = %d, want 4", len(thesis))
+	th := Thesis()
+	if len(th) != 4 {
+		t.Fatalf("Thesis() = %d, want 4", len(th))
 	}
-	for _, p := range thesis {
+	for _, p := range th {
 		if p.Alignment != AlignmentThesis {
-			t.Errorf("persona %q has alignment %q, want thesis", p.Name, p.Alignment)
+			t.Errorf("%s alignment = %s, want thesis", p.Name, p.Alignment)
 		}
 	}
 }
 
 func TestAntithesis_Count(t *testing.T) {
-	antithesis := Antithesis()
-	if len(antithesis) != 4 {
-		t.Errorf("len(Antithesis) = %d, want 4", len(antithesis))
+	anti := Antithesis()
+	if len(anti) != 1 {
+		t.Fatalf("Antithesis() = %d, want 1", len(anti))
 	}
-	for _, p := range antithesis {
-		if p.Alignment != AlignmentAntithesis {
-			t.Errorf("persona %q has alignment %q, want antithesis", p.Name, p.Alignment)
-		}
+	if anti[0].Name != "Judge" {
+		t.Errorf("Antithesis name = %s, want Judge", anti[0].Name)
+	}
+	if anti[0].Alignment != AlignmentAntithesis {
+		t.Errorf("Judge alignment = %s, want antithesis", anti[0].Alignment)
 	}
 }
 
-func TestByName_Herald(t *testing.T) {
-	p, ok := ByName("Herald")
+func TestByName_Sorter(t *testing.T) {
+	p, ok := ByName("Sorter")
 	if !ok {
-		t.Fatal("ByName(Herald) not found")
-	}
-	if p.ColorPref.Color != "Scarlet" {
-		t.Errorf("Herald color pref = %q, want Scarlet", p.ColorPref.Color)
+		t.Fatal("Sorter not found")
 	}
 	if p.Element != ElementFire {
-		t.Errorf("Herald element = %q, want fire", p.Element)
+		t.Errorf("Sorter element = %s, want Fire", p.Element)
 	}
 	if p.Position != PositionPG {
-		t.Errorf("Herald position = %q, want PG", p.Position)
+		t.Errorf("Sorter position = %s, want PG", p.Position)
 	}
-	if p.Alignment != AlignmentThesis {
-		t.Errorf("Herald alignment = %q, want thesis", p.Alignment)
+}
+
+func TestByName_Judge(t *testing.T) {
+	p, ok := ByName("Judge")
+	if !ok {
+		t.Fatal("Judge not found")
+	}
+	if p.Element != ElementDiamond {
+		t.Errorf("Judge element = %s, want Diamond", p.Element)
+	}
+	if p.Alignment != AlignmentAntithesis {
+		t.Errorf("Judge alignment = %s, want antithesis", p.Alignment)
 	}
 }
 
 func TestByName_CaseInsensitive(t *testing.T) {
-	_, ok := ByName("herald")
-	if !ok {
-		t.Error("ByName should be case-insensitive")
+	if _, ok := ByName("SEEKER"); !ok {
+		t.Error("case-insensitive lookup for SEEKER failed")
 	}
-	_, ok = ByName("CHALLENGER")
-	if !ok {
-		t.Error("ByName should be case-insensitive")
+	if _, ok := ByName("judge"); !ok {
+		t.Error("case-insensitive lookup for judge failed")
 	}
 }
 
-func TestByName_NotFound(t *testing.T) {
-	_, ok := ByName("nonexistent")
-	if ok {
-		t.Error("ByName should return false for nonexistent name")
+func TestByName_OldNamesRemoved(t *testing.T) {
+	removed := []string{"Herald", "Sentinel", "Challenger", "Abyss", "Bulwark", "Specter"}
+	for _, name := range removed {
+		if _, ok := ByName(name); ok {
+			t.Errorf("%s should be removed, but was found", name)
+		}
 	}
 }
 
-func TestPersonas_UniqueNames(t *testing.T) {
-	all := All()
-	seen := make(map[string]bool, len(all))
-	for _, p := range all {
+func TestArchetypes_UniqueNames(t *testing.T) {
+	seen := make(map[string]bool)
+	for _, p := range All() {
 		if seen[p.Name] {
-			t.Errorf("duplicate persona name: %s", p.Name)
+			t.Errorf("duplicate archetype name: %s", p.Name)
 		}
 		seen[p.Name] = true
 	}
 }
 
-func TestPersonas_AllPositionsCovered(t *testing.T) {
-	positions := map[Position]int{PositionPG: 0, PositionSG: 0, PositionPF: 0, PositionC: 0}
-	for _, p := range All() {
-		positions[p.Position]++
-	}
-	for pos, count := range positions {
-		if count != 2 {
-			t.Errorf("position %s has %d personas, want 2 (1 thesis + 1 antithesis)", pos, count)
-		}
-	}
-}
-
-func TestPersonas_AllHaveStepAffinity(t *testing.T) {
+func TestArchetypes_AllHaveStepAffinity(t *testing.T) {
 	for _, p := range All() {
 		if len(p.StepAffinity) == 0 {
-			t.Errorf("persona %s has no step affinity", p.Name)
+			t.Errorf("%s has no step affinity", p.Name)
 		}
 	}
 }
 
-func TestPersonas_AllHavePromptPreamble(t *testing.T) {
+func TestArchetypes_AllHavePromptPreamble(t *testing.T) {
 	for _, p := range All() {
 		if p.PromptPreamble == "" {
-			t.Errorf("persona %s has empty prompt preamble", p.Name)
+			t.Errorf("%s has no prompt preamble", p.Name)
 		}
 	}
 }
 
-func TestPersonas_HomeZoneMatchesPosition(t *testing.T) {
+func TestArchetypes_AllHaveColorPref(t *testing.T) {
+	for _, p := range All() {
+		if p.ColorPref.Shade == "" {
+			t.Errorf("%s has no shade preference", p.Name)
+		}
+		if p.ColorPref.Color == "" {
+			t.Errorf("%s has no color preference", p.Name)
+		}
+	}
+}
+
+func TestArchetypes_HomeZoneMatchesPosition(t *testing.T) {
 	for _, p := range All() {
 		expected := HomeZoneFor(p.Position)
 		if p.HomeZone != expected {
-			t.Errorf("persona %s: HomeZone=%q but HomeZoneFor(%s)=%q",
-				p.Name, p.HomeZone, p.Position, expected)
+			t.Errorf("%s: HomeZone=%s, want %s (for position %s)", p.Name, p.HomeZone, expected, p.Position)
 		}
 	}
 }
 
-func TestPersonas_AllHaveColorPref(t *testing.T) {
+func TestArchetypes_ThreeAxes(t *testing.T) {
 	for _, p := range All() {
-		if p.ColorPref.Shade == "" {
-			t.Errorf("persona %s has empty color preference shade", p.Name)
+		if p.Element == "" {
+			t.Errorf("%s missing phenotype (Element)", p.Name)
 		}
-		if p.ColorPref.Color == "" {
-			t.Errorf("persona %s has empty color preference color", p.Name)
+		if len(p.PersonalityTags) == 0 {
+			t.Errorf("%s missing trait (PersonalityTags)", p.Name)
+		}
+		if p.Description == "" {
+			t.Errorf("%s missing mission (Description)", p.Name)
 		}
 	}
 }

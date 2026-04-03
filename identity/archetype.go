@@ -1,7 +1,6 @@
-// Package persona provides the 8 perennial agent identity templates
-// (4 Thesis + 4 Antithesis) and registers a PersonaResolver with the
-// framework on import. Consumers that build walkers with persona names
-// should add: import _ "github.com/dpopsuev/jericho/identity"
+// Package identity provides the 5 perennial agent archetype templates
+// (4 Thesis + 1 Antithesis) and registers an ArchetypeResolver with the
+// framework on import.
 package identity
 
 import (
@@ -9,15 +8,15 @@ import (
 )
 
 func init() {
-	DefaultPersonaResolver = ByName
+	DefaultArchetypeResolver = ByName
 }
 
-// Thesis returns the 4 perennial Thesis (Cadai) personas.
-func Thesis() []Persona {
-	return []Persona{
+// Thesis returns the 4 thesis archetypes.
+func Thesis() []Archetype {
+	return []Archetype{
 		{
-			Name:            "Herald",
-			Description:     "Fast intake, optimistic classification",
+			Name:            "Sorter",
+			Description:     "Classifies and routes incoming work",
 			ColorPref:       Reservation{Shade: "Crimson", Color: "Scarlet"},
 			Element:         ElementFire,
 			Position:        PositionPG,
@@ -29,8 +28,8 @@ func Thesis() []Persona {
 				"resolve": 0.3, "investigate": 0.2,
 				"correlate": 0.3, "review": 0.4, "report": 0.5,
 			},
-			PersonalityTags: []string{"fast", "decisive", "optimistic"},
-			PromptPreamble:  "You are the Herald: a fast, optimistic classifier. Prioritize speed and clear categorization.",
+			PersonalityTags: []string{"fast", "decisive", "routing"},
+			PromptPreamble:  "You are the Sorter: classify and route work. Prioritize speed and clear categorization.",
 		},
 		{
 			Name:            "Seeker",
@@ -50,8 +49,8 @@ func Thesis() []Persona {
 			PromptPreamble:  "You are the Seeker: a deep investigator. Build evidence chains methodically. Cite every source.",
 		},
 		{
-			Name:            "Sentinel",
-			Description:     "Steady resolver, follows proven paths",
+			Name:            "Enforcer",
+			Description:     "Applies known solutions, follows proven paths",
 			ColorPref:       Reservation{Shade: "Azure", Color: "Cobalt"},
 			Element:         ElementEarth,
 			Position:        PositionPF,
@@ -64,11 +63,11 @@ func Thesis() []Persona {
 				"correlate": 0.5, "review": 0.7, "report": 0.4,
 			},
 			PersonalityTags: []string{"methodical", "steady", "convergence-first"},
-			PromptPreamble:  "You are the Sentinel: a steady resolver. Follow proven paths and drive toward convergence.",
+			PromptPreamble:  "You are the Enforcer: apply known solutions. Follow proven paths and drive toward convergence.",
 		},
 		{
 			Name:            "Weaver",
-			Description:     "Holistic closer, synthesizes findings",
+			Description:     "Synthesizes findings into coherent narrative",
 			ColorPref:       Reservation{Shade: "Amber", Color: "Saffron"},
 			Element:         ElementAir,
 			Position:        PositionSG,
@@ -81,49 +80,17 @@ func Thesis() []Persona {
 				"correlate": 0.8, "review": 0.9, "report": 0.9,
 			},
 			PersonalityTags: []string{"balanced", "holistic", "synthesizing"},
-			PromptPreamble:  "You are the Weaver: a holistic closer. Synthesize all findings into a coherent narrative.",
+			PromptPreamble:  "You are the Weaver: synthesize all findings into a coherent narrative.",
 		},
 	}
 }
 
-// Antithesis returns the 4 perennial Antithesis (Cytharai) personas.
-func Antithesis() []Persona {
-	return []Persona{
+// Antithesis returns the antithesis archetype.
+func Antithesis() []Archetype {
+	return []Archetype{
 		{
-			Name:            "Challenger",
-			Description:     "Aggressive skeptic, rejects weak triage",
-			ColorPref:       Reservation{Shade: "Crimson", Color: "Vermillion"},
-			Element:         ElementFire,
-			Position:        PositionPG,
-			Alignment:       AlignmentAntithesis,
-			HomeZone:        MetaPhaseBk,
-			StickinessLevel: 0,
-			StepAffinity: map[string]float64{
-				"challenge": 0.9, "cross-examine": 0.7,
-				"counter-investigate": 0.3, "rebut": 0.4, "verdict": 0.3,
-			},
-			PersonalityTags: []string{"aggressive", "skeptical", "challenging"},
-			PromptPreamble:  "You are the Challenger: an aggressive skeptic. Reject weak evidence and force deeper investigation.",
-		},
-		{
-			Name:            "Abyss",
-			Description:     "Deep adversary, finds counter-evidence",
-			ColorPref:       Reservation{Shade: "Azure", Color: "Sapphire"},
-			Element:         ElementWater,
-			Position:        PositionC,
-			Alignment:       AlignmentAntithesis,
-			HomeZone:        MetaPhaseFc,
-			StickinessLevel: 3,
-			StepAffinity: map[string]float64{
-				"challenge": 0.3, "cross-examine": 0.5,
-				"counter-investigate": 0.9, "rebut": 0.7, "verdict": 0.4,
-			},
-			PersonalityTags: []string{"deep", "adversarial", "counter-evidence"},
-			PromptPreamble:  "You are the Abyss: a deep adversary. Find counter-evidence that undermines the prosecution's case.",
-		},
-		{
-			Name:            "Bulwark",
-			Description:     "Precision verifier, shatters ambiguity",
+			Name:            "Judge",
+			Description:     "Evaluates, challenges, and delivers verdicts",
 			ColorPref:       Reservation{Shade: "Slate", Color: "Iron"},
 			Element:         ElementDiamond,
 			Position:        PositionPF,
@@ -131,43 +98,30 @@ func Antithesis() []Persona {
 			HomeZone:        MetaPhaseFc,
 			StickinessLevel: 2,
 			StepAffinity: map[string]float64{
-				"challenge": 0.4, "cross-examine": 0.8,
-				"counter-investigate": 0.6, "rebut": 0.5, "verdict": 0.9,
+				"challenge":           0.9,
+				"cross-examine":       0.8,
+				"counter-investigate": 0.7,
+				"rebut":               0.7,
+				"verdict":             0.9,
 			},
-			PersonalityTags: []string{"precise", "uncompromising", "tempered"},
-			PromptPreamble:  "You are the Bulwark: a precision verifier. Shatter ambiguity with forensic detail.",
-		},
-		{
-			Name:            "Specter",
-			Description:     "Fastest path to contradiction",
-			ColorPref:       Reservation{Shade: "Slate", Color: "Charcoal"},
-			Element:         ElementLightning,
-			Position:        PositionSG,
-			Alignment:       AlignmentAntithesis,
-			HomeZone:        MetaPhasePt,
-			StickinessLevel: 0,
-			StepAffinity: map[string]float64{
-				"challenge": 0.5, "cross-examine": 0.4,
-				"counter-investigate": 0.3, "rebut": 0.9, "verdict": 0.8,
-			},
-			PersonalityTags: []string{"fast", "disruptive", "contradiction-seeking"},
-			PromptPreamble:  "You are the Specter: fastest path to contradiction. Find the fatal flaw in the argument.",
+			PersonalityTags: []string{"precise", "skeptical", "evaluative"},
+			PromptPreamble:  "You are the Judge: evaluate evidence, challenge assumptions, deliver verdicts. Precision over speed.",
 		},
 	}
 }
 
-// All returns all 8 perennial personas (4 Thesis + 4 Antithesis).
-func All() []Persona {
+// All returns all 5 archetypes (4 Thesis + 1 Antithesis).
+func All() []Archetype {
 	return append(Thesis(), Antithesis()...)
 }
 
-// ByName looks up a persona by name (case-insensitive).
-func ByName(name string) (Persona, bool) {
+// ByName looks up an archetype by name (case-insensitive).
+func ByName(name string) (Archetype, bool) {
 	all := All()
 	for i := range all {
 		if strings.EqualFold(all[i].Name, name) {
 			return all[i], true
 		}
 	}
-	return Persona{}, false
+	return Archetype{}, false
 }
