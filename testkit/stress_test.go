@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/identity"
+	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/transport"
 	"github.com/dpopsuev/jericho/world"
 )

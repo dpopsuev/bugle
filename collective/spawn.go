@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 )
 
 // Sentinel errors for collective spawning.
@@ -21,14 +21,14 @@ var ErrInitFailed = errors.New("collective init agent failed")
 
 // CollectiveConfig configures a new Collective.
 type CollectiveConfig struct {
-	Role       string             // collective's external role name
-	Strategy   CollectiveStrategy // how agents collaborate
-	Agents     []pool.AgentConfig // one config per internal agent
-	Shade      string             // shade family for all agents (empty = random)
-	Init       []pool.AgentConfig // init agents — run to completion before main agents start
-	InitPrompt string             // prompt to send to each init agent (empty = skip Ask)
-	Ingress    *pool.AgentConfig  // optional ingress gate agent (bouncer)
-	Egress     *pool.AgentConfig  // optional egress gate agent (reviewer)
+	Role       string               // collective's external role name
+	Strategy   CollectiveStrategy   // how agents collaborate
+	Agents     []warden.AgentConfig // one config per internal agent
+	Shade      string               // shade family for all agents (empty = random)
+	Init       []warden.AgentConfig // init agents — run to completion before main agents start
+	InitPrompt string               // prompt to send to each init agent (empty = skip Ask)
+	Ingress    *warden.AgentConfig  // optional ingress gate agent (bouncer)
+	Egress     *warden.AgentConfig  // optional egress gate agent (reviewer)
 }
 
 // SpawnCollective creates an Collective by spawning N agents via Staff.
@@ -49,7 +49,7 @@ func SpawnCollective(ctx context.Context, staff *agent.Staff, cfg CollectiveConf
 			return nil, fmt.Errorf("%w: spawn init agent %q: %w", ErrInitFailed, cfg.Init[i].Role, err)
 		}
 		if cfg.InitPrompt != "" {
-			if _, err := initAgent.Ask(ctx, cfg.InitPrompt); err != nil {
+			if _, err := initAgent.Perform(ctx, cfg.InitPrompt); err != nil {
 				initAgent.Kill(ctx) //nolint:errcheck // cleanup
 				return nil, fmt.Errorf("%w: init agent %q: %w", ErrInitFailed, cfg.Init[i].Role, err)
 			}

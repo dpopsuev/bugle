@@ -1,4 +1,4 @@
-package pool
+package warden
 
 // PriorityClass determines scheduling priority when quotas are constrained.
 type PriorityClass string

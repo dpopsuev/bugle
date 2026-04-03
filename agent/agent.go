@@ -9,7 +9,7 @@ package agent
 import (
 	"context"
 
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -21,16 +21,16 @@ type Agent interface {
 	String() string
 
 	// Messaging
-	Ask(ctx context.Context, content string) (string, error)
+	Perform(ctx context.Context, content string) (string, error)
 	Tell(content string) error
 	Listen(handler func(content string) string)
 	Broadcast(ctx context.Context, content string) error
 
 	// Lifecycle
 	Kill(ctx context.Context) error
-	KillWithReason(ctx context.Context, code pool.ExitCode) error
-	Wait(ctx context.Context) (*pool.ExitStatus, error)
-	Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error)
+	KillWithReason(ctx context.Context, code warden.ExitCode) error
+	Wait(ctx context.Context) (*warden.ExitStatus, error)
+	Spawn(ctx context.Context, role string, config warden.AgentConfig) (*Solo, error)
 
 	// State
 	IsAlive() bool

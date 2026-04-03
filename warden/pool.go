@@ -2,7 +2,7 @@
 // process supervision: parent-child tracking, zombie reaping, orphan
 // adoption. Maps Bugle World entities to running processes via the
 // AgentSupervisor interface. Process-agnostic: consumers inject their own AgentSupervisor.
-package pool
+package warden
 
 import (
 	"context"
@@ -35,8 +35,8 @@ type agentEntry struct {
 	ExitTime time.Time // zero = still running
 }
 
-// AgentPool manages agent process lifecycles with process supervision.
-type AgentPool struct {
+// AgentWarden manages agent process lifecycles with process supervision.
+type AgentWarden struct {
 	world     *world.World
 	transport *transport.LocalTransport
 	bus       signal.Bus
@@ -51,9 +51,9 @@ type AgentPool struct {
 	maxAgents int                              // 0 = unlimited
 }
 
-// New creates an AgentPool.
-func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSupervisor) *AgentPool {
-	return &AgentPool{
+// New creates an AgentWarden.
+func NewWarden(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSupervisor) *AgentWarden {
+	return &AgentWarden{
 		world:     w,
 		transport: t,
 		bus:       b,
@@ -68,7 +68,7 @@ func New(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSuper
 // Fork spawns a new agent with parent tracking: creates entity, attaches
 // components, starts process, registers in transport, emits signal.
 // parentID=0 means root agent (no parent).
-func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, parentID world.EntityID) (world.EntityID, error) {
+func (p *AgentWarden) Fork(ctx context.Context, role string, config AgentConfig, parentID world.EntityID) (world.EntityID, error) {
 	// 0. Quota check.
 	if p.maxAgents > 0 && p.Count() >= p.maxAgents {
 		return 0, fmt.Errorf("%w: max %d agents", ErrQuotaExceeded, p.maxAgents)
@@ -147,7 +147,7 @@ func (p *AgentPool) Fork(ctx context.Context, role string, config AgentConfig, p
 // Kill stops an agent: stops process, moves to zombie state.
 // The entry is NOT removed — parent must call Wait() to reap.
 // If parent has AutoReap, the entry is removed immediately.
-func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
+func (p *AgentWarden) Kill(ctx context.Context, id world.EntityID) error {
 	p.mu.Lock()
 	entry, ok := p.agents[id]
 	if !ok {
@@ -221,7 +221,7 @@ func (p *AgentPool) Kill(ctx context.Context, id world.EntityID) error {
 // KillGraceful sends a stop signal and waits up to gracePeriod for the agent
 // to finish current work before force-killing. If gracePeriod is 0, defaults
 // to the agent's configured GracePeriod (or 30s).
-func (p *AgentPool) KillGraceful(ctx context.Context, id world.EntityID, gracePeriod time.Duration) error {
+func (p *AgentWarden) KillGraceful(ctx context.Context, id world.EntityID, gracePeriod time.Duration) error {
 	p.mu.RLock()
 	entry, ok := p.agents[id]
 	p.mu.RUnlock()
@@ -271,7 +271,7 @@ func shouldRestart(entry *agentEntry) bool {
 }
 
 // restartAgent re-forks a terminated agent with the same config under the same parent.
-func (p *AgentPool) restartAgent(ctx context.Context, entry *agentEntry) {
+func (p *AgentWarden) restartAgent(ctx context.Context, entry *agentEntry) {
 	_, err := p.Fork(ctx, entry.Role, entry.Config, entry.ParentID)
 	if err != nil {
 		p.bus.Emit(&signal.Signal{
@@ -288,7 +288,7 @@ func (p *AgentPool) restartAgent(ctx context.Context, entry *agentEntry) {
 }
 
 // KillAll stops all running agents. Called on shutdown.
-func (p *AgentPool) KillAll(ctx context.Context) {
+func (p *AgentWarden) KillAll(ctx context.Context) {
 	p.mu.RLock()
 	ids := make([]world.EntityID, 0, len(p.agents))
 	for id := range p.agents {
@@ -310,7 +310,7 @@ func (p *AgentPool) KillAll(ctx context.Context) {
 }
 
 // Active returns all running (non-zombie) entity IDs.
-func (p *AgentPool) Active() []world.EntityID {
+func (p *AgentWarden) Active() []world.EntityID {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	ids := make([]world.EntityID, 0, len(p.agents))
@@ -321,21 +321,21 @@ func (p *AgentPool) Active() []world.EntityID {
 }
 
 // Count returns the number of running (non-zombie) agents.
-func (p *AgentPool) Count() int {
+func (p *AgentWarden) Count() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.agents)
 }
 
 // ZombieCount returns the number of zombie agents awaiting reaping.
-func (p *AgentPool) ZombieCount() int {
+func (p *AgentWarden) ZombieCount() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return len(p.zombies)
 }
 
 // get returns the entry for a running agent.
-func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
+func (p *AgentWarden) get(id world.EntityID) (*agentEntry, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	e, ok := p.agents[id]
@@ -343,13 +343,13 @@ func (p *AgentPool) get(id world.EntityID) (*agentEntry, bool) {
 }
 
 // SetRegistry sets the color registry for automatic color assignment on Fork.
-func (p *AgentPool) SetRegistry(reg *identity.Registry) {
+func (p *AgentWarden) SetRegistry(reg *identity.Registry) {
 	p.registry = reg
 }
 
 // SetMaxAgents sets the maximum number of agents this pool can manage.
 // 0 means unlimited (default).
-func (p *AgentPool) SetMaxAgents(n int) {
+func (p *AgentWarden) SetMaxAgents(n int) {
 	p.maxAgents = n
 }
 

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -31,7 +31,7 @@ func newPipeLauncher() *pipeLauncher {
 	}
 }
 
-func (l *pipeLauncher) Start(_ context.Context, id world.EntityID, _ pool.AgentConfig) error {
+func (l *pipeLauncher) Start(_ context.Context, id world.EntityID, _ warden.AgentConfig) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.started[id] = true
@@ -59,7 +59,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	ctx := context.Background()
 
 	// === 1. Spawn root agent (GenSec = PID 1) ===
-	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{})
+	gensec, err := staff.Spawn(ctx, "gensec", warden.AgentConfig{})
 	if err != nil {
 		t.Fatalf("spawn gensec: %v", err)
 	}
@@ -72,9 +72,9 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	staff.SetSubreaper(gensec)
 
 	// === 2. Spawn children under GenSec ===
-	executor1, _ := gensec.Spawn(ctx, "executor", pool.AgentConfig{})
-	executor2, _ := gensec.Spawn(ctx, "executor", pool.AgentConfig{})
-	inspector, _ := gensec.Spawn(ctx, "inspector", pool.AgentConfig{})
+	executor1, _ := gensec.Spawn(ctx, "executor", warden.AgentConfig{})
+	executor2, _ := gensec.Spawn(ctx, "executor", warden.AgentConfig{})
+	inspector, _ := gensec.Spawn(ctx, "inspector", warden.AgentConfig{})
 
 	if staff.Count() != 4 {
 		t.Fatalf("count = %d, want 4", staff.Count())
@@ -95,7 +95,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	})
 
 	// === 4. Ask — synchronous request-reply ===
-	resp1, err := executor1.Ask(ctx, "build auth module")
+	resp1, err := executor1.Perform(ctx, "build auth module")
 	if err != nil {
 		t.Fatalf("ask exec1: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 		t.Fatalf("resp1 = %q", resp1)
 	}
 
-	resp2, err := executor2.Ask(ctx, "build user module")
+	resp2, err := executor2.Perform(ctx, "build user module")
 	if err != nil {
 		t.Fatalf("ask exec2: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 	}
 
 	// === 5. Inspector reviews ===
-	review, err := inspector.Ask(ctx, "code looks good")
+	review, err := inspector.Perform(ctx, "code looks good")
 	if err != nil {
 		t.Fatalf("ask inspector: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 		t.Fatalf("review = %q, want APPROVED", review)
 	}
 
-	reviewFail, _ := inspector.Ask(ctx, "code has FAIL")
+	reviewFail, _ := inspector.Perform(ctx, "code has FAIL")
 	if reviewFail != "REJECTED" {
 		t.Fatalf("reviewFail = %q, want REJECTED", reviewFail)
 	}
@@ -176,20 +176,20 @@ func TestFacadeE2E_FullPipe(t *testing.T) { //nolint:gocyclo // full-pipe E2E te
 
 	// === 10. Kill + Wait with exit code ===
 	staff.Pool().SetAutoReap(gensec.ID(), false)
-	executor1.KillWithReason(ctx, pool.ExitBudget)
+	executor1.KillWithReason(ctx, warden.ExitBudget)
 	status1, err := executor1.Wait(ctx)
 	if err != nil {
 		t.Fatalf("wait exec1: %v", err)
 	}
-	if status1.Code != pool.ExitBudget {
+	if status1.Code != warden.ExitBudget {
 		t.Fatalf("exit code = %d, want ExitBudget", status1.Code)
 	}
 	// Already reaped by Wait — should NOT be zombie anymore.
 
 	// === 11. Orphan reparenting ===
-	scheduler, _ := gensec.Spawn(ctx, "scheduler", pool.AgentConfig{})
-	orphan1, _ := scheduler.Spawn(ctx, "worker", pool.AgentConfig{})
-	orphan2, _ := scheduler.Spawn(ctx, "worker", pool.AgentConfig{})
+	scheduler, _ := gensec.Spawn(ctx, "scheduler", warden.AgentConfig{})
+	orphan1, _ := scheduler.Spawn(ctx, "worker", warden.AgentConfig{})
+	orphan2, _ := scheduler.Spawn(ctx, "worker", warden.AgentConfig{})
 
 	scheduler.Kill(ctx)
 
@@ -231,8 +231,8 @@ func TestFacadeE2E_AIAsOperator(t *testing.T) {
 	ctx := context.Background()
 
 	// AI operator (Agent 0) creates a GenSec (Agent 1).
-	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{
-		RestartPolicy: pool.RestartOnFailure,
+	gensec, err := staff.Spawn(ctx, "gensec", warden.AgentConfig{
+		RestartPolicy: warden.RestartOnFailure,
 	})
 	if err != nil {
 		t.Fatalf("spawn gensec: %v", err)
@@ -244,7 +244,7 @@ func TestFacadeE2E_AIAsOperator(t *testing.T) {
 	// GenSec spawns workers — recursive agent creation (AI spawning AI).
 	workers := make([]*agent.Solo, 0, 3)
 	for i := range 3 {
-		w, err := gensec.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.AgentConfig{})
+		w, err := gensec.Spawn(ctx, fmt.Sprintf("worker-%d", i), warden.AgentConfig{})
 		if err != nil {
 			t.Fatalf("spawn worker-%d: %v", i, err)
 		}
@@ -256,7 +256,7 @@ func TestFacadeE2E_AIAsOperator(t *testing.T) {
 	}
 
 	// AI operator sends work through GenSec to workers.
-	resp, err := gensec.Ask(ctx, "classify PTP defects")
+	resp, err := gensec.Perform(ctx, "classify PTP defects")
 	if err != nil {
 		t.Fatalf("ask gensec: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestFacadeE2E_AIAsOperator(t *testing.T) {
 
 	// Workers do work (RespondTo pattern).
 	for _, w := range workers {
-		resp, err := w.Ask(ctx, "investigate")
+		resp, err := w.Perform(ctx, "investigate")
 		if err != nil {
 			t.Fatalf("ask worker: %v", err)
 		}
@@ -285,7 +285,7 @@ func TestFacadeE2E_AIAsOperator(t *testing.T) {
 	workers[1].Kill(ctx) //nolint:errcheck // test cleanup
 
 	// Spawn a child under worker-0 to test recursive hierarchy.
-	subWorker, err := workers[0].Spawn(ctx, "sub-worker", pool.AgentConfig{})
+	subWorker, err := workers[0].Spawn(ctx, "sub-worker", warden.AgentConfig{})
 	if err != nil {
 		t.Fatalf("spawn sub-worker: %v", err)
 	}
@@ -313,12 +313,12 @@ func TestFacadeE2E_StressTest(t *testing.T) {
 	staff := agent.NewStaff(newPipeLauncher())
 	ctx := context.Background()
 
-	root, _ := staff.Spawn(ctx, "root", pool.AgentConfig{})
+	root, _ := staff.Spawn(ctx, "root", warden.AgentConfig{})
 
 	// Spawn 20 workers under root.
 	agents := make([]*agent.Solo, 0, 20)
 	for i := range 20 {
-		a, _ := root.Spawn(ctx, fmt.Sprintf("worker-%d", i), pool.AgentConfig{})
+		a, _ := root.Spawn(ctx, fmt.Sprintf("worker-%d", i), warden.AgentConfig{})
 		a.Listen(func(content string) string {
 			return "processed: " + content
 		})
@@ -336,7 +336,7 @@ func TestFacadeE2E_StressTest(t *testing.T) {
 		wg.Add(1)
 		go func(agent *agent.Solo) {
 			defer wg.Done()
-			resp, err := agent.Ask(ctx, "work")
+			resp, err := agent.Perform(ctx, "work")
 			if err == nil && strings.HasPrefix(resp, "processed:") {
 				success.Add(1)
 			}

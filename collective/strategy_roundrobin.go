@@ -29,7 +29,7 @@ func (r *RoundRobin) Select(_ context.Context, agents []*agent.Solo) []*agent.So
 
 	for i := range uint64(len(agents)) {
 		candidate := agents[(start+i)%n]
-		if candidate.IsReady() {
+		if candidate.Ready() {
 			return []*agent.Solo{candidate}
 		}
 	}
@@ -42,7 +42,7 @@ func (*RoundRobin) Execute(ctx context.Context, prompt string, agents []*agent.S
 	if len(agents) == 0 {
 		return "", ErrNoHealthyAgents
 	}
-	return agents[0].Ask(ctx, prompt)
+	return agents[0].Perform(ctx, prompt)
 }
 
 // Orchestrate picks the next healthy agent and forwards the prompt.

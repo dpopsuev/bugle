@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 )
 
 // Slog key constants.
@@ -114,5 +114,5 @@ var _ interface {
 	FindByRole(role string) []*agent.Solo
 } = (*agent.Staff)(nil)
 
-// Ensure pool.AgentConfig has YAML tags (it does via Phase 3).
-var _ = pool.AgentConfig{}
+// Ensure warden.AgentConfig has YAML tags (it does via Phase 3).
+var _ = warden.AgentConfig{}

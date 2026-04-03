@@ -1,7 +1,7 @@
-// supervision.go — Linux-inspired process supervision for AgentPool.
+// supervision.go — Linux-inspired process supervision for AgentWarden.
 // Wait/WaitAny (zombie reaping), KillAs (ownership), KillChildren (process group),
 // Children/Tree (hierarchy), SetSubreaper (orphan adoption), SetAutoReap.
-package pool
+package warden
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 // Wait blocks until the specified child finishes, returns its exit status,
 // and removes the zombie entry. Like waitpid(pid).
-func (p *AgentPool) Wait(ctx context.Context, childID world.EntityID) (*ExitStatus, error) {
+func (p *AgentWarden) Wait(ctx context.Context, childID world.EntityID) (*ExitStatus, error) {
 	// Check if already a zombie.
 	p.mu.RLock()
 	if z, ok := p.zombies[childID]; ok {
@@ -47,7 +47,7 @@ func (p *AgentPool) Wait(ctx context.Context, childID world.EntityID) (*ExitStat
 
 // WaitAny returns the exit status of any finished child of parentID
 // without blocking. Returns nil if no zombies. Like waitpid(-1, WNOHANG).
-func (p *AgentPool) WaitAny(parentID world.EntityID) *ExitStatus {
+func (p *AgentWarden) WaitAny(parentID world.EntityID) *ExitStatus {
 	p.mu.RLock()
 	var found world.EntityID
 	var entry *agentEntry
@@ -67,7 +67,7 @@ func (p *AgentPool) WaitAny(parentID world.EntityID) *ExitStatus {
 }
 
 // reap removes a zombie entry and returns its exit status.
-func (p *AgentPool) reap(id world.EntityID, entry *agentEntry) *ExitStatus {
+func (p *AgentWarden) reap(id world.EntityID, entry *agentEntry) *ExitStatus {
 	p.mu.Lock()
 	delete(p.zombies, id)
 	delete(p.waitCh, id)
@@ -87,7 +87,7 @@ func (p *AgentPool) reap(id world.EntityID, entry *agentEntry) *ExitStatus {
 
 // KillAs stops an agent, but only if callerID is the parent or subreaper.
 // Returns ErrNotOwner if the caller doesn't own the agent.
-func (p *AgentPool) KillAs(ctx context.Context, childID, callerID world.EntityID) error {
+func (p *AgentWarden) KillAs(ctx context.Context, childID, callerID world.EntityID) error {
 	p.mu.RLock()
 	entry, ok := p.agents[childID]
 	p.mu.RUnlock()
@@ -102,7 +102,7 @@ func (p *AgentPool) KillAs(ctx context.Context, childID, callerID world.EntityID
 }
 
 // KillWithCode stops an agent and sets a specific exit code.
-func (p *AgentPool) KillWithCode(ctx context.Context, id world.EntityID, code ExitCode) error {
+func (p *AgentWarden) KillWithCode(ctx context.Context, id world.EntityID, code ExitCode) error {
 	p.mu.Lock()
 	entry, ok := p.agents[id]
 	if ok {
@@ -114,7 +114,7 @@ func (p *AgentPool) KillWithCode(ctx context.Context, id world.EntityID, code Ex
 }
 
 // KillChildren stops all direct children of parentID.
-func (p *AgentPool) KillChildren(ctx context.Context, parentID world.EntityID) error {
+func (p *AgentWarden) KillChildren(ctx context.Context, parentID world.EntityID) error {
 	children := p.Children(parentID)
 	var firstErr error
 	for _, childID := range children {
@@ -126,7 +126,7 @@ func (p *AgentPool) KillChildren(ctx context.Context, parentID world.EntityID) e
 }
 
 // Children returns the entity IDs of all direct children of parentID.
-func (p *AgentPool) Children(parentID world.EntityID) []world.EntityID {
+func (p *AgentWarden) Children(parentID world.EntityID) []world.EntityID {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var children []world.EntityID
@@ -139,13 +139,13 @@ func (p *AgentPool) Children(parentID world.EntityID) []world.EntityID {
 }
 
 // Tree returns the hierarchical process tree rooted at rootID.
-func (p *AgentPool) Tree(rootID world.EntityID) *TreeNode {
+func (p *AgentWarden) Tree(rootID world.EntityID) *TreeNode {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.buildTreeLocked(rootID)
 }
 
-func (p *AgentPool) buildTreeLocked(id world.EntityID) *TreeNode {
+func (p *AgentWarden) buildTreeLocked(id world.EntityID) *TreeNode {
 	entry, ok := p.agents[id]
 	if !ok {
 		return nil
@@ -171,21 +171,21 @@ func (p *AgentPool) buildTreeLocked(id world.EntityID) *TreeNode {
 
 // SetSubreaper registers an agent as the orphan adopter.
 // When any parent is killed, its children are reparented to the subreaper.
-func (p *AgentPool) SetSubreaper(id world.EntityID) {
+func (p *AgentWarden) SetSubreaper(id world.EntityID) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.subreaper = id
 }
 
 // Subreaper returns the current subreaper agent ID.
-func (p *AgentPool) Subreaper() world.EntityID {
+func (p *AgentWarden) Subreaper() world.EntityID {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.subreaper
 }
 
 // Reparent changes a child's parent to a new parent.
-func (p *AgentPool) Reparent(childID, newParentID world.EntityID) error {
+func (p *AgentWarden) Reparent(childID, newParentID world.EntityID) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -200,7 +200,7 @@ func (p *AgentPool) Reparent(childID, newParentID world.EntityID) error {
 
 // reparentOrphansLocked reparents all children of deadParentID to the subreaper.
 // Must be called with p.mu held.
-func (p *AgentPool) reparentOrphansLocked(deadParentID world.EntityID) {
+func (p *AgentWarden) reparentOrphansLocked(deadParentID world.EntityID) {
 	for _, entry := range p.agents {
 		if entry.ParentID == deadParentID && entry.ID != deadParentID {
 			entry.ParentID = p.subreaper
@@ -211,7 +211,7 @@ func (p *AgentPool) reparentOrphansLocked(deadParentID world.EntityID) {
 
 // SetAutoReap enables or disables automatic zombie cleanup for a parent's children.
 // When enabled, children are fully cleaned up on exit without requiring Wait().
-func (p *AgentPool) SetAutoReap(parentID world.EntityID, enabled bool) {
+func (p *AgentWarden) SetAutoReap(parentID world.EntityID, enabled bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if enabled {
@@ -222,7 +222,7 @@ func (p *AgentPool) SetAutoReap(parentID world.EntityID, enabled bool) {
 }
 
 // ParentOf returns the parent ID of an agent, or 0 if not found.
-func (p *AgentPool) ParentOf(id world.EntityID) world.EntityID {
+func (p *AgentWarden) ParentOf(id world.EntityID) world.EntityID {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if e, ok := p.agents[id]; ok {
@@ -235,7 +235,7 @@ func (p *AgentPool) ParentOf(id world.EntityID) world.EntityID {
 }
 
 // IsZombie returns true if the agent is finished but not yet reaped.
-func (p *AgentPool) IsZombie(id world.EntityID) bool {
+func (p *AgentWarden) IsZombie(id world.EntityID) bool {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	_, ok := p.zombies[id]
@@ -243,7 +243,7 @@ func (p *AgentPool) IsZombie(id world.EntityID) bool {
 }
 
 // Uptime returns how long an agent has been running, or its total runtime if finished.
-func (p *AgentPool) Uptime(id world.EntityID) time.Duration {
+func (p *AgentWarden) Uptime(id world.EntityID) time.Duration {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if e, ok := p.agents[id]; ok {

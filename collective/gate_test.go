@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 )
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -17,7 +17,7 @@ func TestAgentGatekeeper_GibberishDefaultsToPass(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
 	agent.Listen(func(_ string) string { return "I don't understand the question" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -38,7 +38,7 @@ func TestAgentGatekeeper_PassResponse(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
 	agent.Listen(func(_ string) string { return "PASS: looks good" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -58,7 +58,7 @@ func TestAgentGatekeeper_RejectResponse(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
 	agent.Listen(func(_ string) string { return "REJECT: destructive request" })
 
 	gate := &AgentGatekeeper{Agent: agent}
@@ -95,7 +95,7 @@ func TestAgentGatekeeper_CaseInsensitive(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
+		agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
 		resp := tc.response
 		agent.Listen(func(_ string) string { return resp })
 
@@ -114,7 +114,7 @@ func TestAgentGatekeeper_EmptyResponse(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	agent, _ := staff.Spawn(ctx, "gate", pool.AgentConfig{})
+	agent, _ := staff.Spawn(ctx, "gate", warden.AgentConfig{})
 	agent.Listen(func(_ string) string { return "" })
 
 	gate := &AgentGatekeeper{Agent: agent}

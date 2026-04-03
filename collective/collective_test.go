@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -23,7 +23,7 @@ func newMockLauncher() *mockLauncher {
 	}
 }
 
-func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ pool.AgentConfig) error {
+func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ warden.AgentConfig) error {
 	m.started[id] = true
 	return nil
 }
@@ -54,13 +54,13 @@ func TestAgentCollective_Ask(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	strategy := &echoStrategy{}
 	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2})
 
-	result, err := coll.Ask(ctx, "test prompt")
+	result, err := coll.Perform(ctx, "test prompt")
 	if err != nil {
 		t.Fatalf("Ask: %v", err)
 	}
@@ -76,8 +76,8 @@ func TestAgentCollective_Identity(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "reviewer", &echoStrategy{}, []*agent.Solo{a1, a2})
 
@@ -97,8 +97,8 @@ func TestAgentCollective_IsAlive(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
@@ -114,8 +114,8 @@ func TestAgentCollective_Children(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
@@ -134,8 +134,8 @@ func TestAgentCollective_Kill(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
@@ -203,7 +203,7 @@ func TestSpawnCollective_RequiresStrategy(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
 		Role:   "debater",
-		Agents: []pool.AgentConfig{{Role: "a"}, {Role: "b"}},
+		Agents: []warden.AgentConfig{{Role: "a"}, {Role: "b"}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "strategy") {
 		t.Fatalf("err = %v, want strategy error", err)
@@ -215,7 +215,7 @@ func TestSpawnCollective_RequiresAtLeast2(t *testing.T) {
 	_, err := SpawnCollective(context.Background(), staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
-		Agents:   []pool.AgentConfig{{Role: "a"}},
+		Agents:   []warden.AgentConfig{{Role: "a"}},
 	})
 	if err == nil || !strings.Contains(err.Error(), "at least 2") {
 		t.Fatalf("err = %v, want at least 2 error", err)
@@ -229,7 +229,7 @@ func TestSpawnCollective_Success(t *testing.T) {
 	coll, err := SpawnCollective(ctx, staff, CollectiveConfig{
 		Role:     "debater",
 		Strategy: &echoStrategy{},
-		Agents: []pool.AgentConfig{
+		Agents: []warden.AgentConfig{
 			{Role: "thesis"},
 			{Role: "antithesis"},
 		},
@@ -245,7 +245,7 @@ func TestSpawnCollective_Success(t *testing.T) {
 	}
 
 	// Ask should delegate to strategy.
-	result, err := coll.Ask(ctx, "hello")
+	result, err := coll.Perform(ctx, "hello")
 	if err != nil {
 		t.Fatalf("Ask: %v", err)
 	}
@@ -296,15 +296,15 @@ func TestCollective_IngressRejects(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	strategy := &echoStrategy{}
 	coll := NewCollective(a1.ID(), "debater", strategy, []*agent.Solo{a1, a2},
 		WithIngress(&rejectGate{reason: "destructive request"}),
 	)
 
-	_, err := coll.Ask(ctx, "delete everything")
+	_, err := coll.Perform(ctx, "delete everything")
 	if err == nil {
 		t.Fatal("ingress should reject")
 	}
@@ -324,12 +324,12 @@ func TestCollective_NoGates_BackwardCompat(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2})
 
-	result, err := coll.Ask(ctx, "test")
+	result, err := coll.Perform(ctx, "test")
 	if err != nil {
 		t.Fatalf("no gates should pass: %v", err)
 	}
@@ -342,15 +342,15 @@ func TestCollective_BothGatesPass(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
 		WithIngress(&passGate{}),
 		WithEgress(&passGate{}),
 	)
 
-	result, err := coll.Ask(ctx, "test")
+	result, err := coll.Perform(ctx, "test")
 	if err != nil {
 		t.Fatalf("both gates pass: %v", err)
 	}
@@ -363,14 +363,14 @@ func TestCollective_EgressRejects(t *testing.T) {
 	staff := agent.NewStaff(newMockLauncher())
 	ctx := context.Background()
 
-	a1, _ := staff.Spawn(ctx, "thesis", pool.AgentConfig{})
-	a2, _ := staff.Spawn(ctx, "antithesis", pool.AgentConfig{})
+	a1, _ := staff.Spawn(ctx, "thesis", warden.AgentConfig{})
+	a2, _ := staff.Spawn(ctx, "antithesis", warden.AgentConfig{})
 
 	coll := NewCollective(a1.ID(), "debater", &echoStrategy{}, []*agent.Solo{a1, a2},
 		WithEgress(&rejectGate{reason: "low confidence"}),
 	)
 
-	_, err := coll.Ask(ctx, "test")
+	_, err := coll.Perform(ctx, "test")
 	if err == nil {
 		t.Fatal("egress should reject")
 	}

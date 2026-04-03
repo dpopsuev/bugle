@@ -1,4 +1,4 @@
-package pool
+package warden
 
 import (
 	"context"
@@ -13,12 +13,12 @@ import (
 	"github.com/dpopsuev/jericho/world"
 )
 
-func setupSupervision() (*AgentPool, *mockLauncher) {
+func setupSupervision() (*AgentWarden, *mockLauncher) {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
 	bus := signal.NewMemBus()
 	launcher := newMockLauncher()
-	pool := New(w, t, bus, launcher)
+	pool := NewWarden(w, t, bus, launcher)
 	return pool, launcher
 }
 

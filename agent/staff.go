@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/transport"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -15,22 +15,22 @@ import (
 // exposes a human-friendly API via Solo.
 type Staff struct {
 	world     *world.World
-	pool      *pool.AgentPool
+	pool      *warden.AgentWarden
 	transport *transport.LocalTransport
 	bus       signal.Bus
 }
 
 // NewStaff creates a fully-wired Staff with the given AgentSupervisor.
-func NewStaff(launcher pool.AgentSupervisor) *Staff {
+func NewStaff(launcher warden.AgentSupervisor) *Staff {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
 	b := signal.NewMemBus()
-	p := pool.New(w, t, b, launcher)
+	p := warden.NewWarden(w, t, b, launcher)
 	return &Staff{world: w, pool: p, transport: t, bus: b}
 }
 
 // Spawn creates a root agent (parentID == 0) and returns its handle.
-func (s *Staff) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error) {
+func (s *Staff) Spawn(ctx context.Context, role string, config warden.AgentConfig) (*Solo, error) {
 	id, err := s.pool.Fork(ctx, role, config, 0)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (s *Staff) Spawn(ctx context.Context, role string, config pool.AgentConfig)
 }
 
 // SpawnUnder creates a child agent under the given parent.
-func (s *Staff) SpawnUnder(ctx context.Context, parent *Solo, role string, config pool.AgentConfig) (*Solo, error) {
+func (s *Staff) SpawnUnder(ctx context.Context, parent *Solo, role string, config warden.AgentConfig) (*Solo, error) {
 	id, err := s.pool.Fork(ctx, role, config, parent.ID())
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (s *Staff) FindByRole(role string) []*Solo {
 }
 
 // Tree returns the hierarchical process tree rooted at the given agent.
-func (s *Staff) Tree(root *Solo) *pool.TreeNode {
+func (s *Staff) Tree(root *Solo) *warden.TreeNode {
 	return s.pool.Tree(root.ID())
 }
 
@@ -106,7 +106,7 @@ func (s *Staff) OnSignal(fn func(signal.Signal)) {
 // including agents hidden inside FacadeAgent collectives.
 // Tree() shows the collapsed view (facades as single nodes).
 // TreeFull() shows every real agent.
-func (s *Staff) TreeFull(root *Solo) *pool.TreeNode {
+func (s *Staff) TreeFull(root *Solo) *warden.TreeNode {
 	return s.pool.Tree(root.ID())
 }
 
@@ -118,7 +118,7 @@ func (s *Staff) TreeFull(root *Solo) *pool.TreeNode {
 func (s *Staff) World() *world.World { return s.world }
 
 // Pool returns the underlying AgentPool.
-func (s *Staff) Pool() *pool.AgentPool { return s.pool }
+func (s *Staff) Pool() *warden.AgentWarden { return s.pool }
 
 // Transport returns the underlying LocalTransport.
 func (s *Staff) Transport() *transport.LocalTransport { return s.transport }

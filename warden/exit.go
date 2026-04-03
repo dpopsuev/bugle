@@ -1,5 +1,5 @@
 // exit.go — exit status types for agent process supervision.
-package pool
+package warden
 
 import (
 	"time"

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -30,7 +30,7 @@ func newMockLauncher() *mockLauncher {
 	}
 }
 
-func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ pool.AgentConfig) error {
+func (m *mockLauncher) Start(_ context.Context, id world.EntityID, _ warden.AgentConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.started[id] = true
@@ -64,7 +64,7 @@ func TestStaff_SpawnReturnsHandle(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, err := s.Spawn(ctx, "executor", pool.AgentConfig{})
+	h, err := s.Spawn(ctx, "executor", warden.AgentConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,12 +80,12 @@ func TestStaff_SpawnUnder_CreatesChild(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	parent, err := s.Spawn(ctx, "manager", pool.AgentConfig{})
+	parent, err := s.Spawn(ctx, "manager", warden.AgentConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	child, err := s.SpawnUnder(ctx, parent, "executor", pool.AgentConfig{})
+	child, err := s.SpawnUnder(ctx, parent, "executor", warden.AgentConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestStaff_Active(t *testing.T) {
 	ctx := context.Background()
 
 	for range 3 {
-		if _, err := s.Spawn(ctx, "worker", pool.AgentConfig{}); err != nil {
+		if _, err := s.Spawn(ctx, "worker", warden.AgentConfig{}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -119,9 +119,9 @@ func TestStaff_FindByRole(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	s.Spawn(ctx, "executor", pool.AgentConfig{})
-	s.Spawn(ctx, "executor", pool.AgentConfig{})
-	s.Spawn(ctx, "inspector", pool.AgentConfig{})
+	s.Spawn(ctx, "executor", warden.AgentConfig{})
+	s.Spawn(ctx, "executor", warden.AgentConfig{})
+	s.Spawn(ctx, "inspector", warden.AgentConfig{})
 
 	executors := s.FindByRole("executor")
 	if len(executors) != 2 {
@@ -139,7 +139,7 @@ func TestStaff_KillAll(t *testing.T) {
 	ctx := context.Background()
 
 	for range 3 {
-		s.Spawn(ctx, "worker", pool.AgentConfig{})
+		s.Spawn(ctx, "worker", warden.AgentConfig{})
 	}
 	if s.Count() != 3 {
 		t.Fatalf("count = %d, want 3", s.Count())
@@ -155,9 +155,9 @@ func TestStaff_Tree(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	root, _ := s.Spawn(ctx, "manager", pool.AgentConfig{})
-	mid, _ := s.SpawnUnder(ctx, root, "executor", pool.AgentConfig{})
-	s.SpawnUnder(ctx, mid, "inspector", pool.AgentConfig{})
+	root, _ := s.Spawn(ctx, "manager", warden.AgentConfig{})
+	mid, _ := s.SpawnUnder(ctx, root, "executor", warden.AgentConfig{})
+	s.SpawnUnder(ctx, mid, "inspector", warden.AgentConfig{})
 
 	tree := s.Tree(root)
 	if tree == nil {
@@ -188,7 +188,7 @@ func TestStaff_Count(t *testing.T) {
 		t.Fatalf("initial count = %d", s.Count())
 	}
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	if s.Count() != 1 {
 		t.Fatalf("count = %d after spawn", s.Count())
 	}
@@ -207,7 +207,7 @@ func TestHandle_String(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "executor", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "executor", warden.AgentConfig{})
 	want := fmt.Sprintf("executor(agent-%d)", h.ID())
 	if h.String() != want {
 		t.Fatalf("String() = %q, want %q", h.String(), want)
@@ -218,7 +218,7 @@ func TestHandle_IsAlive(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	if !h.IsAlive() {
 		t.Fatal("should be alive after spawn")
 	}
@@ -233,7 +233,7 @@ func TestHandle_IsHealthy(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	if !h.IsHealthy() {
 		t.Fatal("should be healthy after spawn")
 	}
@@ -246,7 +246,7 @@ func TestHandle_IsZombie(t *testing.T) {
 	// Disable auto-reap for parent=0 so zombies accumulate.
 	s.Pool().SetAutoReap(0, false)
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	if h.IsZombie() {
 		t.Fatal("should not be zombie before kill")
 	}
@@ -267,13 +267,13 @@ func TestHandle_Ask(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "echo", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "echo", warden.AgentConfig{})
 	// Register echo handler.
 	h.Listen(func(content string) string {
 		return "echo:" + content
 	})
 
-	resp, err := h.Ask(ctx, "hello")
+	resp, err := h.Perform(ctx, "hello")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +286,7 @@ func TestHandle_Tell(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 
 	var received atomic.Value
 	h.Listen(func(content string) string {
@@ -318,7 +318,7 @@ func TestHandle_Broadcast(t *testing.T) {
 
 	var counters [3]atomic.Int32
 	for i := range 3 {
-		h, _ := s.Spawn(ctx, "listener", pool.AgentConfig{})
+		h, _ := s.Spawn(ctx, "listener", warden.AgentConfig{})
 		idx := i
 		h.Listen(func(_ string) string {
 			counters[idx].Add(1)
@@ -352,12 +352,12 @@ func TestHandle_Listen(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "responder", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "responder", warden.AgentConfig{})
 	h.Listen(func(content string) string {
 		return "got:" + content
 	})
 
-	resp, err := h.Ask(ctx, "test")
+	resp, err := h.Perform(ctx, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,8 +370,8 @@ func TestHandle_Spawn_Child(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	parent, _ := s.Spawn(ctx, "manager", pool.AgentConfig{})
-	child, err := parent.Spawn(ctx, "executor", pool.AgentConfig{})
+	parent, _ := s.Spawn(ctx, "manager", warden.AgentConfig{})
+	child, err := parent.Spawn(ctx, "executor", warden.AgentConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +392,7 @@ func TestHandle_Kill_Wait(t *testing.T) {
 	// Disable auto-reap so we can Wait.
 	s.Pool().SetAutoReap(0, false)
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	h.Kill(ctx)
 
 	status, err := h.Wait(ctx)
@@ -402,7 +402,7 @@ func TestHandle_Kill_Wait(t *testing.T) {
 	if status == nil {
 		t.Fatal("status should not be nil")
 	}
-	if status.Code != pool.ExitSuccess {
+	if status.Code != warden.ExitSuccess {
 		t.Fatalf("exit code = %d, want ExitSuccess(0)", status.Code)
 	}
 }
@@ -414,8 +414,8 @@ func TestHandle_KillWithReason(t *testing.T) {
 	// Disable auto-reap so we can Wait.
 	s.Pool().SetAutoReap(0, false)
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
-	h.KillWithReason(ctx, pool.ExitBudget)
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
+	h.KillWithReason(ctx, warden.ExitBudget)
 
 	status, err := h.Wait(ctx)
 	if err != nil {
@@ -424,7 +424,7 @@ func TestHandle_KillWithReason(t *testing.T) {
 	if status == nil {
 		t.Fatal("status should not be nil")
 	}
-	if status.Code != pool.ExitBudget {
+	if status.Code != warden.ExitBudget {
 		t.Fatalf("exit code = %d, want ExitBudget(2)", status.Code)
 	}
 }
@@ -433,8 +433,8 @@ func TestHandle_Children_Parent(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	parent, _ := s.Spawn(ctx, "manager", pool.AgentConfig{})
-	child, _ := s.SpawnUnder(ctx, parent, "executor", pool.AgentConfig{})
+	parent, _ := s.Spawn(ctx, "manager", warden.AgentConfig{})
+	child, _ := s.SpawnUnder(ctx, parent, "executor", warden.AgentConfig{})
 
 	// Parent → Children includes child.
 	children := parent.Children()
@@ -467,7 +467,7 @@ func TestHandle_SetProgress(t *testing.T) {
 	s := setup()
 	ctx := context.Background()
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	h.SetProgress(5, 10)
 
 	p, ok := h.Progress()
@@ -494,8 +494,8 @@ func TestFacade_FullPipeline(t *testing.T) {
 	ctx := context.Background()
 
 	// GenSec spawns an Executor.
-	gensec, _ := s.Spawn(ctx, "gensec", pool.AgentConfig{})
-	executor, _ := gensec.Spawn(ctx, "executor", pool.AgentConfig{})
+	gensec, _ := s.Spawn(ctx, "gensec", warden.AgentConfig{})
+	executor, _ := gensec.Spawn(ctx, "executor", warden.AgentConfig{})
 
 	// Executor listens and echoes.
 	executor.Listen(func(content string) string {
@@ -503,7 +503,7 @@ func TestFacade_FullPipeline(t *testing.T) {
 	})
 
 	// GenSec asks Executor.
-	resp, err := executor.Ask(ctx, "compile")
+	resp, err := executor.Perform(ctx, "compile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,7 +542,7 @@ func TestFacade_ConcurrentSpawnAskKill(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			h, err := s.Spawn(ctx, "worker", pool.AgentConfig{})
+			h, err := s.Spawn(ctx, "worker", warden.AgentConfig{})
 			if err != nil {
 				t.Error(err)
 				return
@@ -552,7 +552,7 @@ func TestFacade_ConcurrentSpawnAskKill(t *testing.T) {
 				return "reply:" + content
 			})
 
-			resp, err := h.Ask(ctx, "ping")
+			resp, err := h.Perform(ctx, "ping")
 			if err != nil {
 				t.Error(err)
 				return
@@ -587,7 +587,7 @@ func TestStaff_OnSignal(t *testing.T) {
 		mu.Unlock()
 	})
 
-	h, _ := s.Spawn(ctx, "worker", pool.AgentConfig{})
+	h, _ := s.Spawn(ctx, "worker", warden.AgentConfig{})
 	h.Kill(ctx)
 
 	mu.Lock()

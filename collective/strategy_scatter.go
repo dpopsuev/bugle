@@ -44,7 +44,7 @@ func (s *Scatter) Execute(ctx context.Context, prompt string, agents []*agent.So
 		wg.Add(1)
 		go func(idx int, ag *agent.Solo) {
 			defer wg.Done()
-			resp, err := ag.Ask(ctx, prompt)
+			resp, err := ag.Perform(ctx, prompt)
 			results[idx] = indexed{idx, resp, err}
 		}(i, a)
 	}

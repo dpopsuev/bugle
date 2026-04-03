@@ -31,7 +31,7 @@ type AgentGatekeeper struct {
 // ambiguous responses (fail-open).
 func (g *AgentGatekeeper) Pass(ctx context.Context, content string) (allowed bool, reason string, err error) {
 	prompt := "Evaluate the following content. Respond with exactly PASS or REJECT followed by your reason.\n\n" + content
-	resp, err := g.Agent.Ask(ctx, prompt)
+	resp, err := g.Agent.Perform(ctx, prompt)
 	if err != nil {
 		// Fail-open on error — don't block the room because the gate is broken.
 		return true, "", err

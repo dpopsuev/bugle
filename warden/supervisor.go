@@ -1,7 +1,7 @@
 // Package pool manages agent process lifecycles.
 // Maps Bugle World entities to running OS processes via the AgentSupervisor interface.
 // Process-agnostic: consumers (Djinn, Origami) inject their own AgentSupervisor.
-package pool
+package warden
 
 import (
 	"context"

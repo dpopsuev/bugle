@@ -24,9 +24,9 @@ import (
 	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/arsenal"
 	"github.com/dpopsuev/jericho/collective"
-	"github.com/dpopsuev/jericho/pool"
-	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/identity"
+	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -78,7 +78,7 @@ func spawnRealAgent(t *testing.T, role string) (*agent.Staff, *agent.Solo, *acp.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 
-	solo, err := staff.Spawn(ctx, role, pool.AgentConfig{Model: name})
+	solo, err := staff.Spawn(ctx, role, warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn failed (likely auth): %v", err)
 	}
@@ -161,7 +161,7 @@ func TestAcceptance_Pool_RealAgentLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	// Ask the real agent a question.
-	resp, err := solo.Ask(ctx, "Say hello in one word.")
+	resp, err := solo.Perform(ctx, "Say hello in one word.")
 	if err != nil {
 		t.Skipf("Ask failed (likely auth): %v", err)
 	}
@@ -200,13 +200,13 @@ func TestAcceptance_AIOperator_SpawnsChildren(t *testing.T) {
 	})
 
 	// Agent 1 (GenSec) — first AI agent.
-	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{Model: name})
+	gensec, err := staff.Spawn(ctx, "gensec", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn gensec failed: %v", err)
 	}
 
 	// GenSec spawns a child worker — recursive AI spawning AI.
-	worker, err := gensec.Spawn(ctx, "worker", pool.AgentConfig{Model: name})
+	worker, err := gensec.Spawn(ctx, "worker", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn worker under gensec failed: %v", err)
 	}
@@ -248,11 +248,11 @@ func TestAcceptance_Collective_DialecticDebate(t *testing.T) {
 	})
 
 	// Spawn 2 real agents.
-	thesis, err := staff.Spawn(ctx, "thesis", pool.AgentConfig{Model: name})
+	thesis, err := staff.Spawn(ctx, "thesis", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn thesis: %v", err)
 	}
-	anti, err := staff.Spawn(ctx, "antithesis", pool.AgentConfig{Model: name})
+	anti, err := staff.Spawn(ctx, "antithesis", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn antithesis: %v", err)
 	}
@@ -269,7 +269,7 @@ func TestAcceptance_Collective_DialecticDebate(t *testing.T) {
 	)
 
 	// Ask a question that two agents can debate.
-	result, err := coll.Ask(ctx, "What is 2+2? Explain your reasoning briefly.")
+	result, err := coll.Perform(ctx, "What is 2+2? Explain your reasoning briefly.")
 	if err != nil {
 		t.Skipf("collective ask failed: %v", err)
 	}
@@ -323,14 +323,14 @@ func TestAcceptance_Arsenal_SelectAndSpawn(t *testing.T) {
 		staff.KillAll(stopCtx)
 	})
 
-	solo, err := staff.Spawn(ctx, "selected-worker", pool.AgentConfig{Model: "cursor"})
+	solo, err := staff.Spawn(ctx, "selected-worker", warden.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Skipf("spawn selected model: %v", err)
 	}
 	wireACPToTransport(t, launcher, solo)
 
 	// Ask the selected agent to work.
-	resp, err := solo.Ask(ctx, "What is your name? Reply in one sentence.")
+	resp, err := solo.Perform(ctx, "What is your name? Reply in one sentence.")
 	if err != nil {
 		t.Skipf("Ask failed: %v", err)
 	}
@@ -372,11 +372,11 @@ func TestAcceptance_Signal_LifecycleObservation(t *testing.T) {
 	})
 
 	// Spawn 2 agents.
-	a1, err := staff.Spawn(ctx, "worker-a", pool.AgentConfig{Model: name})
+	a1, err := staff.Spawn(ctx, "worker-a", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn a: %v", err)
 	}
-	a2, err := staff.Spawn(ctx, "worker-b", pool.AgentConfig{Model: name})
+	a2, err := staff.Spawn(ctx, "worker-b", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn b: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestAcceptance_GracefulTermination(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	solo, err := staff.Spawn(ctx, "graceful-worker", pool.AgentConfig{
+	solo, err := staff.Spawn(ctx, "graceful-worker", warden.AgentConfig{
 		Model:       name,
 		GracePeriod: 3 * time.Second,
 	})
@@ -499,13 +499,13 @@ func TestAcceptance_IntentToAgent(t *testing.T) {
 		staff.KillAll(stopCtx)
 	})
 
-	solo, err := staff.Spawn(ctx, "intent-worker", pool.AgentConfig{Model: "cursor"})
+	solo, err := staff.Spawn(ctx, "intent-worker", warden.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Skipf("spawn: %v", err)
 	}
 	wireACPToTransport(t, launcher, solo)
 
-	resp, err := solo.Ask(ctx, "Write a Go function that adds two numbers. Just the function, no explanation.")
+	resp, err := solo.Perform(ctx, "Write a Go function that adds two numbers. Just the function, no explanation.")
 	if err != nil {
 		t.Skipf("Ask failed: %v", err)
 	}
@@ -538,19 +538,19 @@ func TestAcceptance_ThreeGenerationOrphanCascade(t *testing.T) {
 	})
 
 	// Three generations: GenSec → Manager → Worker.
-	gensec, err := staff.Spawn(ctx, "gensec", pool.AgentConfig{Model: name})
+	gensec, err := staff.Spawn(ctx, "gensec", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn gensec: %v", err)
 	}
 	// GenSec is the subreaper — adopts orphans.
 	staff.Pool().SetSubreaper(gensec.ID())
 
-	manager, err := gensec.Spawn(ctx, "manager", pool.AgentConfig{Model: name})
+	manager, err := gensec.Spawn(ctx, "manager", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn manager: %v", err)
 	}
 
-	worker, err := manager.Spawn(ctx, "worker", pool.AgentConfig{Model: name})
+	worker, err := manager.Spawn(ctx, "worker", warden.AgentConfig{Model: name})
 	if err != nil {
 		t.Skipf("spawn worker: %v", err)
 	}
@@ -618,7 +618,7 @@ func TestAcceptance_Race_ThreeAgentsCompete(t *testing.T) {
 	agents := make([]*agent.Solo, 3)
 	for i := range 3 {
 		var err error
-		agents[i], err = staff.Spawn(ctx, fmt.Sprintf("racer-%d", i), pool.AgentConfig{Model: name})
+		agents[i], err = staff.Spawn(ctx, fmt.Sprintf("racer-%d", i), warden.AgentConfig{Model: name})
 		if err != nil {
 			t.Skipf("spawn racer-%d: %v", i, err)
 		}
@@ -635,7 +635,7 @@ func TestAcceptance_Race_ThreeAgentsCompete(t *testing.T) {
 	)
 
 	start := time.Now()
-	result, err := coll.Ask(ctx, "What is the capital of France? One word only.")
+	result, err := coll.Perform(ctx, "What is the capital of France? One word only.")
 	elapsed := time.Since(start)
 
 	if err != nil {
@@ -671,13 +671,13 @@ func TestAcceptance_MultiProvider_Debate(t *testing.T) {
 	})
 
 	// Spawn one Cursor agent and one Claude agent.
-	thesis, err := staff.Spawn(ctx, "thesis", pool.AgentConfig{Model: "cursor"})
+	thesis, err := staff.Spawn(ctx, "thesis", warden.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Skipf("spawn cursor thesis: %v", err)
 	}
 	wireACPToTransport(t, launcher, thesis)
 
-	anti, err := staff.Spawn(ctx, "antithesis", pool.AgentConfig{Model: "claude"})
+	anti, err := staff.Spawn(ctx, "antithesis", warden.AgentConfig{Model: "claude"})
 	if err != nil {
 		t.Skipf("spawn claude antithesis: %v", err)
 	}
@@ -691,7 +691,7 @@ func TestAcceptance_MultiProvider_Debate(t *testing.T) {
 		[]*agent.Solo{thesis, anti},
 	)
 
-	result, err := coll.Ask(ctx, "Is Go or Rust better for building agent frameworks? Brief arguments only.")
+	result, err := coll.Perform(ctx, "Is Go or Rust better for building agent frameworks? Brief arguments only.")
 	if err != nil {
 		t.Skipf("debate failed: %v", err)
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/dpopsuev/jericho/acp"
 	"github.com/dpopsuev/jericho/agent"
 	"github.com/dpopsuev/jericho/collective"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 )
 
 // TestCollectiveE2E_DialecticWithRealAgents spawns 2 real Cursor agents,
@@ -34,12 +34,12 @@ func TestCollectiveE2E_DialecticWithRealAgents(t *testing.T) {
 	staff := agent.NewStaff(launcher)
 
 	// Spawn 2 agents — both as Cursor.
-	thesis, err := staff.Spawn(ctx, "thesis", pool.AgentConfig{Model: "cursor"})
+	thesis, err := staff.Spawn(ctx, "thesis", warden.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Fatalf("spawn thesis: %v", err)
 	}
 
-	anti, err := staff.Spawn(ctx, "antithesis", pool.AgentConfig{Model: "cursor"})
+	anti, err := staff.Spawn(ctx, "antithesis", warden.AgentConfig{Model: "cursor"})
 	if err != nil {
 		t.Fatalf("spawn antithesis: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestCollectiveE2E_DialecticWithRealAgents(t *testing.T) {
 
 	// Ask the collective — this runs a real debate between 2 LLM agents.
 	t.Log("starting dialectic debate between 2 real Cursor agents...")
-	result, err := coll.Ask(ctx, "What is 2+2? The thesis agent should answer. The antithesis should verify or challenge. If correct, respond with CONVERGED.")
+	result, err := coll.Perform(ctx, "What is 2+2? The thesis agent should answer. The antithesis should verify or challenge. If correct, respond with CONVERGED.")
 	if err != nil {
 		t.Fatalf("collective Ask: %v", err)
 	}

@@ -49,7 +49,7 @@ func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 	thesis, anti, judge := agents[0], agents[1], agents[2]
 
 	// Thesis drafts.
-	thesisResp, err := thesis.Ask(ctx, prompt)
+	thesisResp, err := thesis.Perform(ctx, prompt)
 	if err != nil {
 		return "", fmt.Errorf("thesis draft: %w", err)
 	}
@@ -61,7 +61,7 @@ func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 				"Challenge this response. Identify flaws and alternatives.",
 			prompt, round+1, thesisResp,
 		)
-		antiResp, err := anti.Ask(ctx, antiPrompt)
+		antiResp, err := anti.Perform(ctx, antiPrompt)
 		if err != nil {
 			return thesisResp, nil
 		}
@@ -76,7 +76,7 @@ func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 				"Start your response with exactly one of: AFFIRM, AMEND, or REMAND.",
 			prompt, thesisResp, antiResp,
 		)
-		judgeResp, err := judge.Ask(ctx, judgePrompt)
+		judgeResp, err := judge.Perform(ctx, judgePrompt)
 		if err != nil {
 			return thesisResp, nil
 		}
@@ -94,7 +94,7 @@ func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 					"Revise your response following the judge's instructions.",
 				prompt, thesisResp, antiResp, judgeResp,
 			)
-			revised, err := thesis.Ask(ctx, revisePrompt)
+			revised, err := thesis.Perform(ctx, revisePrompt)
 			if err != nil {
 				return thesisResp, nil
 			}
@@ -107,7 +107,7 @@ func (a *Arbiter) Orchestrate(ctx context.Context, prompt string, agents []*agen
 					"Start fresh with a new approach.",
 				prompt, judgeResp,
 			)
-			fresh, err := thesis.Ask(ctx, remandPrompt)
+			fresh, err := thesis.Perform(ctx, remandPrompt)
 			if err != nil {
 				return thesisResp, nil
 			}

@@ -53,7 +53,7 @@ func (d *Dialectic) Execute(ctx context.Context, prompt string, agents []*agent.
 	maxRounds, convergenceWord := d.defaults()
 	thesis, anti := agents[0], agents[1]
 
-	thesisResp, err := thesis.Ask(ctx, prompt)
+	thesisResp, err := thesis.Perform(ctx, prompt)
 	if err != nil {
 		return "", fmt.Errorf("thesis initial draft: %w", err)
 	}
@@ -66,7 +66,7 @@ func (d *Dialectic) Execute(ctx context.Context, prompt string, agents []*agent.
 				"respond with exactly %s.",
 			prompt, round+1, thesisResp, convergenceWord,
 		)
-		antiResp, err := anti.Ask(ctx, antiPrompt)
+		antiResp, err := anti.Perform(ctx, antiPrompt)
 		if err != nil {
 			return thesisResp, nil
 		}
@@ -81,7 +81,7 @@ func (d *Dialectic) Execute(ctx context.Context, prompt string, agents []*agent.
 				"Revise your response to address valid points while defending correct positions.",
 			prompt, thesisResp, antiResp,
 		)
-		revised, err := thesis.Ask(ctx, revisePrompt)
+		revised, err := thesis.Perform(ctx, revisePrompt)
 		if err != nil {
 			return thesisResp, nil
 		}

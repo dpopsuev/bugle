@@ -1,4 +1,4 @@
-package pool
+package warden
 
 import (
 	"context"
@@ -46,12 +46,12 @@ func (m *mockLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 	return started && !stopped
 }
 
-func setup() (*AgentPool, *mockLauncher, *signal.MemBus) {
+func setup() (*AgentWarden, *mockLauncher, *signal.MemBus) {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
 	bus := signal.NewMemBus()
 	launcher := newMockLauncher()
-	pool := New(w, t, bus, launcher)
+	pool := NewWarden(w, t, bus, launcher)
 	return pool, launcher, bus
 }
 

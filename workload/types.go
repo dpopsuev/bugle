@@ -6,7 +6,7 @@ package workload
 import (
 	"errors"
 
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 )
 
 // Sentinel errors.
@@ -39,8 +39,8 @@ type WorkerPool struct {
 
 // WorkerPoolSpec defines the desired state of a WorkerPool.
 type WorkerPoolSpec struct {
-	Replicas int              `yaml:"replicas"`
-	Template pool.AgentConfig `yaml:"template"`
+	Replicas int                `yaml:"replicas"`
+	Template warden.AgentConfig `yaml:"template"`
 }
 
 // DebateTeam is a StatefulSet analog — agents with ordinal identity
@@ -53,9 +53,9 @@ type DebateTeam struct {
 
 // DebateTeamSpec defines the desired state of a DebateTeam.
 type DebateTeamSpec struct {
-	Agents   []pool.AgentConfig `yaml:"agents"`
-	Strategy string             `yaml:"strategy"` // dialectic, arbiter, dialectic-pair
-	Shade    string             `yaml:"shade,omitempty"`
+	Agents   []warden.AgentConfig `yaml:"agents"`
+	Strategy string               `yaml:"strategy"` // dialectic, arbiter, dialectic-pair
+	Shade    string               `yaml:"shade,omitempty"`
 }
 
 // TaskRunner is a Job analog — run workers until completions reached.
@@ -67,10 +67,10 @@ type TaskRunner struct {
 
 // TaskRunnerSpec defines the desired state of a TaskRunner.
 type TaskRunnerSpec struct {
-	Session      string           `yaml:"session"`
-	Endpoint     string           `yaml:"endpoint"`
-	Workers      int              `yaml:"workers"`
-	Completions  int              `yaml:"completions"`
-	BackoffLimit int              `yaml:"backoff_limit,omitempty"`
-	Template     pool.AgentConfig `yaml:"template,omitempty"`
+	Session      string             `yaml:"session"`
+	Endpoint     string             `yaml:"endpoint"`
+	Workers      int                `yaml:"workers"`
+	Completions  int                `yaml:"completions"`
+	BackoffLimit int                `yaml:"backoff_limit,omitempty"`
+	Template     warden.AgentConfig `yaml:"template,omitempty"`
 }

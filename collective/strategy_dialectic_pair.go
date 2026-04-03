@@ -58,7 +58,7 @@ func (dp *DialecticPair) Execute(ctx context.Context, prompt string, agents []*a
 		"Agreed plan:\n%s\n\nExecute this plan. Produce the final output.",
 		plan,
 	)
-	driverResp, err := driver.Ask(ctx, execPrompt)
+	driverResp, err := driver.Perform(ctx, execPrompt)
 	if err != nil {
 		return plan, nil
 	}
@@ -69,7 +69,7 @@ func (dp *DialecticPair) Execute(ctx context.Context, prompt string, agents []*a
 			"respond with exactly APPROVED. Otherwise, explain what's wrong.",
 		prompt, plan, driverResp,
 	)
-	navResp, err := navigator.Ask(ctx, reviewPrompt)
+	navResp, err := navigator.Perform(ctx, reviewPrompt)
 	if err != nil {
 		return driverResp, nil
 	}
@@ -82,7 +82,7 @@ func (dp *DialecticPair) Execute(ctx context.Context, prompt string, agents []*a
 		"Your output was reviewed and rejected.\n\nFeedback:\n%s\n\nRevise your output to address the feedback.",
 		navResp,
 	)
-	revised, err := driver.Ask(ctx, revisePrompt)
+	revised, err := driver.Perform(ctx, revisePrompt)
 	if err != nil {
 		return driverResp, nil
 	}

@@ -1,7 +1,7 @@
-// launcher.go — ACPLauncher implements pool.AgentSupervisor.
+// launcher.go — ACPLauncher implements warden.AgentSupervisor.
 //
 // Spawns ACP agent processes — one process per entity.
-// Consumers get a pool.AgentSupervisor that manages ACP-backed agents.
+// Consumers get a warden.AgentSupervisor that manages ACP-backed agents.
 package acp
 
 import (
@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
-// ACPLauncher implements pool.AgentSupervisor by spawning ACP agent processes.
+// ACPLauncher implements warden.AgentSupervisor by spawning ACP agent processes.
 type ACPLauncher struct {
 	mu      sync.RWMutex
 	clients map[world.EntityID]*Client
@@ -27,7 +27,7 @@ func NewACPLauncher() *ACPLauncher {
 }
 
 // Start spawns an ACP agent process for the given entity.
-func (l *ACPLauncher) Start(ctx context.Context, id world.EntityID, config pool.AgentConfig) error {
+func (l *ACPLauncher) Start(ctx context.Context, id world.EntityID, config warden.AgentConfig) error {
 	agentName := "cursor" // default
 	if config.Model != "" {
 		agentName = config.Model
@@ -87,4 +87,4 @@ func (l *ACPLauncher) Client(id world.EntityID) (*Client, bool) {
 }
 
 // Compile-time check.
-var _ pool.AgentSupervisor = (*ACPLauncher)(nil)
+var _ warden.AgentSupervisor = (*ACPLauncher)(nil)

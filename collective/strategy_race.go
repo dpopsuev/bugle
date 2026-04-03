@@ -35,7 +35,7 @@ func (Race) Execute(ctx context.Context, prompt string, agents []*agent.Solo) (s
 
 	for _, a := range agents {
 		go func(ag *agent.Solo) {
-			resp, err := ag.Ask(raceCtx, prompt)
+			resp, err := ag.Perform(raceCtx, prompt)
 			ch <- result{resp, err}
 		}(a)
 	}

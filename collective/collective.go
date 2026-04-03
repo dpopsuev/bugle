@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/dpopsuev/jericho/agent"
-	"github.com/dpopsuev/jericho/pool"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -129,7 +129,7 @@ func (c *Collective) String() string {
 
 // Ask runs the collective strategy and returns the synthesized response.
 // Applies ingress gate before entry and egress gate before exit.
-func (c *Collective) Ask(ctx context.Context, content string) (string, error) {
+func (c *Collective) Perform(ctx context.Context, content string) (string, error) {
 	// Ingress gate — bouncer decides if prompt enters the room.
 	if c.ingress != nil {
 		ok, reason, err := c.ingress.Pass(ctx, content)
@@ -208,7 +208,7 @@ func (c *Collective) Kill(ctx context.Context) error {
 }
 
 // KillWithReason stops all agents with the given exit code.
-func (c *Collective) KillWithReason(ctx context.Context, code pool.ExitCode) error {
+func (c *Collective) KillWithReason(ctx context.Context, code warden.ExitCode) error {
 	for _, a := range c.agents {
 		if err := a.KillWithReason(ctx, code); err != nil {
 			return err
@@ -218,8 +218,8 @@ func (c *Collective) KillWithReason(ctx context.Context, code pool.ExitCode) err
 }
 
 // Wait waits for all internal agents to finish. Returns the last exit status.
-func (c *Collective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
-	var lastStatus *pool.ExitStatus
+func (c *Collective) Wait(ctx context.Context) (*warden.ExitStatus, error) {
+	var lastStatus *warden.ExitStatus
 	for _, a := range c.agents {
 		status, err := a.Wait(ctx)
 		if err != nil {
@@ -231,7 +231,7 @@ func (c *Collective) Wait(ctx context.Context) (*pool.ExitStatus, error) {
 }
 
 // Spawn creates a child agent under the first agent in the collective.
-func (c *Collective) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*agent.Solo, error) {
+func (c *Collective) Spawn(ctx context.Context, role string, config warden.AgentConfig) (*agent.Solo, error) {
 	if len(c.agents) == 0 {
 		return nil, fmt.Errorf("%w: %s (spawn)", ErrNoAgents, c.role)
 	}
@@ -318,7 +318,7 @@ func (c *Collective) Phase() Phase {
 
 // Scale adjusts the number of agents to the target count.
 // Spawns new agents or kills excess agents as needed.
-func (c *Collective) Scale(ctx context.Context, target int, config pool.AgentConfig, staff *agent.Staff) error {
+func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentConfig, staff *agent.Staff) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dpopsuev/jericho/pool"
 	"github.com/dpopsuev/jericho/signal"
 	"github.com/dpopsuev/jericho/transport"
+	"github.com/dpopsuev/jericho/warden"
 	"github.com/dpopsuev/jericho/world"
 )
 
@@ -21,7 +21,7 @@ type Solo struct {
 	id        world.EntityID
 	role      string
 	world     *world.World
-	pool      *pool.AgentPool
+	pool      *warden.AgentWarden
 	transport *transport.LocalTransport
 }
 
@@ -65,8 +65,9 @@ func (a *Solo) IsRunning() bool {
 	return ok && alive.State == world.AliveRunning
 }
 
-// IsReady returns true if the agent can accept work (readiness probe).
-func (a *Solo) IsReady() bool {
+// Ready returns true if the agent can accept work (readiness probe).
+// Implements jericho.Actor.
+func (a *Solo) Ready() bool {
 	ready, ok := world.TryGet[world.Ready](a.world, a.id)
 	return ok && ready.Ready
 }
@@ -81,8 +82,8 @@ func (a *Solo) Alive() (world.Alive, bool) {
 	return world.TryGet[world.Alive](a.world, a.id)
 }
 
-// Ready returns the agent's readiness component.
-func (a *Solo) Ready() (world.Ready, bool) {
+// ReadyState returns the agent's readiness component.
+func (a *Solo) ReadyState() (world.Ready, bool) {
 	return world.TryGet[world.Ready](a.world, a.id)
 }
 
@@ -128,9 +129,9 @@ func (a *Solo) Uptime() time.Duration {
 // Messaging
 // ---------------------------------------------------------------------------
 
-// Ask sends a message to this agent and blocks until a response is received.
-// Returns the response content string.
-func (a *Solo) Ask(ctx context.Context, content string) (string, error) {
+// Perform sends a prompt to this agent and blocks until a response is received.
+// Implements jericho.Actor.
+func (a *Solo) Perform(ctx context.Context, content string) (string, error) {
 	msg := transport.Message{
 		From:         "agent",
 		To:           a.agentID(),
@@ -203,7 +204,7 @@ func (a *Solo) Listen(handler func(content string) string) {
 // ---------------------------------------------------------------------------
 
 // Spawn creates a child agent under this agent as parent.
-func (a *Solo) Spawn(ctx context.Context, role string, config pool.AgentConfig) (*Solo, error) {
+func (a *Solo) Spawn(ctx context.Context, role string, config warden.AgentConfig) (*Solo, error) {
 	id, err := a.pool.Fork(ctx, role, config, a.id)
 	if err != nil {
 		return nil, err
@@ -223,12 +224,12 @@ func (a *Solo) Kill(ctx context.Context) error {
 }
 
 // KillWithReason stops this agent with a specific exit code.
-func (a *Solo) KillWithReason(ctx context.Context, code pool.ExitCode) error {
+func (a *Solo) KillWithReason(ctx context.Context, code warden.ExitCode) error {
 	return a.pool.KillWithCode(ctx, a.id, code)
 }
 
 // Wait blocks until this agent finishes and returns its exit status.
-func (a *Solo) Wait(ctx context.Context) (*pool.ExitStatus, error) {
+func (a *Solo) Wait(ctx context.Context) (*warden.ExitStatus, error) {
 	return a.pool.Wait(ctx, a.id)
 }
 
