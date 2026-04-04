@@ -13,7 +13,6 @@ import (
 
 	"github.com/dpopsuev/troupe"
 
-	"github.com/dpopsuev/troupe/internal/warden"
 	"github.com/dpopsuev/troupe/world"
 )
 
@@ -249,7 +248,7 @@ func (c *Collective) Phase() Phase {
 
 // Scale adjusts the number of agents to the target count.
 // Spawns new agents or kills excess agents as needed.
-func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentConfig, broker troupe.Broker) error {
+func (c *Collective) Scale(ctx context.Context, target int, config troupe.ActorConfig, broker troupe.Broker) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

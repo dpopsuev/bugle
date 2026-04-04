@@ -16,7 +16,7 @@ import (
 
 	"github.com/dpopsuev/troupe/billing"
 	"github.com/dpopsuev/troupe/internal/acp"
-	"github.com/dpopsuev/troupe/internal/resilience"
+	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/internal/transport"
 )
 

@@ -4,19 +4,20 @@ import (
 	"context"
 
 	"github.com/dpopsuev/troupe/internal/protocol"
+	pub "github.com/dpopsuev/troupe/resilience"
 )
 
 // CircuitBreakerResponder wraps a protocol.Responder with circuit breaker protection.
 type CircuitBreakerResponder struct {
 	inner   protocol.Responder
-	breaker *CircuitBreaker
+	breaker *pub.CircuitBreaker
 }
 
 // NewCircuitBreakerResponder wraps inner with circuit breaker protection.
-func NewCircuitBreakerResponder(inner protocol.Responder, cfg CircuitConfig) *CircuitBreakerResponder {
+func NewCircuitBreakerResponder(inner protocol.Responder, cfg pub.CircuitConfig) *CircuitBreakerResponder {
 	return &CircuitBreakerResponder{
 		inner:   inner,
-		breaker: NewCircuitBreaker(cfg),
+		breaker: pub.NewCircuitBreaker(cfg),
 	}
 }
 
@@ -32,7 +33,7 @@ func (r *CircuitBreakerResponder) RespondTo(ctx context.Context, prompt string) 
 }
 
 // State returns the current circuit state.
-func (r *CircuitBreakerResponder) State() CircuitState { return r.breaker.State() }
+func (r *CircuitBreakerResponder) State() pub.CircuitState { return r.breaker.State() }
 
 // Inner returns the wrapped responder.
 func (r *CircuitBreakerResponder) Inner() protocol.Responder { return r.inner }
@@ -40,14 +41,14 @@ func (r *CircuitBreakerResponder) Inner() protocol.Responder { return r.inner }
 // RateLimitResponder wraps a protocol.Responder with token bucket rate limiting.
 type RateLimitResponder struct {
 	inner   protocol.Responder
-	limiter *RateLimiter
+	limiter *pub.RateLimiter
 }
 
 // NewRateLimitResponder wraps inner with rate limiting.
-func NewRateLimitResponder(inner protocol.Responder, cfg RateLimitConfig) *RateLimitResponder {
+func NewRateLimitResponder(inner protocol.Responder, cfg pub.RateLimitConfig) *RateLimitResponder {
 	return &RateLimitResponder{
 		inner:   inner,
-		limiter: NewRateLimiter(cfg),
+		limiter: pub.NewRateLimiter(cfg),
 	}
 }
 
