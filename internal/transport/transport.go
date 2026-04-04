@@ -16,21 +16,6 @@ import (
 // Prevents accidental mixing with role names, session IDs, or other strings.
 type AgentID string
 
-// Transport is the send/subscribe interface for agent-to-agent communication.
-type Transport interface {
-	// SendMessage dispatches a message to the named agent and returns a Task
-	// that tracks its progress. The call is asynchronous — the returned Task
-	// starts in TaskSubmitted state and transitions as the handler executes.
-	SendMessage(ctx context.Context, to string, msg Message) (*Task, error)
-
-	// Subscribe returns a channel that receives Events whenever the given
-	// task transitions state.
-	Subscribe(ctx context.Context, taskID string) (<-chan Event, error)
-
-	// Close releases all resources held by the transport.
-	Close() error
-}
-
 // Message is the envelope for agent-to-agent communication.
 type Message struct {
 	From         AgentID             `json:"from"`

@@ -23,7 +23,7 @@ const (
 )
 
 // DefaultToolName is the MCP tool name for the Bugle Protocol.
-const DefaultToolName = "bugle"
+const DefaultToolName = "circuit"
 
 // DefaultSessionKey is the standard key for session identification.
 const DefaultSessionKey = "session_id"

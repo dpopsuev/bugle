@@ -1,7 +1,7 @@
 package protocol
 
 // ProtocolVersion is the current Bugle Protocol version.
-const ProtocolVersion = "bugle/v1"
+const ProtocolVersion = "jericho/v1"
 
 // Capabilities declares which protocol layers a server supports.
 // Returned on start response.

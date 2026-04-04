@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/dpopsuev/jericho/identity"
+	"github.com/dpopsuev/jericho/internal/acp"
 	"github.com/dpopsuev/jericho/internal/agent"
 	"github.com/dpopsuev/jericho/internal/warden"
 )
@@ -22,38 +23,19 @@ type DefaultBroker struct {
 }
 
 // BrokerOption configures a DefaultBroker.
-type BrokerOption func(*brokerConfig)
-
-type brokerConfig struct {
-	launcher warden.AgentSupervisor
-}
-
-// WithLauncher sets the agent launcher (e.g., ACP).
-func WithLauncher(l warden.AgentSupervisor) BrokerOption {
-	return func(c *brokerConfig) { c.launcher = l }
-}
-
 // NewBroker creates a Broker. If the endpoint is a remote URL (https://),
 // returns a RemoteBroker that proxies over HTTP. Otherwise, returns a
-// local DefaultBroker.
-func NewBroker(endpoint string, opts ...BrokerOption) Broker {
+// local DefaultBroker with ACP baked in.
+func NewBroker(endpoint string) Broker {
 	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		return newRemoteBroker(endpoint)
 	}
-	return newLocalBroker(opts...)
+	return newLocalBroker()
 }
 
-// newLocalBroker creates an in-process DefaultBroker.
-func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
-	cfg := &brokerConfig{}
-	for _, o := range opts {
-		o(cfg)
-	}
-
-	var staff *agent.Staff
-	if cfg.launcher != nil {
-		staff = agent.NewStaff(cfg.launcher)
-	}
+// newLocalBroker creates an in-process DefaultBroker with ACP.
+func newLocalBroker() *DefaultBroker {
+	staff := agent.NewStaff(acp.NewACPLauncher())
 
 	return &DefaultBroker{
 		staff:    staff,
