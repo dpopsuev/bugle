@@ -9,20 +9,26 @@ import (
 	"github.com/dpopsuev/jericho/identity"
 	"github.com/dpopsuev/jericho/internal/acp"
 	"github.com/dpopsuev/jericho/internal/agent"
+	"github.com/dpopsuev/jericho/internal/transport"
 	"github.com/dpopsuev/jericho/internal/warden"
+	"github.com/dpopsuev/jericho/signal"
+	"github.com/dpopsuev/jericho/world"
 )
 
 // ErrNoLauncher is returned when Spawn is called without a configured launcher.
 var ErrNoLauncher = errors.New("broker: no launcher configured")
 
-// DefaultBroker is the standard Broker implementation. It wires World, Warden,
-// Transport, Registry, and Signal Bus internally. Consumers see Broker + Actor.
+// DefaultBroker is the standard Broker implementation. Wires World, Warden,
+// Transport, ACP, Registry, and Signal Bus internally. Staff is absorbed —
+// DefaultBroker IS the agent subsystem orchestrator.
 type DefaultBroker struct {
-	staff    *agent.Staff
-	registry *identity.Registry
+	world     *world.World
+	warden    *warden.AgentWarden
+	transport *transport.LocalTransport
+	bus       signal.Bus
+	registry  *identity.Registry
 }
 
-// BrokerOption configures a DefaultBroker.
 // NewBroker creates a Broker. If the endpoint is a remote URL (https://),
 // returns a RemoteBroker that proxies over HTTP. Otherwise, returns a
 // local DefaultBroker with ACP baked in.
@@ -35,11 +41,17 @@ func NewBroker(endpoint string) Broker {
 
 // newLocalBroker creates an in-process DefaultBroker with ACP.
 func newLocalBroker() *DefaultBroker {
-	staff := agent.NewStaff(acp.NewACPLauncher())
+	w := world.NewWorld()
+	t := transport.NewLocalTransport()
+	b := signal.NewMemBus()
+	p := warden.NewWarden(w, t, b, acp.NewACPLauncher())
 
 	return &DefaultBroker{
-		staff:    staff,
-		registry: identity.NewRegistry(),
+		world:     w,
+		warden:    p,
+		transport: t,
+		bus:       b,
+		registry:  identity.NewRegistry(),
 	}
 }
 
@@ -60,26 +72,26 @@ func (b *DefaultBroker) Pick(_ context.Context, prefs Preferences) ([]ActorConfi
 	return configs, nil
 }
 
-// Spawn creates a running actor.
+// Spawn creates a running actor. Internally: Warden forks process, World
+// creates entity, Transport registers handler.
 func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
-	if b.staff == nil {
-		return nil, ErrNoLauncher
-	}
-
 	role := config.Role
 	if role == "" {
 		role = "actor"
 	}
 
-	handle, err := b.staff.Spawn(ctx, role, warden.AgentConfig{
+	id, err := b.warden.Fork(ctx, role, warden.AgentConfig{
 		Model: config.Model,
-	})
+	}, 0)
 	if err != nil {
 		return nil, fmt.Errorf("broker spawn: %w", err)
 	}
 
-	return handle, nil
+	return agent.NewSolo(id, role, b.world, b.warden, b.transport), nil
 }
 
-// Staff returns the underlying Staff for advanced consumers.
-func (b *DefaultBroker) Staff() *agent.Staff { return b.staff }
+// Signal returns the event bus.
+func (b *DefaultBroker) Signal() signal.Bus { return b.bus }
+
+// World returns the underlying ECS world (for advanced consumers).
+func (b *DefaultBroker) World() *world.World { return b.world }

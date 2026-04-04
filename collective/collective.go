@@ -13,7 +13,6 @@ import (
 
 	"github.com/dpopsuev/jericho"
 
-	"github.com/dpopsuev/jericho/internal/agent"
 	"github.com/dpopsuev/jericho/internal/warden"
 	"github.com/dpopsuev/jericho/world"
 )
@@ -250,7 +249,7 @@ func (c *Collective) Phase() Phase {
 
 // Scale adjusts the number of agents to the target count.
 // Spawns new agents or kills excess agents as needed.
-func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentConfig, staff *agent.Staff) error {
+func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentConfig, broker jericho.Broker) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -269,7 +268,7 @@ func (c *Collective) Scale(ctx context.Context, target int, config warden.AgentC
 	if target > current {
 		// Scale up — spawn new agents.
 		for range target - current {
-			a, err := staff.Spawn(ctx, config.Role, config)
+			a, err := broker.Spawn(ctx, jericho.ActorConfig{Model: config.Model, Role: config.Role})
 			if err != nil {
 				return fmt.Errorf("collective scale up: %w", err)
 			}

@@ -15,8 +15,7 @@ import (
 )
 
 // Solo wraps all subsystems into one human-readable object for a
-// single agent. Created by Staff.Spawn or Solo.Spawn — never
-// instantiated directly.
+// single agent. Created by Broker.Spawn via NewSolo.
 type Solo struct {
 	id        world.EntityID
 	role      string
@@ -28,6 +27,11 @@ type Solo struct {
 // ---------------------------------------------------------------------------
 // Identity
 // ---------------------------------------------------------------------------
+
+// NewSolo creates a Solo handle for an existing entity.
+func NewSolo(id world.EntityID, role string, w *world.World, p *warden.AgentWarden, t *transport.LocalTransport) *Solo {
+	return &Solo{id: id, role: role, world: w, pool: p, transport: t}
+}
 
 // ID returns the agent's entity ID.
 func (a *Solo) ID() world.EntityID { return a.id }
