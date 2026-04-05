@@ -38,10 +38,19 @@ func (b *MockBroker) Pick(_ context.Context, prefs troupe.Preferences) ([]troupe
 	}
 
 	configs := make([]troupe.ActorConfig, count)
+	model := prefs.Model
+	if model == "" {
+		model = "mock"
+	}
+	role := prefs.Role
 	for i := range count {
+		actorRole := role
+		if actorRole == "" {
+			actorRole = b.Actors[i].Name
+		}
 		configs[i] = troupe.ActorConfig{
-			Model: "mock",
-			Role:  b.Actors[i].Name,
+			Model: model,
+			Role:  actorRole,
 		}
 	}
 	return configs, nil
