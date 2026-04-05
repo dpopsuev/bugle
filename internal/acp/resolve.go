@@ -7,10 +7,10 @@
 //   - TROUPE_AGENT_MODEL:    Specific model (sonnet, opus, o3)
 //
 // Resolution per dimension (4 layers):
-//   1. Consumer explicit (ActorConfig fields / WithDriver)
-//   2. Env var
-//   3. Auto-detection (PATH probe for CLI, inference for provider/model)
-//   4. Hardcoded fallback
+//  1. Consumer explicit (ActorConfig fields / WithDriver)
+//  2. Env var
+//  3. Auto-detection (PATH probe for CLI, inference for provider/model)
+//  4. Hardcoded fallback
 package acp
 
 import (

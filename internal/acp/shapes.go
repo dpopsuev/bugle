@@ -53,6 +53,8 @@ func ClassifyShape(data map[string]any) ShapeKind {
 	return ShapeUnknown
 }
 
+const shapeUnknownStr = "unknown"
+
 // String returns a human-readable name for the shape kind.
 func (k ShapeKind) String() string {
 	switch k {
@@ -71,9 +73,9 @@ func (k ShapeKind) String() string {
 	case ShapeDiffUpdate:
 		return "diff_update"
 	case ShapeUnknown:
-		return "unknown"
+		return shapeUnknownStr
 	default:
-		return "unknown"
+		return shapeUnknownStr
 	}
 }
 

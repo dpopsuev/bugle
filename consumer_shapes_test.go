@@ -37,7 +37,7 @@ func TestConsumerShape_CircuitExecution(t *testing.T) {
 		{"reviewer", "review the investigation results"},
 	}
 
-	var results []string
+	results := make([]string, 0, len(steps))
 	for _, step := range steps {
 		// Pick: what actors are available for this role?
 		configs, err := broker.Pick(ctx, troupe.Preferences{Role: step.role, Count: 1})
