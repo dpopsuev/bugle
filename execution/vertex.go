@@ -14,7 +14,6 @@ import (
 // Vertex provider constants.
 const (
 	vertexProviderName = "anthropic-vertex"
-	vertexDefaultModel = "claude-sonnet-4@20250514"
 	vertexMaxTokens    = int64(4096)
 	vertexAPIKeyDummy  = "vertex" // SDK requires non-empty key even for Vertex
 )
@@ -59,9 +58,8 @@ func (v *VertexProvider) Completion(ctx context.Context, params anyllm.Completio
 		maxTokens = int64(*params.MaxTokens)
 	}
 
-	model := params.Model
-	if model == "" {
-		model = vertexDefaultModel
+	if params.Model == "" {
+		return nil, fmt.Errorf("vertex: model is required (resolved by Arsenal, not provider)")
 	}
 
 	resp, err := v.client.Messages.New(ctx, anthropic.MessageNewParams{

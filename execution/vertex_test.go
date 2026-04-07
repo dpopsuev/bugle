@@ -10,6 +10,17 @@ import (
 	anyllm "github.com/mozilla-ai/any-llm-go/providers"
 )
 
+func TestVertexProvider_MissingModel(t *testing.T) {
+	t.Parallel()
+	p := &VertexProvider{}
+	_, err := p.Completion(context.Background(), anyllm.CompletionParams{
+		Messages: []anyllm.Message{{Role: vertexRoleUser, Content: "hi"}},
+	})
+	if err == nil {
+		t.Fatal("expected error when model is empty")
+	}
+}
+
 func TestConvertMessages(t *testing.T) {
 	t.Parallel()
 	msgs := convertMessages([]anyllm.Message{
@@ -40,7 +51,7 @@ func TestConvertResponse(t *testing.T) {
 	t.Parallel()
 	resp := convertResponse(&anthropic.Message{
 		ID:    "msg-123",
-		Model: vertexDefaultModel,
+		Model: "claude-sonnet-4",
 		Content: []anthropic.ContentBlockUnion{
 			{Type: vertexBlockTypeText, Text: "hello world"},
 		},
@@ -155,7 +166,7 @@ func TestVertexProvider_E2E_RealCall(t *testing.T) {
 	}
 
 	resp, err := p.Completion(ctx, anyllm.CompletionParams{
-		Model: vertexDefaultModel,
+		Model: "claude-sonnet-4",
 		Messages: []anyllm.Message{
 			{Role: vertexRoleUser, Content: "Reply with exactly one word: hello"},
 		},
