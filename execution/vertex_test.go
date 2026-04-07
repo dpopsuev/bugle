@@ -180,6 +180,50 @@ func TestOpenRouter_E2E_RealCall(t *testing.T) {
 	t.Logf("OpenRouter response: %q", content)
 }
 
+// TestVertexProvider_E2E_UsageTracking makes a real Vertex call and
+// verifies usage data flows through the UsageRecorder.
+func TestVertexProvider_E2E_UsageTracking(t *testing.T) {
+	if os.Getenv(envUseVertex) != "1" {
+		t.Skip("CLAUDE_CODE_USE_VERTEX not set")
+	}
+	region := os.Getenv(envVertexRegion)
+	project := os.Getenv(envVertexProject)
+	if region == "" || project == "" {
+		t.Skip("CLOUD_ML_REGION or ANTHROPIC_VERTEX_PROJECT_ID not set")
+	}
+
+	ctx := context.Background()
+	p, err := NewVertexProvider(ctx, region, project)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var totalIn, totalOut int
+	recorder := func(model string, usage *anyllm.Usage) {
+		totalIn += usage.PromptTokens
+		totalOut += usage.CompletionTokens
+		t.Logf("Usage: model=%s in=%d out=%d", model, usage.PromptTokens, usage.CompletionTokens)
+	}
+
+	actor := LLMActorFunc(p, "claude-sonnet-4", recorder)
+
+	result, err := actor(ctx, "Reply with exactly one word: hello")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == "" {
+		t.Fatal("empty response")
+	}
+
+	if totalIn == 0 {
+		t.Error("PromptTokens not recorded")
+	}
+	if totalOut == 0 {
+		t.Error("CompletionTokens not recorded")
+	}
+	t.Logf("Total: %d in + %d out = %d tokens, response: %q", totalIn, totalOut, totalIn+totalOut, result)
+}
+
 // TestVertexProvider_E2E_RealCall makes a real API call to Vertex AI.
 // Requires: gcloud auth application-default login + env vars set.
 // Skips if env vars not configured.
