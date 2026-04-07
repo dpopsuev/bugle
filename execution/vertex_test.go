@@ -125,6 +125,7 @@ func TestNewProviderFromEnv_FallsThrough(t *testing.T) {
 	t.Setenv(envAnthropicKey, "")
 	t.Setenv(envOpenAIKey, "")
 	t.Setenv(envGeminiKey, "")
+	t.Setenv(envOpenRouterKey, "")
 
 	_, err := NewProviderFromEnv()
 	if err == nil {
@@ -144,6 +145,39 @@ func TestNewProviderByName_Vertex(t *testing.T) {
 	if p.Name() != vertexProviderName {
 		t.Errorf("Name() = %q, want %q", p.Name(), vertexProviderName)
 	}
+}
+
+// TestOpenRouter_E2E_RealCall makes a real API call through OpenRouter.
+// Requires OPENROUTER_API_KEY set.
+func TestOpenRouter_E2E_RealCall(t *testing.T) {
+	if os.Getenv("OPENROUTER_API_KEY") == "" {
+		t.Skip("OPENROUTER_API_KEY not set")
+	}
+
+	t.Setenv(envUseVertex, "")
+	t.Setenv(envAnthropicKey, "")
+	t.Setenv(envOpenAIKey, "")
+	t.Setenv(envGeminiKey, "")
+	t.Setenv(envOpenRouterKey, os.Getenv("OPENROUTER_API_KEY"))
+
+	p, err := NewProviderFromEnv()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := p.Completion(context.Background(), anyllm.CompletionParams{
+		Model:    "anthropic/claude-sonnet-4",
+		Messages: []anyllm.Message{{Role: "user", Content: "Reply with one word: hello"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	content, _ := resp.Choices[0].Message.Content.(string)
+	if content == "" {
+		t.Fatal("empty response")
+	}
+	t.Logf("OpenRouter response: %q", content)
 }
 
 // TestVertexProvider_E2E_RealCall makes a real API call to Vertex AI.

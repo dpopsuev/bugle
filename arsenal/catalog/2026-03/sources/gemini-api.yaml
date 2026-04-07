@@ -1,0 +1,6 @@
+source: gemini-api
+kind: api
+env_key: GEMINI_API_KEY
+provider: google
+access:
+  - gemini-2.5-pro

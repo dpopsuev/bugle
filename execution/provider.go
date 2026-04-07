@@ -6,6 +6,7 @@ import (
 	"os"
 
 	anyllm "github.com/mozilla-ai/any-llm-go/providers"
+	anyllmConfig "github.com/mozilla-ai/any-llm-go/config"
 	anyllmAnthropic "github.com/mozilla-ai/any-llm-go/providers/anthropic"
 	anyllmGemini "github.com/mozilla-ai/any-llm-go/providers/gemini"
 	anyllmOpenAI "github.com/mozilla-ai/any-llm-go/providers/openai"
@@ -13,12 +14,14 @@ import (
 
 // Env var names for provider detection.
 const (
-	envUseVertex     = "CLAUDE_CODE_USE_VERTEX"
-	envVertexRegion  = "CLOUD_ML_REGION"
-	envVertexProject = "ANTHROPIC_VERTEX_PROJECT_ID"
-	envAnthropicKey  = "ANTHROPIC_API_KEY"
-	envOpenAIKey     = "OPENAI_API_KEY"
-	envGeminiKey     = "GEMINI_API_KEY"
+	envUseVertex      = "CLAUDE_CODE_USE_VERTEX"
+	envVertexRegion   = "CLOUD_ML_REGION"
+	envVertexProject  = "ANTHROPIC_VERTEX_PROJECT_ID"
+	envAnthropicKey   = "ANTHROPIC_API_KEY"
+	envOpenAIKey      = "OPENAI_API_KEY"
+	envGeminiKey      = "GEMINI_API_KEY"
+	envOpenRouterKey  = "OPENROUTER_API_KEY"
+	openRouterBaseURL = "https://openrouter.ai/api/v1"
 )
 
 // NewProviderFromEnv detects available LLM providers from environment
@@ -48,7 +51,15 @@ func NewProviderFromEnv() (anyllm.Provider, error) {
 		return anyllmGemini.New()
 	}
 
-	return nil, fmt.Errorf("no LLM provider found: set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY")
+	// OpenRouter — universal fallback, 352+ models from all providers.
+	if os.Getenv(envOpenRouterKey) != "" {
+		return anyllmOpenAI.New(
+			anyllmConfig.WithAPIKey(os.Getenv(envOpenRouterKey)),
+			anyllmConfig.WithBaseURL(openRouterBaseURL),
+		)
+	}
+
+	return nil, fmt.Errorf("no LLM provider found: set CLAUDE_CODE_USE_VERTEX, ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, or OPENROUTER_API_KEY")
 }
 
 // NewProviderByName creates a provider by explicit name.
@@ -67,6 +78,11 @@ func NewProviderByName(name string) (anyllm.Provider, error) {
 		return anyllmOpenAI.New()
 	case "gemini":
 		return anyllmGemini.New()
+	case "openrouter":
+		return anyllmOpenAI.New(
+			anyllmConfig.WithAPIKey(os.Getenv(envOpenRouterKey)),
+			anyllmConfig.WithBaseURL(openRouterBaseURL),
+		)
 	default:
 		return nil, fmt.Errorf("unknown provider: %s", name)
 	}

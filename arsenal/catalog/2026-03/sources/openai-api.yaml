@@ -1,0 +1,6 @@
+source: openai-api
+kind: api
+env_key: OPENAI_API_KEY
+provider: openai
+access:
+  - gpt-4o
