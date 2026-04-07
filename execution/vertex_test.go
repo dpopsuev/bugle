@@ -103,15 +103,11 @@ func TestConvertResponse_MultipleBlocks(t *testing.T) {
 }
 
 func TestNewProviderFromEnv_Vertex(t *testing.T) {
-	t.Setenv(envUseVertex, "1")
+	t.Setenv(envProvider, "vertex-ai")
 	t.Setenv(envVertexRegion, "us-east5")
 	t.Setenv(envVertexProject, "test-project")
-	// Clear other keys so Vertex wins
-	t.Setenv(envAnthropicKey, "")
-	t.Setenv(envOpenAIKey, "")
-	t.Setenv(envGeminiKey, "")
 
-	p, err := NewProviderFromEnv()
+	p, err := NewProviderFromEnv("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,30 +116,72 @@ func TestNewProviderFromEnv_Vertex(t *testing.T) {
 	}
 }
 
-func TestNewProviderFromEnv_FallsThrough(t *testing.T) {
-	t.Setenv(envUseVertex, "")
-	t.Setenv(envAnthropicKey, "")
-	t.Setenv(envOpenAIKey, "")
-	t.Setenv(envGeminiKey, "")
-	t.Setenv(envOpenRouterKey, "")
+func TestNewProviderFromEnv_NotSet(t *testing.T) {
+	t.Setenv(envProvider, "")
 
-	_, err := NewProviderFromEnv()
+	_, err := NewProviderFromEnv("")
 	if err == nil {
-		t.Fatal("expected error when no provider configured")
+		t.Fatal("expected error when TROUPE_PROVIDER not set")
+	}
+}
+
+func TestNewProviderFromEnv_CustomEnvName(t *testing.T) {
+	t.Setenv("DJINN_PROVIDER", "vertex-ai")
+	t.Setenv(envVertexRegion, "us-east5")
+	t.Setenv(envVertexProject, "test-project")
+
+	p, err := NewProviderFromEnv("DJINN_PROVIDER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Name() != vertexProviderName {
+		t.Errorf("Name() = %q, want %q", p.Name(), vertexProviderName)
+	}
+}
+
+func TestNewProviderByName_MissingCredentials(t *testing.T) {
+	t.Setenv(envAnthropicKey, "")
+	_, err := NewProviderByName("anthropic-api")
+	if err == nil {
+		t.Fatal("expected error when ANTHROPIC_API_KEY not set")
+	}
+
+	t.Setenv(envOpenAIKey, "")
+	_, err = NewProviderByName("openai-api")
+	if err == nil {
+		t.Fatal("expected error when OPENAI_API_KEY not set")
+	}
+
+	t.Setenv(envGeminiKey, "")
+	_, err = NewProviderByName("gemini-api")
+	if err == nil {
+		t.Fatal("expected error when GEMINI_API_KEY not set")
+	}
+
+	t.Setenv(envOpenRouterKey, "")
+	_, err = NewProviderByName("openrouter")
+	if err == nil {
+		t.Fatal("expected error when OPENROUTER_API_KEY not set")
 	}
 }
 
 func TestNewProviderByName_Vertex(t *testing.T) {
-	t.Setenv(envUseVertex, "1")
 	t.Setenv(envVertexRegion, "us-east5")
 	t.Setenv(envVertexProject, "test-project")
 
-	p, err := NewProviderByName("claude")
+	p, err := NewProviderByName("vertex-ai")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if p.Name() != vertexProviderName {
 		t.Errorf("Name() = %q, want %q", p.Name(), vertexProviderName)
+	}
+}
+
+func TestNewProviderByName_UnknownProvider(t *testing.T) {
+	_, err := NewProviderByName("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for unknown provider")
 	}
 }
 
@@ -159,8 +197,9 @@ func TestOpenRouter_E2E_RealCall(t *testing.T) {
 	t.Setenv(envOpenAIKey, "")
 	t.Setenv(envGeminiKey, "")
 	t.Setenv(envOpenRouterKey, os.Getenv("OPENROUTER_API_KEY"))
+	t.Setenv(envProvider, "openrouter")
 
-	p, err := NewProviderFromEnv()
+	p, err := NewProviderFromEnv("")
 	if err != nil {
 		t.Fatal(err)
 	}
