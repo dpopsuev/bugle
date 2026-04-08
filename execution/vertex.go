@@ -2,6 +2,7 @@ package execution
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -63,11 +64,44 @@ func (v *VertexProvider) Completion(ctx context.Context, params anyllm.Completio
 		return nil, fmt.Errorf("%w (resolved by Arsenal, not provider)", ErrModelRequired)
 	}
 
-	resp, err := v.client.Messages.New(ctx, anthropic.MessageNewParams{
+	req := anthropic.MessageNewParams{
 		Model:     anthropic.Model(params.Model),
 		Messages:  msgs,
 		MaxTokens: maxTokens,
-	})
+	}
+
+	// Pass through Tools.
+	if len(params.Tools) > 0 {
+		tools := make([]anthropic.ToolUnionParam, 0, len(params.Tools))
+		for _, tool := range params.Tools {
+			schema := anthropic.ToolInputSchemaParam{Type: "object"}
+			if tool.Function.Parameters != nil {
+				if props, ok := tool.Function.Parameters["properties"]; ok {
+					schema.Properties = props
+				}
+				if req, ok := tool.Function.Parameters["required"]; ok {
+					if strs, ok := toStringSlice(req); ok {
+						schema.Required = strs
+					}
+				}
+			}
+			tools = append(tools, anthropic.ToolUnionParam{
+				OfTool: &anthropic.ToolParam{
+					Name:        tool.Function.Name,
+					Description: anthropic.String(tool.Function.Description),
+					InputSchema: schema,
+				},
+			})
+		}
+		req.Tools = tools
+	}
+
+	// Pass through ToolChoice.
+	if params.ToolChoice != nil {
+		req.ToolChoice = convertVertexToolChoice(params.ToolChoice)
+	}
+
+	resp, err := v.client.Messages.New(ctx, req)
 	if err != nil {
 		return nil, classifyVertexError(err)
 	}
@@ -121,11 +155,26 @@ func convertMessages(msgs []anyllm.Message) []anthropic.MessageParam {
 
 func convertResponse(resp *anthropic.Message) *anyllm.ChatCompletion {
 	var content string
+	var toolCalls []anyllm.ToolCall
+
 	for _, block := range resp.Content {
-		if block.Type == vertexBlockTypeText {
+		switch block.Type {
+		case vertexBlockTypeText:
 			content += block.Text
+		case "tool_use":
+			inputJSON, _ := json.Marshal(block.Input)
+			toolCalls = append(toolCalls, anyllm.ToolCall{
+				ID:   block.ID,
+				Type: "function",
+				Function: anyllm.FunctionCall{
+					Name:      block.Name,
+					Arguments: string(inputJSON),
+				},
+			})
 		}
 	}
+
+	finishReason := string(resp.StopReason)
 
 	inputTokens := int(resp.Usage.InputTokens)
 	outputTokens := int(resp.Usage.OutputTokens)
@@ -136,10 +185,11 @@ func convertResponse(resp *anthropic.Message) *anyllm.ChatCompletion {
 		Choices: []anyllm.Choice{
 			{
 				Message: anyllm.Message{
-					Role:    vertexRoleAssistant,
-					Content: content,
+					Role:      vertexRoleAssistant,
+					Content:   content,
+					ToolCalls: toolCalls,
 				},
-				FinishReason: string(resp.StopReason),
+				FinishReason: finishReason,
 			},
 		},
 		Usage: &anyllm.Usage{
@@ -148,4 +198,56 @@ func convertResponse(resp *anthropic.Message) *anyllm.ChatCompletion {
 			TotalTokens:      inputTokens + outputTokens,
 		},
 	}
+}
+
+// convertVertexToolChoice maps anyllm ToolChoice to Anthropic format.
+func convertVertexToolChoice(choice any) anthropic.ToolChoiceUnionParam {
+	switch v := choice.(type) {
+	case string:
+		switch v {
+		case "auto":
+			return anthropic.ToolChoiceUnionParam{
+				OfAuto: &anthropic.ToolChoiceAutoParam{},
+			}
+		case "none":
+			return anthropic.ToolChoiceUnionParam{
+				OfNone: &anthropic.ToolChoiceNoneParam{},
+			}
+		case "required", "any":
+			return anthropic.ToolChoiceUnionParam{
+				OfAny: &anthropic.ToolChoiceAnyParam{},
+			}
+		default:
+			// Treat as tool name.
+			return anthropic.ToolChoiceUnionParam{
+				OfTool: &anthropic.ToolChoiceToolParam{Name: v},
+			}
+		}
+	case anyllm.ToolChoice:
+		if v.Function != nil {
+			return anthropic.ToolChoiceUnionParam{
+				OfTool: &anthropic.ToolChoiceToolParam{Name: v.Function.Name},
+			}
+		}
+	}
+	return anthropic.ToolChoiceUnionParam{
+		OfAuto: &anthropic.ToolChoiceAutoParam{},
+	}
+}
+
+// toStringSlice converts an any to []string if possible.
+func toStringSlice(v any) ([]string, bool) {
+	arr, ok := v.([]any)
+	if !ok {
+		return nil, false
+	}
+	strs := make([]string, 0, len(arr))
+	for _, item := range arr {
+		s, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		strs = append(strs, s)
+	}
+	return strs, true
 }
