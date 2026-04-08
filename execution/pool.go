@@ -2,7 +2,9 @@ package execution
 
 import (
 	"context"
+	"log/slog"
 	"sync"
+	"time"
 )
 
 // ActorFunc is the work execution function. Takes input, returns output.
@@ -27,6 +29,7 @@ func NewPool(queue Queue, actor ActorFunc, size int) *Pool {
 // Start launches N goroutines, each running the pull-execute-submit loop.
 // Returns immediately. Call Drain() or cancel the context to stop.
 func (p *Pool) Start(ctx context.Context) {
+	slog.InfoContext(ctx, "pool starting", slog.Int("size", p.size))
 	for i := range p.size {
 		p.wg.Add(1)
 		go p.workerLoop(ctx, i)
@@ -38,21 +41,34 @@ func (p *Pool) Drain() {
 	p.wg.Wait()
 }
 
-func (p *Pool) workerLoop(ctx context.Context, _ int) {
+func (p *Pool) workerLoop(ctx context.Context, workerID int) {
 	defer p.wg.Done()
+	slog.DebugContext(ctx, "worker started", slog.Int(logKeyWorkerID, workerID))
 	for {
 		item, err := p.queue.Pull(ctx)
 		if err != nil {
-			return // context cancelled or queue closed
+			slog.DebugContext(ctx, "worker stopped", slog.Int(logKeyWorkerID, workerID))
+			return
 		}
 
+		start := time.Now()
 		result, execErr := p.actor(ctx, item.Input())
+		elapsed := time.Since(start)
+
 		if execErr != nil {
-			// Submit error as empty result — the queue routes it back.
+			slog.ErrorContext(ctx, "worker exec failed",
+				slog.Int(logKeyWorkerID, workerID),
+				slog.Uint64(logKeyItemID, item.ID()),
+				slog.Int64(logKeyElapsedMs, elapsed.Milliseconds()),
+				slog.Any(logKeyError, execErr))
 			_ = p.queue.Submit(ctx, item.ID(), []byte("error: "+execErr.Error()))
 			continue
 		}
 
+		slog.DebugContext(ctx, "worker exec complete",
+			slog.Int(logKeyWorkerID, workerID),
+			slog.Uint64(logKeyItemID, item.ID()),
+			slog.Int64(logKeyElapsedMs, elapsed.Milliseconds()))
 		_ = p.queue.Submit(ctx, item.ID(), []byte(result))
 	}
 }

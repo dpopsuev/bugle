@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -53,6 +55,7 @@ func (v *VertexProvider) Name() string { return vertexProviderName }
 
 // Completion sends a chat completion request via Vertex AI.
 func (v *VertexProvider) Completion(ctx context.Context, params anyllm.CompletionParams) (*anyllm.ChatCompletion, error) {
+	start := time.Now()
 	msgs := convertMessages(params.Messages)
 
 	maxTokens := vertexMaxTokens
@@ -63,6 +66,12 @@ func (v *VertexProvider) Completion(ctx context.Context, params anyllm.Completio
 	if params.Model == "" {
 		return nil, fmt.Errorf("%w (resolved by Arsenal, not provider)", ErrModelRequired)
 	}
+
+	slog.DebugContext(ctx, "vertex completion request",
+		slog.String(logKeyModel, params.Model),
+		slog.Int(logKeyMessageCount, len(params.Messages)),
+		slog.Int(logKeyToolCount, len(params.Tools)),
+		slog.Any(logKeyToolChoice, params.ToolChoice))
 
 	req := anthropic.MessageNewParams{
 		Model:     anthropic.Model(params.Model),
@@ -102,11 +111,42 @@ func (v *VertexProvider) Completion(ctx context.Context, params anyllm.Completio
 	}
 
 	resp, err := v.client.Messages.New(ctx, req)
+	elapsed := time.Since(start)
 	if err != nil {
-		return nil, classifyVertexError(err)
+		classified := classifyVertexError(err)
+		slog.ErrorContext(ctx, "vertex completion failed",
+			slog.String(logKeyModel, params.Model),
+			slog.Int64(logKeyElapsedMs, elapsed.Milliseconds()),
+			slog.Any(logKeyError, classified))
+		return nil, classified
 	}
 
-	return convertResponse(resp), nil
+	// Log response details for debugging.
+	var textBlocks, toolUseBlocks int
+	for _, block := range resp.Content {
+		switch block.Type {
+		case vertexBlockTypeText:
+			textBlocks++
+		case "tool_use":
+			toolUseBlocks++
+		}
+	}
+	slog.DebugContext(ctx, "vertex completion response",
+		slog.String(logKeyModel, string(resp.Model)),
+		slog.Int64(logKeyElapsedMs, elapsed.Milliseconds()),
+		slog.Int(logKeyBlockCount, len(resp.Content)),
+		slog.Int(logKeyTextBlocks, textBlocks),
+		slog.Int(logKeyToolUseBlocks, toolUseBlocks),
+		slog.Int64(logKeyInputTokens, resp.Usage.InputTokens),
+		slog.Int64(logKeyOutputTokens, resp.Usage.OutputTokens),
+		slog.String("stop_reason", string(resp.StopReason)))
+
+	result := convertResponse(resp)
+	slog.DebugContext(ctx, "vertex completion parsed",
+		slog.Int(logKeyToolCalls, len(result.Choices[0].Message.ToolCalls)),
+		slog.String("finish_reason", result.Choices[0].FinishReason))
+
+	return result, nil
 }
 
 // CompletionStream is not implemented — Shell Harness uses Completion().

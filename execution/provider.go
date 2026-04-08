@@ -3,6 +3,7 @@ package execution
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -107,6 +108,7 @@ func NewProviderByName(name string) (anyllm.Provider, error) {
 	if err := checkCredentials(spec); err != nil {
 		return nil, err
 	}
+	slog.Info("provider created", slog.String(logKeyProvider, spec.name))
 	return createProvider(spec)
 }
 
