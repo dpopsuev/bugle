@@ -5,26 +5,25 @@
 package world
 
 import (
-	"fmt"
-
-	"github.com/dpopsuev/battery/event"
+	"github.com/dpopsuev/troupe/signal"
 )
+
+// ComponentMutation is the typed payload for component change events.
+type ComponentMutation struct {
+	EntityID      uint64 `json:"entity_id"`
+	ComponentType string `json:"component_type"`
+}
 
 // EmitDiffsTo registers a DiffHook that emits component mutations
 // as events to the given EventLog. Call once at composition time.
-//
-// Events emitted:
-//   - component.attached — a component was added to an entity
-//   - component.detached — a component was removed from an entity
-//   - component.updated — a component was replaced on an entity
-func (w *World) EmitDiffsTo(log event.EventLog) {
+func (w *World) EmitDiffsTo(log signal.EventLog) {
 	w.OnDiff(func(id EntityID, ct ComponentType, kind DiffKind, _, _ Component) {
-		log.Emit(event.Event{
+		log.Emit(signal.Event{
 			Source: "world",
 			Kind:   "component." + string(kind),
-			Meta: map[string]string{
-				"entity_id":      fmt.Sprintf("%d", id),
-				"component_type": string(ct),
+			Data: ComponentMutation{
+				EntityID:      uint64(id),
+				ComponentType: string(ct),
 			},
 		})
 	})

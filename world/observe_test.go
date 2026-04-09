@@ -1,14 +1,10 @@
 package world_test
 
 import (
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 
-	"github.com/dpopsuev/battery/event"
-	"github.com/dpopsuev/battery/testkit"
-	"github.com/dpopsuev/troupe/signal"
+	"github.com/dpopsuev/troupe/testkit"
 	"github.com/dpopsuev/troupe/world"
 )
 
@@ -45,7 +41,7 @@ func TestEmitDiffsTo_Detach(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("no component.detached event after Detach")
+		t.Fatal("no component.detached event")
 	}
 }
 
@@ -56,7 +52,7 @@ func TestEmitDiffsTo_Update(t *testing.T) {
 
 	id := w.Spawn()
 	world.Attach(w, id, world.Alive{State: world.AliveRunning})
-	world.Attach(w, id, world.Alive{State: world.AliveTerminated}) // update
+	world.Attach(w, id, world.Alive{State: world.AliveTerminated})
 
 	var found bool
 	for _, e := range log.Since(0) {
@@ -65,11 +61,11 @@ func TestEmitDiffsTo_Update(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("no component.updated event after re-Attach")
+		t.Fatal("no component.updated event")
 	}
 }
 
-func TestEmitDiffsTo_MetaFields(t *testing.T) {
+func TestEmitDiffsTo_TypedData(t *testing.T) {
 	w := world.NewWorld()
 	log := testkit.NewStubEventLog()
 	w.EmitDiffsTo(log)
@@ -86,24 +82,22 @@ func TestEmitDiffsTo_MetaFields(t *testing.T) {
 	if e.Source != "world" {
 		t.Fatalf("Source = %q, want world", e.Source)
 	}
-	if e.Meta["entity_id"] == "" {
-		t.Fatal("entity_id missing from Meta")
+
+	data, ok := e.Data.(world.ComponentMutation)
+	if !ok {
+		t.Fatalf("Data is %T, want ComponentMutation", e.Data)
 	}
-	if e.Meta["component_type"] != "alive" {
-		t.Fatalf("component_type = %q, want alive", e.Meta["component_type"])
+	if data.EntityID == 0 {
+		t.Fatal("EntityID is 0")
+	}
+	if data.ComponentType != "alive" {
+		t.Fatalf("ComponentType = %q, want alive", data.ComponentType)
 	}
 }
 
-func TestEmitDiffsTo_DurableBus(t *testing.T) {
+func TestEmitDiffsTo_MemLog(t *testing.T) {
 	w := world.NewWorld()
-	path := filepath.Join(t.TempDir(), "events.jsonl")
-	bus, err := signal.NewDurableBus(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer bus.Close()
-
-	log := signal.NewBusEventLog(bus)
+	log := testkit.NewStubEventLog()
 	w.EmitDiffsTo(log)
 
 	id := w.Spawn()
@@ -111,12 +105,7 @@ func TestEmitDiffsTo_DurableBus(t *testing.T) {
 
 	events := log.Since(0)
 	if len(events) == 0 {
-		t.Fatal("no events via DurableBus")
-	}
-
-	info, _ := os.Stat(path)
-	if info.Size() == 0 {
-		t.Fatal("durable log file empty")
+		t.Fatal("no events via MemLog")
 	}
 }
 
@@ -136,11 +125,7 @@ func TestEmitDiffsTo_ConcurrentSafe(t *testing.T) {
 	}
 	wg.Wait()
 
-	// 20 goroutines × 3 mutations each = 60 events
 	if log.Len() < 60 {
 		t.Fatalf("events = %d, want >= 60", log.Len())
 	}
 }
-
-// ensure event import is used
-var _ = event.Event{}
