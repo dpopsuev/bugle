@@ -1,4 +1,4 @@
-package troupe
+package broker
 
 import (
 	"bytes"
@@ -12,6 +12,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	troupe "github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/director"
 )
 
 // Sentinel errors for remote operations.
@@ -35,7 +38,7 @@ func newRemoteBroker(endpoint string) *RemoteBroker {
 }
 
 // Pick proxies to the remote broker's /pick endpoint.
-func (b *RemoteBroker) Pick(ctx context.Context, prefs Preferences) ([]ActorConfig, error) {
+func (b *RemoteBroker) Pick(ctx context.Context, prefs troupe.Preferences) ([]troupe.ActorConfig, error) {
 	body, err := json.Marshal(prefs)
 	if err != nil {
 		return nil, err
@@ -53,7 +56,7 @@ func (b *RemoteBroker) Pick(ctx context.Context, prefs Preferences) ([]ActorConf
 	}
 	defer resp.Body.Close()
 
-	var configs []ActorConfig
+	var configs []troupe.ActorConfig
 	if err := json.NewDecoder(resp.Body).Decode(&configs); err != nil {
 		return nil, err
 	}
@@ -62,7 +65,7 @@ func (b *RemoteBroker) Pick(ctx context.Context, prefs Preferences) ([]ActorConf
 
 // Spawn proxies to the remote broker's /spawn endpoint.
 // Returns a ProxyActor that forwards Perform/Ready/Kill over HTTP.
-func (b *RemoteBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
+func (b *RemoteBroker) Spawn(ctx context.Context, config troupe.ActorConfig) (troupe.Actor, error) {
 	body, err := json.Marshal(config)
 	if err != nil {
 		return nil, err
@@ -160,17 +163,17 @@ func (a *ProxyActor) Kill(ctx context.Context) error {
 }
 
 // BrokerHandler returns an http.Handler that serves a Broker over HTTP.
-func BrokerHandler(broker *DefaultBroker) http.Handler {
+func BrokerHandler(b *DefaultBroker) http.Handler {
 	mux := http.NewServeMux()
 	var actorCounter atomic.Int64
 
 	mux.HandleFunc("POST /pick", func(w http.ResponseWriter, r *http.Request) {
-		var prefs Preferences
+		var prefs troupe.Preferences
 		if err := json.NewDecoder(r.Body).Decode(&prefs); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		configs, err := broker.Pick(r.Context(), prefs)
+		configs, err := b.Pick(r.Context(), prefs)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -179,16 +182,16 @@ func BrokerHandler(broker *DefaultBroker) http.Handler {
 		json.NewEncoder(w).Encode(configs) //nolint:errcheck // best effort
 	})
 
-	actors := make(map[string]Actor)
+	actors := make(map[string]troupe.Actor)
 	var mu = &sync.Mutex{}
 
 	mux.HandleFunc("POST /spawn", func(w http.ResponseWriter, r *http.Request) {
-		var config ActorConfig
+		var config troupe.ActorConfig
 		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		actor, err := broker.Spawn(r.Context(), config)
+		actor, err := b.Spawn(r.Context(), config)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -261,7 +264,7 @@ func BrokerHandler(broker *DefaultBroker) http.Handler {
 }
 
 // ConnectDirector returns a Director that streams events from a remote endpoint via SSE.
-func ConnectDirector(endpoint string) Director {
+func ConnectDirector(endpoint string) director.Director {
 	return &SSEDirector{
 		endpoint: strings.TrimRight(endpoint, "/"),
 		client:   &http.Client{Timeout: 0}, // no timeout for SSE stream
@@ -275,7 +278,7 @@ type SSEDirector struct {
 }
 
 // Direct connects to the remote Director and streams events.
-func (d *SSEDirector) Direct(ctx context.Context, _ Broker) (<-chan Event, error) {
+func (d *SSEDirector) Direct(ctx context.Context, _ troupe.Broker) (<-chan troupe.Event, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.endpoint+"/direct", http.NoBody)
 	if err != nil {
 		return nil, err
@@ -287,7 +290,7 @@ func (d *SSEDirector) Direct(ctx context.Context, _ Broker) (<-chan Event, error
 		return nil, err
 	}
 
-	ch := make(chan Event, 64) //nolint:mnd // reasonable buffer
+	ch := make(chan troupe.Event, 64) //nolint:mnd // reasonable buffer
 
 	go func() {
 		defer close(ch)
@@ -299,7 +302,7 @@ func (d *SSEDirector) Direct(ctx context.Context, _ Broker) (<-chan Event, error
 }
 
 // readSSEStream parses an SSE stream into Events.
-func readSSEStream(r io.Reader, ch chan<- Event) {
+func readSSEStream(r io.Reader, ch chan<- troupe.Event) {
 	buf := make([]byte, 0, 4096) //nolint:mnd // SSE read buffer size
 	tmp := make([]byte, 1024)    //nolint:mnd // SSE buffer size
 
@@ -329,7 +332,7 @@ func readSSEStream(r io.Reader, ch chan<- Event) {
 }
 
 // parseSSEMessage extracts an Event from an SSE message block.
-func parseSSEMessage(msg string) *Event {
+func parseSSEMessage(msg string) *troupe.Event {
 	var dataLine string
 	for _, line := range strings.Split(msg, "\n") {
 		if strings.HasPrefix(line, "data: ") {
@@ -340,7 +343,7 @@ func parseSSEMessage(msg string) *Event {
 		return nil
 	}
 
-	var ev Event
+	var ev troupe.Event
 	if err := json.Unmarshal([]byte(dataLine), &ev); err != nil {
 		return nil
 	}
@@ -348,7 +351,7 @@ func parseSSEMessage(msg string) *Event {
 }
 
 // DirectorHandler wraps a Director as an SSE endpoint.
-func DirectorHandler(director Director, broker Broker) http.HandlerFunc {
+func DirectorHandler(d director.Director, b troupe.Broker) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -356,7 +359,7 @@ func DirectorHandler(director Director, broker Broker) http.HandlerFunc {
 			return
 		}
 
-		events, err := director.Direct(r.Context(), broker)
+		events, err := d.Direct(r.Context(), b)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

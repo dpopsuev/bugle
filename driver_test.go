@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/world"
 )
 
@@ -36,9 +37,9 @@ func (d *testDriver) Stop(_ context.Context, id world.EntityID) error {
 func TestDriver_Interface(t *testing.T) {
 	// A custom Driver can be passed to NewBroker via WithDriver
 	driver := newTestDriver()
-	broker := troupe.NewBroker("", troupe.WithDriver(driver))
+	b := broker.New("", broker.WithDriver(driver))
 
-	actor, err := broker.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
+	actor, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
 	if err != nil {
 		t.Fatalf("Spawn: %v", err)
 	}
@@ -94,8 +95,8 @@ func TestDriverValidator_RejectsInvalidEnv(t *testing.T) {
 		testDriver: *newTestDriver(),
 		envErr:     errMissing,
 	}
-	broker := troupe.NewBroker("", troupe.WithDriver(driver))
-	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
+	b := broker.New("", broker.WithDriver(driver))
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
 	if err == nil {
 		t.Fatal("expected env validation error")
 	}
@@ -106,8 +107,8 @@ func TestDriverValidator_RejectsInvalidEnv(t *testing.T) {
 
 func TestDriverValidator_PassesValidEnv(t *testing.T) {
 	driver := &validatingDriver{testDriver: *newTestDriver()}
-	broker := troupe.NewBroker("", troupe.WithDriver(driver))
-	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
+	b := broker.New("", broker.WithDriver(driver))
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "test"})
 	if err != nil {
 		t.Fatalf("Spawn with valid env: %v", err)
 	}

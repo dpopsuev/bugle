@@ -1,4 +1,4 @@
-package troupe_test
+package broker_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 )
 
 type tokenDetail struct{ In, Out int }
@@ -17,7 +18,7 @@ type computeDetail struct{ GPUSec float64 }
 func (d computeDetail) String() string { return fmt.Sprintf("gpu: %.1fs", d.GPUSec) }
 
 func TestInMemoryMeter_RecordAndQuery(t *testing.T) {
-	m := troupe.NewInMemoryMeter()
+	m := broker.NewInMemoryMeter()
 	m.Record(troupe.Usage{Actor: "a1", Step: "classify", Duration: time.Second})
 	m.Record(troupe.Usage{Actor: "a2", Step: "review", Duration: 2 * time.Second})
 	m.Record(troupe.Usage{Actor: "a1", Step: "summarize", Duration: 500 * time.Millisecond})
@@ -37,7 +38,7 @@ func TestInMemoryMeter_RecordAndQuery(t *testing.T) {
 }
 
 func TestInMemoryMeter_QueryEmpty(t *testing.T) {
-	m := troupe.NewInMemoryMeter()
+	m := broker.NewInMemoryMeter()
 	result := m.Query("nonexistent")
 	if len(result) != 0 {
 		t.Errorf("expected empty, got %d", len(result))
@@ -45,7 +46,7 @@ func TestInMemoryMeter_QueryEmpty(t *testing.T) {
 }
 
 func TestMeter_ProviderAgnostic(t *testing.T) {
-	m := troupe.NewInMemoryMeter()
+	m := broker.NewInMemoryMeter()
 	m.Record(troupe.Usage{Actor: "cloud", Detail: tokenDetail{In: 100, Out: 50}})
 	m.Record(troupe.Usage{Actor: "onprem", Detail: computeDetail{GPUSec: 3.5}})
 
@@ -60,4 +61,4 @@ func TestMeter_ProviderAgnostic(t *testing.T) {
 	}
 }
 
-var _ troupe.Meter = (*troupe.InMemoryMeter)(nil)
+var _ troupe.Meter = (*broker.InMemoryMeter)(nil)

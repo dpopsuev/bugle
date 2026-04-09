@@ -1,4 +1,4 @@
-package troupe_test
+package broker_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/testkit"
 )
 
@@ -17,9 +18,9 @@ func TestRemoteBroker_PickAndSpawnRoundTrip(t *testing.T) {
 	server := httptest.NewServer(mockBrokerHandler())
 	defer server.Close()
 
-	broker := troupe.NewBroker(server.URL)
+	b := broker.New(server.URL)
 
-	configs, err := broker.Pick(context.Background(), troupe.Preferences{Count: 2})
+	configs, err := b.Pick(context.Background(), troupe.Preferences{Count: 2})
 	if err != nil {
 		t.Fatalf("Pick: %v", err)
 	}
@@ -27,7 +28,7 @@ func TestRemoteBroker_PickAndSpawnRoundTrip(t *testing.T) {
 		t.Errorf("Pick returned %d configs, want 2", len(configs))
 	}
 
-	actor, err := broker.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
+	actor, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
 	if err != nil {
 		t.Fatalf("Spawn: %v", err)
 	}
@@ -50,7 +51,7 @@ func TestRemoteBroker_PickAndSpawnRoundTrip(t *testing.T) {
 }
 
 func TestSSEDirector_RoundTrip(t *testing.T) {
-	director := &testkit.LinearDirector{
+	dir := &testkit.LinearDirector{
 		Steps: []testkit.Step{
 			{Name: "step-1", Prompt: "do thing 1"},
 			{Name: "step-2", Prompt: "do thing 2"},
@@ -58,10 +59,10 @@ func TestSSEDirector_RoundTrip(t *testing.T) {
 	}
 	mockBroker := testkit.NewMockBroker(1)
 
-	server := httptest.NewServer(troupe.DirectorHandler(director, mockBroker))
+	server := httptest.NewServer(broker.DirectorHandler(dir, mockBroker))
 	defer server.Close()
 
-	sseDirector := troupe.ConnectDirector(server.URL)
+	sseDirector := broker.ConnectDirector(server.URL)
 	events, err := sseDirector.Direct(context.Background(), nil)
 	if err != nil {
 		t.Fatalf("Direct: %v", err)
@@ -84,8 +85,8 @@ func TestProxyActor_ConcurrentPerform(t *testing.T) {
 	server := httptest.NewServer(mockBrokerHandler())
 	defer server.Close()
 
-	broker := troupe.NewBroker(server.URL)
-	actor, err := broker.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
+	b := broker.New(server.URL)
+	actor, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "worker"})
 	if err != nil {
 		t.Fatalf("Spawn: %v", err)
 	}

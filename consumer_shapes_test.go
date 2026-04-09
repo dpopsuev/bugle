@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/troupe"
+	brokerpkg "github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/collective"
 	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/testkit"
@@ -153,7 +154,7 @@ type tokenUsage struct{ In, Out int }
 func (u tokenUsage) String() string { return fmt.Sprintf("tokens: in=%d out=%d", u.In, u.Out) }
 
 func TestConsumerShape_Metering(t *testing.T) {
-	meter := troupe.NewInMemoryMeter()
+	meter := brokerpkg.NewInMemoryMeter()
 
 	// Simulate circuit steps recording usage
 	meter.Record(troupe.Usage{
@@ -231,8 +232,8 @@ func (o *circuitObserver) PostPerform(_ context.Context, _, _ string, err error)
 	o.mu.Unlock()
 }
 
-var _ troupe.SpawnHook = (*circuitObserver)(nil)
-var _ troupe.PerformHook = (*circuitObserver)(nil)
+var _ brokerpkg.SpawnHook = (*circuitObserver)(nil)
+var _ brokerpkg.PerformHook = (*circuitObserver)(nil)
 
 func TestConsumerShape_HookObservability(t *testing.T) {
 	ctx := context.Background()

@@ -6,7 +6,7 @@
 //
 // Public API — 3 interfaces, 6 methods:
 //
-//	broker := troupe.NewBroker(...)
+//	broker := broker.New(...)
 //	actors, _ := broker.Pick(ctx, prefs)    // what's available?
 //	actor, _ := broker.Spawn(ctx, config)   // hire an actor
 //	response, _ := actor.Perform(ctx, prompt) // do work

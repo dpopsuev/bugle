@@ -1,30 +1,31 @@
-package troupe_test
+package broker_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/world"
 )
 
-func TestNewBroker_EmptyEndpoint_ReturnsLocal(t *testing.T) {
-	broker := troupe.NewBroker("")
-	if broker == nil {
-		t.Fatal("NewBroker(\"\") returned nil")
+func TestNew_EmptyEndpoint_ReturnsLocal(t *testing.T) {
+	b := broker.New("")
+	if b == nil {
+		t.Fatal("New(\"\") returned nil")
 	}
 }
 
-func TestNewBroker_HTTPSEndpoint_ReturnsRemote(t *testing.T) {
-	broker := troupe.NewBroker("https://cluster:8080")
-	if broker == nil {
-		t.Fatal("NewBroker(\"https://...\") returned nil")
+func TestNew_HTTPSEndpoint_ReturnsRemote(t *testing.T) {
+	b := broker.New("https://cluster:8080")
+	if b == nil {
+		t.Fatal("New(\"https://...\") returned nil")
 	}
 }
 
 func TestDefaultBroker_Pick_DefaultCount(t *testing.T) {
-	broker := troupe.NewBroker("")
-	configs, err := broker.Pick(context.Background(), troupe.Preferences{})
+	b := broker.New("")
+	configs, err := b.Pick(context.Background(), troupe.Preferences{})
 	if err != nil {
 		t.Fatalf("Pick: %v", err)
 	}
@@ -34,8 +35,8 @@ func TestDefaultBroker_Pick_DefaultCount(t *testing.T) {
 }
 
 func TestDefaultBroker_Pick_ExplicitCount(t *testing.T) {
-	broker := troupe.NewBroker("")
-	configs, err := broker.Pick(context.Background(), troupe.Preferences{Count: 3, Role: "worker"})
+	b := broker.New("")
+	configs, err := b.Pick(context.Background(), troupe.Preferences{Count: 3, Role: "worker"})
 	if err != nil {
 		t.Fatalf("Pick: %v", err)
 	}
@@ -45,8 +46,8 @@ func TestDefaultBroker_Pick_ExplicitCount(t *testing.T) {
 }
 
 func TestDefaultBroker_Spawn_NoLauncher(t *testing.T) {
-	broker := troupe.NewBroker("")
-	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Model: "sonnet"})
+	b := broker.New("")
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Model: "sonnet"})
 	if err == nil {
 		t.Fatal("expected error for spawn without launcher")
 	}
@@ -72,12 +73,12 @@ func (d *providerDriver) Stop(_ context.Context, _ world.EntityID) error { retur
 func TestBroker_MultiDriver_RoutesToProvider(t *testing.T) {
 	anthropic := newProviderDriver()
 	openai := newProviderDriver()
-	broker := troupe.NewBroker("",
-		troupe.WithDriverFor("anthropic", anthropic),
-		troupe.WithDriverFor("openai", openai),
+	b := broker.New("",
+		broker.WithDriverFor("anthropic", anthropic),
+		broker.WithDriverFor("openai", openai),
 	)
 
-	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Provider: "anthropic", Role: "test"})
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Provider: "anthropic", Role: "test"})
 	if err != nil {
 		t.Fatalf("Spawn anthropic: %v", err)
 	}
@@ -91,9 +92,9 @@ func TestBroker_MultiDriver_RoutesToProvider(t *testing.T) {
 
 func TestBroker_MultiDriver_FallbackToDefault(t *testing.T) {
 	defaultD := newProviderDriver()
-	broker := troupe.NewBroker("", troupe.WithDriver(defaultD))
+	b := broker.New("", broker.WithDriver(defaultD))
 
-	_, err := broker.Spawn(context.Background(), troupe.ActorConfig{Provider: "unknown", Role: "test"})
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Provider: "unknown", Role: "test"})
 	if err != nil {
 		t.Fatalf("Spawn with fallback: %v", err)
 	}

@@ -4,9 +4,10 @@ import (
 	"context"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 )
 
-// BudgetHook implements troupe.SpawnHook to enforce budget limits before spawning.
+// BudgetHook implements broker.SpawnHook to enforce budget limits before spawning.
 type BudgetHook struct {
 	enforcer *BudgetEnforcer
 }
@@ -27,4 +28,4 @@ func (h *BudgetHook) PreSpawn(_ context.Context, config troupe.ActorConfig) erro
 // PostSpawn is a no-op observer.
 func (h *BudgetHook) PostSpawn(_ context.Context, _ troupe.ActorConfig, _ troupe.Actor, _ error) {}
 
-var _ troupe.SpawnHook = (*BudgetHook)(nil)
+var _ broker.SpawnHook = (*BudgetHook)(nil)

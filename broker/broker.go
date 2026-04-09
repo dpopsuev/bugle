@@ -1,4 +1,4 @@
-package troupe
+package broker
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	troupe "github.com/dpopsuev/troupe"
 	"github.com/dpopsuev/troupe/identity"
 	"github.com/dpopsuev/troupe/internal/acp"
 	"github.com/dpopsuev/troupe/internal/agent"
@@ -18,8 +19,8 @@ import (
 // multiDriverAdapter wraps public Drivers as a warden.AgentSupervisor.
 // Resolves the correct driver at Start() time based on a per-entity provider map.
 type multiDriverAdapter struct {
-	defaultDriver Driver
-	drivers       map[string]Driver
+	defaultDriver troupe.Driver
+	drivers       map[string]troupe.Driver
 	providers     map[world.EntityID]string // entity → provider, set before Fork
 	mu            sync.Mutex
 }
@@ -30,7 +31,7 @@ func (a *multiDriverAdapter) setProvider(id world.EntityID, provider string) {
 	a.mu.Unlock()
 }
 
-func (a *multiDriverAdapter) resolve(id world.EntityID) Driver {
+func (a *multiDriverAdapter) resolve(id world.EntityID) troupe.Driver {
 	a.mu.Lock()
 	provider := a.providers[id]
 	a.mu.Unlock()
@@ -51,11 +52,11 @@ func (a *multiDriverAdapter) Start(ctx context.Context, id world.EntityID, confi
 		}
 	}
 	if drv == nil {
-		return fmt.Errorf("no driver for entity %d: %w", id, ErrNoDriver)
+		return fmt.Errorf("no driver for entity %d: %w", id, troupe.ErrNoDriver)
 	}
 	// Track which driver was used for this entity (for Stop).
 	a.setProvider(id, config.Provider)
-	return drv.Start(ctx, id, ActorConfig{Model: config.Model, Role: config.Role, Provider: config.Provider})
+	return drv.Start(ctx, id, troupe.ActorConfig{Model: config.Model, Role: config.Role, Provider: config.Provider})
 }
 
 func (a *multiDriverAdapter) Stop(ctx context.Context, id world.EntityID) error {
@@ -82,30 +83,30 @@ type DefaultBroker struct {
 	bus       signal.Bus
 	registry  *identity.Registry
 	hooks     []Hook
-	driver    Driver // default driver (for optional interface checks)
+	driver    troupe.Driver // default driver (for optional interface checks)
 	adapter   *multiDriverAdapter
-	meter     Meter
+	meter     troupe.Meter
 }
 
-// BrokerOption configures a DefaultBroker.
-type BrokerOption func(*brokerConfig)
+// Option configures a DefaultBroker.
+type Option func(*config)
 
-type brokerConfig struct {
-	driver       Driver
-	drivers      map[string]Driver // provider → driver
+type config struct {
+	driver       troupe.Driver
+	drivers      map[string]troupe.Driver // provider → driver
 	hooks        []Hook
 	pickStrategy PickStrategy
-	meter        Meter
+	meter        troupe.Meter
 }
 
 // WithDriver sets the agent driver. Default: ACP (subprocess + JSON-RPC).
-func WithDriver(d Driver) BrokerOption {
-	return func(c *brokerConfig) { c.driver = d }
+func WithDriver(d troupe.Driver) Option {
+	return func(c *config) { c.driver = d }
 }
 
 // WithHook registers a lifecycle hook. Nil hooks are ignored.
-func WithHook(h Hook) BrokerOption {
-	return func(c *brokerConfig) {
+func WithHook(h Hook) Option {
+	return func(c *config) {
 		if h != nil {
 			c.hooks = append(c.hooks, h)
 		}
@@ -114,24 +115,24 @@ func WithHook(h Hook) BrokerOption {
 
 // WithDriverFor registers a driver for a specific provider.
 // Broker.Spawn routes to the matching driver based on ActorConfig.Provider.
-func WithDriverFor(provider string, d Driver) BrokerOption {
-	return func(c *brokerConfig) {
+func WithDriverFor(provider string, d troupe.Driver) Option {
+	return func(c *config) {
 		if c.drivers == nil {
-			c.drivers = make(map[string]Driver)
+			c.drivers = make(map[string]troupe.Driver)
 		}
 		c.drivers[provider] = d
 	}
 }
 
 // WithMeter sets the resource usage meter. Default: none.
-func WithMeter(m Meter) BrokerOption {
-	return func(c *brokerConfig) { c.meter = m }
+func WithMeter(m troupe.Meter) Option {
+	return func(c *config) { c.meter = m }
 }
 
-// NewBroker creates a Broker. If the endpoint is a remote URL (https://),
+// New creates a Broker. If the endpoint is a remote URL (https://),
 // returns a RemoteBroker that proxies over HTTP. Otherwise, returns a
 // local DefaultBroker. Default driver: ACP.
-func NewBroker(endpoint string, opts ...BrokerOption) Broker {
+func New(endpoint string, opts ...Option) troupe.Broker {
 	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
 		return newRemoteBroker(endpoint)
 	}
@@ -139,8 +140,8 @@ func NewBroker(endpoint string, opts ...BrokerOption) Broker {
 }
 
 // newLocalBroker creates an in-process DefaultBroker.
-func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
-	cfg := &brokerConfig{}
+func newLocalBroker(opts ...Option) *DefaultBroker {
+	cfg := &config{}
 	for _, o := range opts {
 		o(cfg)
 	}
@@ -177,15 +178,15 @@ func newLocalBroker(opts ...BrokerOption) *DefaultBroker {
 }
 
 // Pick returns actor configs matching preferences.
-func (b *DefaultBroker) Pick(_ context.Context, prefs Preferences) ([]ActorConfig, error) {
+func (b *DefaultBroker) Pick(_ context.Context, prefs troupe.Preferences) ([]troupe.ActorConfig, error) {
 	count := prefs.Count
 	if count <= 0 {
 		count = 1
 	}
 
-	configs := make([]ActorConfig, count)
+	configs := make([]troupe.ActorConfig, count)
 	for i := range count {
-		configs[i] = ActorConfig{
+		configs[i] = troupe.ActorConfig{
 			Model: prefs.Model,
 			Role:  prefs.Role,
 		}
@@ -194,16 +195,16 @@ func (b *DefaultBroker) Pick(_ context.Context, prefs Preferences) ([]ActorConfi
 }
 
 // Spawn creates a running actor.
-func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
+func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (troupe.Actor, error) {
 	// Driver environment validation (optional interface).
 	drv := b.adapter.resolve(0) // check default driver
-	if config.Provider != "" && b.adapter.drivers != nil {
-		if d, ok := b.adapter.drivers[config.Provider]; ok {
+	if cfg.Provider != "" && b.adapter.drivers != nil {
+		if d, ok := b.adapter.drivers[cfg.Provider]; ok {
 			drv = d
 		}
 	}
 	if drv != nil {
-		if v, ok := drv.(DriverValidator); ok {
+		if v, ok := drv.(troupe.DriverValidator); ok {
 			if err := v.ValidateEnvironment(ctx); err != nil {
 				return nil, fmt.Errorf("driver validate: %w", err)
 			}
@@ -213,23 +214,23 @@ func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, e
 	// Pre-spawn hooks: any SpawnHook can reject.
 	for _, h := range b.hooks {
 		if sh, ok := h.(SpawnHook); ok {
-			if err := sh.PreSpawn(ctx, config); err != nil {
+			if err := sh.PreSpawn(ctx, cfg); err != nil {
 				return nil, fmt.Errorf("hook %s pre-spawn: %w", sh.Name(), err)
 			}
 		}
 	}
 
-	role := config.Role
+	role := cfg.Role
 	if role == "" {
 		role = "actor"
 	}
 
 	id, err := b.warden.Fork(ctx, role, warden.AgentConfig{
-		Model:    config.Model,
-		Provider: config.Provider,
+		Model:    cfg.Model,
+		Provider: cfg.Provider,
 	}, 0)
 
-	var actor Actor
+	var actor troupe.Actor
 	if err == nil {
 		actor = agent.NewSolo(id, role, b.world, b.warden, b.transport)
 	}
@@ -237,7 +238,7 @@ func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, e
 	// Post-spawn hooks: observe result.
 	for _, h := range b.hooks {
 		if sh, ok := h.(SpawnHook); ok {
-			sh.PostSpawn(ctx, config, actor, err)
+			sh.PostSpawn(ctx, cfg, actor, err)
 		}
 	}
 
@@ -260,7 +261,7 @@ func (b *DefaultBroker) Spawn(ctx context.Context, config ActorConfig) (Actor, e
 }
 
 // Meter returns the resource usage meter (nil if none configured).
-func (b *DefaultBroker) Meter() Meter { return b.meter }
+func (b *DefaultBroker) Meter() troupe.Meter { return b.meter }
 
 // Signal returns the event bus.
 func (b *DefaultBroker) Signal() signal.Bus { return b.bus }

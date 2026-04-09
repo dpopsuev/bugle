@@ -1,15 +1,16 @@
-package troupe_test
+package broker_test
 
 import (
 	"context"
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/broker"
 )
 
 func TestFirstMatch_ReturnsRequestedCount(t *testing.T) {
 	candidates := []troupe.ActorConfig{{Role: "a"}, {Role: "b"}, {Role: "c"}}
-	result := troupe.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{Count: 2})
+	result := broker.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{Count: 2})
 	if len(result) != 2 {
 		t.Fatalf("got %d, want 2", len(result))
 	}
@@ -17,7 +18,7 @@ func TestFirstMatch_ReturnsRequestedCount(t *testing.T) {
 
 func TestFirstMatch_ClampsToAvailable(t *testing.T) {
 	candidates := []troupe.ActorConfig{{Role: "a"}}
-	result := troupe.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{Count: 5})
+	result := broker.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{Count: 5})
 	if len(result) != 1 {
 		t.Fatalf("got %d, want 1", len(result))
 	}
@@ -25,10 +26,10 @@ func TestFirstMatch_ClampsToAvailable(t *testing.T) {
 
 func TestFirstMatch_DefaultCountOne(t *testing.T) {
 	candidates := []troupe.ActorConfig{{Role: "a"}, {Role: "b"}}
-	result := troupe.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{})
+	result := broker.FirstMatch{}.Choose(context.Background(), candidates, troupe.Preferences{})
 	if len(result) != 1 {
 		t.Fatalf("got %d, want 1 (default)", len(result))
 	}
 }
 
-var _ troupe.PickStrategy = troupe.FirstMatch{}
+var _ broker.PickStrategy = broker.FirstMatch{}

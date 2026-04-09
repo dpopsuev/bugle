@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dpopsuev/troupe"
+	brokerpkg "github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/testkit"
 	"github.com/dpopsuev/troupe/world"
@@ -37,12 +38,12 @@ func (d *echoDriver) Stop(_ context.Context, _ world.EntityID) error { return ni
 
 func TestE2E_LocalBroker_SpawnPerformMeter(t *testing.T) {
 	ctx := context.Background()
-	meter := troupe.NewInMemoryMeter()
+	meter := brokerpkg.NewInMemoryMeter()
 	obs := &e2ePerformHook{meter: meter}
-	broker := troupe.NewBroker("",
-		troupe.WithDriver(newEchoDriver()),
-		troupe.WithMeter(meter),
-		troupe.WithHook(obs),
+	broker := brokerpkg.New("",
+		brokerpkg.WithDriver(newEchoDriver()),
+		brokerpkg.WithMeter(meter),
+		brokerpkg.WithHook(obs),
 	)
 
 	actor, err := broker.Spawn(ctx, troupe.ActorConfig{Role: "analyst", Model: "sonnet"})
@@ -68,11 +69,11 @@ func TestE2E_LocalBroker_SpawnPerformMeter(t *testing.T) {
 func TestE2E_HookPipeline(t *testing.T) {
 	ctx := context.Background()
 	spawnObs := &e2eSpawnHook{}
-	perfObs := &e2ePerformHook{meter: troupe.NewInMemoryMeter()}
-	broker := troupe.NewBroker("",
-		troupe.WithDriver(newEchoDriver()),
-		troupe.WithHook(spawnObs),
-		troupe.WithHook(perfObs),
+	perfObs := &e2ePerformHook{meter: brokerpkg.NewInMemoryMeter()}
+	broker := brokerpkg.New("",
+		brokerpkg.WithDriver(newEchoDriver()),
+		brokerpkg.WithHook(spawnObs),
+		brokerpkg.WithHook(perfObs),
 	)
 
 	actor, err := broker.Spawn(ctx, troupe.ActorConfig{Role: "test"})
@@ -108,9 +109,9 @@ func TestE2E_MultiDriver_RoutesCorrectly(t *testing.T) {
 	ctx := context.Background()
 	d1 := newEchoDriver()
 	d2 := newEchoDriver()
-	broker := troupe.NewBroker("",
-		troupe.WithDriverFor("provider-a", d1),
-		troupe.WithDriverFor("provider-b", d2),
+	broker := brokerpkg.New("",
+		brokerpkg.WithDriverFor("provider-a", d1),
+		brokerpkg.WithDriverFor("provider-b", d2),
 	)
 
 	broker.Spawn(ctx, troupe.ActorConfig{Provider: "provider-a", Role: "test"}) //nolint:errcheck // best-effort cleanup
@@ -159,7 +160,7 @@ func TestE2E_DirectorLinear(t *testing.T) {
 
 func TestE2E_ConcurrentSpawnPerform(t *testing.T) {
 	ctx := context.Background()
-	broker := troupe.NewBroker("", troupe.WithDriver(newEchoDriver()))
+	broker := brokerpkg.New("", brokerpkg.WithDriver(newEchoDriver()))
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 10) //nolint:mnd
@@ -245,8 +246,8 @@ func (h *e2ePerformHook) PostPerform(_ context.Context, _, _ string, _ error) {
 }
 
 // Verify hook satisfies both interfaces.
-var _ troupe.SpawnHook = (*e2eSpawnHook)(nil)
-var _ troupe.PerformHook = (*e2ePerformHook)(nil)
+var _ brokerpkg.SpawnHook = (*e2eSpawnHook)(nil)
+var _ brokerpkg.PerformHook = (*e2ePerformHook)(nil)
 
 // Suppress unused import warnings.
 var _ = errors.New

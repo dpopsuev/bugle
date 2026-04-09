@@ -1,22 +1,9 @@
 package troupe
 
-import (
-	"context"
-	"time"
-)
-
-// Director is the consumer contract for orchestration strategies.
-// Origami implements CircuitDirector. Djinn implements LocalDirector.
-// Directors compose: an outer Director can wrap an inner Director.
-type Director interface {
-	// Direct executes the orchestration plan using actors from the Broker.
-	// Returns a channel of Events that streams progress until completion.
-	// The channel is closed when the Director is done.
-	Direct(ctx context.Context, broker Broker) (<-chan Event, error)
-}
+import "time"
 
 // EventKind classifies what happened. String for OCP — consumers can
-// define domain-specific kinds without modifying Jericho.
+// define domain-specific kinds without modifying Troupe.
 type EventKind string
 
 const (

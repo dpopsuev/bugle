@@ -5,16 +5,17 @@ import (
 	"testing"
 
 	"github.com/dpopsuev/troupe"
+	brokerpkg "github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/collective"
 	"github.com/dpopsuev/troupe/testkit"
 )
 
 // --- Compile-time interface checks ---
 
-var _ troupe.Broker = (*troupe.DefaultBroker)(nil)
+var _ troupe.Broker = (*brokerpkg.DefaultBroker)(nil)
 var _ troupe.Actor = (*collective.Collective)(nil)
-var _ troupe.PickStrategy = troupe.FirstMatch{}
-var _ troupe.Meter = (*troupe.InMemoryMeter)(nil)
+var _ brokerpkg.PickStrategy = brokerpkg.FirstMatch{}
+var _ troupe.Meter = (*brokerpkg.InMemoryMeter)(nil)
 
 // --- Behavioral contract tests ---
 
