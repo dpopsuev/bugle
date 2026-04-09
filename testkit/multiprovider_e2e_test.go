@@ -14,7 +14,7 @@ import (
 	"github.com/dpopsuev/troupe/internal/transport"
 	"github.com/dpopsuev/troupe/signal"
 	"github.com/dpopsuev/troupe/world"
-	"github.com/dpopsuev/troupe/worldview"
+	"github.com/dpopsuev/troupe/identity"
 )
 
 // providerSpec defines how to invoke a CLI provider in non-interactive mode.
@@ -102,7 +102,7 @@ func runPairTest(t *testing.T, p providerSpec) {
 	reg := identity.NewRegistry()
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
-	view := worldview.NewView(w)
+	view := identity.NewView(w)
 
 	agentA := spawnAgent(t, w, reg, tr, "Writer", "Pair", p)
 	agentB := spawnAgent(t, w, reg, tr, "Reviewer", "Pair", p)
@@ -197,7 +197,7 @@ func TestE2E_MixedQuartet(t *testing.T) {
 	tr := transport.NewLocalTransport()
 	defer tr.Close()
 	bus := signal.NewMemBus()
-	view := worldview.NewView(w)
+	view := identity.NewView(w)
 
 	roles := []string{"Writer", "Reviewer", "Analyst", "Architect"}
 	agents := make([]string, len(allProviders))

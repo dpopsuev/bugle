@@ -1,4 +1,4 @@
-package worldview_test
+package identity_test
 
 import (
 	"testing"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/dpopsuev/troupe/identity"
 	"github.com/dpopsuev/troupe/world"
-	"github.com/dpopsuev/troupe/worldview"
 )
 
 // ---------------------------------------------------------------------------
@@ -29,7 +28,7 @@ func TestSnapshot_MatchesComponentTypes(t *testing.T) {
 	// c has only Health — should NOT match a 2-type query.
 	world.Attach(w, c, world.Alive{State: world.AliveTerminated, ExitedAt: time.Now()})
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	snaps := v.Snapshot(world.AliveType, identity.ColorType)
 
 	if len(snaps) != 2 {
@@ -55,7 +54,7 @@ func TestSnapshot_NoMatches(t *testing.T) {
 	w := world.NewWorld()
 	w.Spawn() // entity with no components
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	snaps := v.Snapshot(world.BudgetType)
 
 	if len(snaps) != 0 {
@@ -68,7 +67,7 @@ func TestSnapshot_ReflectsLatestState(t *testing.T) {
 	id := w.Spawn()
 	world.Attach(w, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	// First snapshot.
 	snaps := v.Snapshot(world.AliveType)
@@ -96,7 +95,7 @@ func TestSnapshot_ReflectsLatestState(t *testing.T) {
 
 func TestSubscribe_AttachEmitsDiff(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	ch := v.Subscribe()
 
 	id := w.Spawn()
@@ -126,7 +125,7 @@ func TestSubscribe_AttachEmitsDiff(t *testing.T) {
 
 func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	id := w.Spawn()
 	world.Attach(w, id, world.Ready{Ready: true, LastSeen: time.Now()})
@@ -159,7 +158,7 @@ func TestSubscribe_UpdateEmitsDiff(t *testing.T) {
 
 func TestSubscribe_DetachEmitsDiff(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	id := w.Spawn()
 	world.Attach(w, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
@@ -185,7 +184,7 @@ func TestSubscribe_DetachEmitsDiff(t *testing.T) {
 
 func TestSubscribe_FiltersByType(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	// Subscribe to Health only.
 	ch := v.Subscribe(world.AliveType)
@@ -216,7 +215,7 @@ func TestSubscribe_FiltersByType(t *testing.T) {
 
 func TestSubscribe_Unsubscribe(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	ch := v.Subscribe()
 	v.Unsubscribe(ch)
@@ -234,7 +233,7 @@ func TestSubscribe_Unsubscribe(t *testing.T) {
 
 func TestSubscribe_MultipleSubs(t *testing.T) {
 	w := world.NewWorld()
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	ch1 := v.Subscribe()
 	ch2 := v.Subscribe()
@@ -242,7 +241,7 @@ func TestSubscribe_MultipleSubs(t *testing.T) {
 	id := w.Spawn()
 	world.Attach(w, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
 
-	for i, ch := range []<-chan worldview.Diff{ch1, ch2} {
+	for i, ch := range []<-chan identity.Diff{ch1, ch2} {
 		select {
 		case d := <-ch:
 			if d.Kind != world.DiffAttached {
@@ -268,7 +267,7 @@ func TestHierarchy_BuildsTree(t *testing.T) {
 	world.Attach(w, child, world.Hierarchy{Parent: parent})
 	world.Attach(w, grandchild, world.Hierarchy{Parent: child})
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	tree := v.Hierarchy()
 
 	if len(tree) != 1 {
@@ -304,7 +303,7 @@ func TestHierarchy_RootsHaveNoParent(t *testing.T) {
 	world.Attach(w, b, world.Hierarchy{Parent: 0})
 	world.Attach(w, c, world.Hierarchy{Parent: a})
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	tree := v.Hierarchy()
 
 	if len(tree) != 2 {
@@ -344,7 +343,7 @@ func TestStats_CountsByAliveAndReady(t *testing.T) {
 		world.Attach(w, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonTerminated})
 	}
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	s := v.Stats()
 
 	if s.TotalEntities != 6 {
@@ -377,7 +376,7 @@ func TestStats_CountsCollectives(t *testing.T) {
 		world.Attach(w, id, identity.Color{Name: "B", Collective: "Triage"})
 	}
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 	s := v.Stats()
 
 	if s.Collectives != 2 {
@@ -418,7 +417,7 @@ func TestAcceptance_MinimapPattern(t *testing.T) {
 		world.Attach(w, id, world.Ready{Ready: a.ready, LastSeen: time.Now()})
 	}
 
-	v := worldview.NewView(w)
+	v := identity.NewView(w)
 
 	// Snapshot all agents with both components.
 	snaps := v.Snapshot(identity.ColorType, world.AliveType)

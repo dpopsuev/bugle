@@ -1,11 +1,11 @@
-package worldview
+package identity
 
 import (
 	"log"
 	"sort"
 	"sync"
 
-	"github.com/dpopsuev/troupe/identity"
+	
 	"github.com/dpopsuev/troupe/world"
 )
 
@@ -263,14 +263,14 @@ func (v *View) Stats() Stats {
 		}
 	}
 
-	colorIDs := v.world.QueryType(identity.ColorType)
+	colorIDs := v.world.QueryType(ColorType)
 	collectives := make(map[string]bool)
 	for _, id := range colorIDs {
-		c, ok := v.world.GetType(id, identity.ColorType)
+		c, ok := v.world.GetType(id, ColorType)
 		if !ok {
 			continue
 		}
-		ci := c.(identity.Color) //nolint:errcheck // type guaranteed by QueryType
+		ci := c.(Color) //nolint:errcheck // type guaranteed by QueryType
 		if ci.Collective != "" {
 			collectives[ci.Collective] = true
 		}

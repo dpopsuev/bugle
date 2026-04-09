@@ -1,8 +1,6 @@
-// Package andon provides health signal types for the agent stack.
-// Five reserved levels (nominal/degraded/failure/blocked/dead) with
-// IEC 60073 colors and fixed priorities. Workers report andon level
-// on every push. AndonDead aborts the worker.
-package andon
+// andon.go — health signal types for the agent stack.
+// Merged from andon/ (109 LOC, fan-in=1). Andon IS a signal concept.
+package signal
 
 // AndonLevel identifies a health state. Reserved levels have standard meaning.
 // Custom levels use any name with a declared priority and color.

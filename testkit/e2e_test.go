@@ -11,7 +11,7 @@ import (
 	"github.com/dpopsuev/troupe/internal/transport"
 	"github.com/dpopsuev/troupe/signal"
 	"github.com/dpopsuev/troupe/world"
-	"github.com/dpopsuev/troupe/worldview"
+	"github.com/dpopsuev/troupe/identity"
 )
 
 // Feature: 2 same-provider agents.
@@ -127,7 +127,7 @@ func TestE2E_FullStack_WorldIdentityTransportSignalView(t *testing.T) {
 	defer tr.Close()
 
 	bus := signal.NewMemBus()
-	view := worldview.NewView(w)
+	view := identity.NewView(w)
 
 	// 1. Subscribe for health changes.
 	diffs := view.Subscribe(world.AliveType)
