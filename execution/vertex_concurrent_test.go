@@ -8,8 +8,7 @@ import (
 	anyllm "github.com/mozilla-ai/any-llm-go/providers"
 )
 
-func TestVertexConverter_ConcurrentConvert(t *testing.T) {
-	conv := VertexConverter{}
+func TestConvertMessages_ConcurrentSafe(t *testing.T) {
 	msgs := []anyllm.Message{
 		{Role: "system", Content: "be helpful"},
 		{Role: "user", Content: "hello"},
@@ -24,18 +23,17 @@ func TestVertexConverter_ConcurrentConvert(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	errs := make(chan error, 20)
+	errs := make(chan string, 20)
 
 	for range 20 {
 		wg.Go(func() {
-			out, system := convertAllMessages(conv, msgs)
+			out, system := convertMessages(msgs)
 			if system != "be helpful" {
-				errs <- &concError{msg: "system wrong: " + system}
+				errs <- "system wrong: " + system
 				return
 			}
 			if len(out) != 3 {
-				errs <- &concError{msg: "messages wrong count"}
-				return
+				errs <- "messages wrong count"
 			}
 		})
 	}
@@ -43,14 +41,10 @@ func TestVertexConverter_ConcurrentConvert(t *testing.T) {
 	wg.Wait()
 	close(errs)
 
-	for err := range errs {
-		t.Fatal(err)
+	for msg := range errs {
+		t.Fatal(msg)
 	}
 }
-
-type concError struct{ msg string }
-
-func (e *concError) Error() string { return e.msg }
 
 func TestConfiguredProvider_ConcurrentDefaults(t *testing.T) {
 	base := &simpleStubProvider{response: "ok", usage: &anyllm.Usage{PromptTokens: 5, CompletionTokens: 5}}
@@ -76,4 +70,3 @@ func TestConfiguredProvider_ConcurrentDefaults(t *testing.T) {
 		t.Fatalf("concurrent completion error: %v", err)
 	}
 }
-

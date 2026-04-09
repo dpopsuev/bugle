@@ -21,9 +21,9 @@ func TestVertexProvider_MissingModel(t *testing.T) {
 	}
 }
 
-func TestConvertMessages(t *testing.T) {
+func TestConvertMessages_Legacy(t *testing.T) {
 	t.Parallel()
-	msgs := convertMessages([]anyllm.Message{
+	msgs, _ := convertMessages([]anyllm.Message{
 		{Role: vertexRoleUser, Content: "hello"},
 		{Role: vertexRoleAssistant, Content: "hi"},
 		{Role: vertexRoleUser, Content: "how are you"},
@@ -34,16 +34,19 @@ func TestConvertMessages(t *testing.T) {
 	}
 }
 
-func TestConvertMessages_SkipsUnknownRoles(t *testing.T) {
+func TestConvertMessages_SkipsUnknownRoles_Legacy(t *testing.T) {
 	t.Parallel()
-	msgs := convertMessages([]anyllm.Message{
+	msgs, system := convertMessages([]anyllm.Message{
 		{Role: vertexRoleUser, Content: "hello"},
-		{Role: "system", Content: "ignored"},
+		{Role: "system", Content: "extracted"},
 		{Role: vertexRoleAssistant, Content: "hi"},
 	})
 
 	if len(msgs) != 2 {
-		t.Fatalf("expected 2 messages (system skipped), got %d", len(msgs))
+		t.Fatalf("expected 2 messages (system extracted), got %d", len(msgs))
+	}
+	if system != "extracted" {
+		t.Fatalf("system = %q, want 'extracted'", system)
 	}
 }
 

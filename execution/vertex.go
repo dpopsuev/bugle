@@ -56,8 +56,7 @@ func (v *VertexProvider) Name() string { return vertexProviderName }
 // Completion sends a chat completion request via Vertex AI.
 func (v *VertexProvider) Completion(ctx context.Context, params anyllm.CompletionParams) (*anyllm.ChatCompletion, error) {
 	start := time.Now()
-	conv := VertexConverter{}
-	msgs, system := convertAllMessages(conv, params.Messages)
+	msgs, system := convertMessages(params.Messages)
 
 	maxTokens := vertexMaxTokensFallback
 	if params.MaxTokens != nil && *params.MaxTokens > 0 {
@@ -181,13 +180,6 @@ func (v *VertexProvider) CompletionStream(_ context.Context, _ anyllm.Completion
 	return chunks, errs
 }
 
-// convertMessages is kept for backward compatibility with tests.
-// New code should use convertAllMessages(converter, msgs).
-func convertMessages(msgs []anyllm.Message) []anthropic.MessageParam {
-	conv := VertexConverter{}
-	out, _ := convertAllMessages(conv, msgs)
-	return out
-}
 
 func convertResponse(resp *anthropic.Message) *anyllm.ChatCompletion {
 	var content string
