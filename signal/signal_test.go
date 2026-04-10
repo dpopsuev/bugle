@@ -378,43 +378,49 @@ func TestDurableBus_ImplementsBusInterface(t *testing.T) {
 // Supervisor
 // ---------------------------------------------------------------------------
 
-func emitWorkerSignal(bus signal.Bus, event, workerID string) {
-	bus.Emit(&signal.Signal{
-		Event: event,
-		Agent: signal.AgentWorker,
-		Meta:  map[string]string{signal.MetaKeyWorkerID: workerID},
+func emitWorkerSignal(log signal.EventLog, kind, workerID string) {
+	log.Emit(signal.Event{
+		Source: signal.AgentWorker,
+		Kind:   kind,
+		Data:   signal.Signal{Agent: signal.AgentWorker, Meta: map[string]string{signal.MetaKeyWorkerID: workerID}},
 	})
 }
 
-func emitWorkerDone(bus signal.Bus, workerID, caseID, step string) {
-	bus.Emit(&signal.Signal{
-		Event:  signal.EventWorkerDone,
-		Agent:  signal.AgentWorker,
-		CaseID: caseID,
-		Step:   step,
-		Meta:   map[string]string{signal.MetaKeyWorkerID: workerID},
+func emitWorkerDone(log signal.EventLog, workerID, caseID, step string) {
+	log.Emit(signal.Event{
+		Source: signal.AgentWorker,
+		Kind:   signal.EventWorkerDone,
+		Data: signal.Signal{
+			Agent:  signal.AgentWorker,
+			CaseID: caseID,
+			Step:   step,
+			Meta:   map[string]string{signal.MetaKeyWorkerID: workerID},
+		},
 	})
 }
 
-func emitWorkerError(bus signal.Bus, workerID, caseID, step, errMsg string) {
-	bus.Emit(&signal.Signal{
-		Event:  signal.EventWorkerError,
-		Agent:  signal.AgentWorker,
-		CaseID: caseID,
-		Step:   step,
-		Meta: map[string]string{
-			signal.MetaKeyWorkerID: workerID,
-			signal.MetaKeyError:    errMsg,
+func emitWorkerError(log signal.EventLog, workerID, caseID, step, errMsg string) {
+	log.Emit(signal.Event{
+		Source: signal.AgentWorker,
+		Kind:   signal.EventWorkerError,
+		Data: signal.Signal{
+			Agent:  signal.AgentWorker,
+			CaseID: caseID,
+			Step:   step,
+			Meta: map[string]string{
+				signal.MetaKeyWorkerID: workerID,
+				signal.MetaKeyError:    errMsg,
+			},
 		},
 	})
 }
 
 func TestSupervisor_WorkerLifecycle(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log)
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w2")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w2")
 
 	sup.Process()
 	h := sup.Health()
@@ -426,7 +432,7 @@ func TestSupervisor_WorkerLifecycle(t *testing.T) {
 		t.Errorf("expected 2 workers, got %d", len(h.Workers))
 	}
 
-	emitWorkerSignal(bus, signal.EventWorkerStopped, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStopped, "w1")
 	sup.Process()
 	h = sup.Health()
 
@@ -439,11 +445,11 @@ func TestSupervisor_WorkerLifecycle(t *testing.T) {
 }
 
 func TestSupervisor_ErrorThreshold_FlagsReplacement(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithErrorThreshold(2))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log, signal.WithErrorThreshold(2))
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
-	emitWorkerError(bus, "w1", "C1", "F0", "first error")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
+	emitWorkerError(log, "w1", "C1", "F0", "first error")
 
 	sup.Process()
 	h := sup.Health()
@@ -452,7 +458,7 @@ func TestSupervisor_ErrorThreshold_FlagsReplacement(t *testing.T) {
 		t.Errorf("1 error should not trigger replacement, got %v", h.ShouldReplace)
 	}
 
-	emitWorkerError(bus, "w1", "C2", "F1", "second error")
+	emitWorkerError(log, "w1", "C2", "F1", "second error")
 
 	sup.Process()
 	h = sup.Health()
@@ -466,10 +472,10 @@ func TestSupervisor_ErrorThreshold_FlagsReplacement(t *testing.T) {
 }
 
 func TestSupervisor_SilenceThreshold_FlagsReplacement(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithSilenceThreshold(50*time.Millisecond))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log, signal.WithSilenceThreshold(50*time.Millisecond))
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
 	sup.Process()
 
 	time.Sleep(100 * time.Millisecond)
@@ -481,12 +487,12 @@ func TestSupervisor_SilenceThreshold_FlagsReplacement(t *testing.T) {
 }
 
 func TestSupervisor_StepCounting(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log)
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
 	for i := 0; i < 3; i++ {
-		emitWorkerDone(bus, "w1", fmt.Sprintf("C%d", i+1), "F0")
+		emitWorkerDone(log, "w1", fmt.Sprintf("C%d", i+1), "F0")
 	}
 
 	sup.Process()
@@ -504,8 +510,8 @@ func TestSupervisor_StepCounting(t *testing.T) {
 }
 
 func TestSupervisor_ShouldStop(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log)
 
 	if sup.ShouldStop() {
 		t.Error("should_stop should be false initially")
@@ -520,13 +526,13 @@ func TestSupervisor_ShouldStop(t *testing.T) {
 }
 
 func TestSupervisor_BudgetTracking(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithBudgetTotal(1000))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log, signal.WithBudgetTotal(1000))
 
-	bus.Emit(&signal.Signal{
-		Event: signal.EventBudgetUpdate,
-		Agent: "system",
-		Meta:  map[string]string{signal.MetaKeyUsed: "500"},
+	log.Emit(signal.Event{
+		Source: "system",
+		Kind:   signal.EventBudgetUpdate,
+		Data:   signal.Signal{Agent: "system", Meta: map[string]string{signal.MetaKeyUsed: "500"}},
 	})
 	sup.Process()
 
@@ -537,10 +543,10 @@ func TestSupervisor_BudgetTracking(t *testing.T) {
 }
 
 func TestSupervisor_IncrementalProcessing(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log)
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
 	sup.Process()
 
 	h := sup.Health()
@@ -548,7 +554,7 @@ func TestSupervisor_IncrementalProcessing(t *testing.T) {
 		t.Fatalf("expected 1 active, got %d", h.TotalActive)
 	}
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w2")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w2")
 	sup.Process()
 
 	h = sup.Health()
@@ -558,13 +564,13 @@ func TestSupervisor_IncrementalProcessing(t *testing.T) {
 }
 
 func TestSupervisor_ConcurrentProcess_Race(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log)
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
 	const doneSignals = 5
 	for i := 0; i < doneSignals; i++ {
-		emitWorkerDone(bus, "w1", fmt.Sprintf("C%d", i), "F0")
+		emitWorkerDone(log, "w1", fmt.Sprintf("C%d", i), "F0")
 	}
 
 	const goroutines = 50
@@ -591,7 +597,7 @@ func TestSupervisor_ConcurrentProcess_Race(t *testing.T) {
 	}
 
 	// Emit a new signal and verify Process() still sees it.
-	emitWorkerDone(bus, "w1", "C_late", "F1")
+	emitWorkerDone(log, "w1", "C_late", "F1")
 	sup.Process()
 
 	h = sup.Health()
@@ -608,15 +614,15 @@ func TestSupervisor_ConcurrentProcess_Race(t *testing.T) {
 }
 
 func TestSupervisor_MultipleWorkersIndependent(t *testing.T) {
-	bus := signal.NewMemBus()
-	sup := signal.NewSupervisor(signal.NewBusEventLog(bus), signal.WithErrorThreshold(2))
+	log := signal.NewMemLog()
+	sup := signal.NewSupervisor(log, signal.WithErrorThreshold(2))
 
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w1")
-	emitWorkerSignal(bus, signal.EventWorkerStarted, "w2")
-	emitWorkerError(bus, "w1", "C1", "F0", "e1")
-	emitWorkerError(bus, "w1", "C2", "F0", "e2")
-	emitWorkerError(bus, "w2", "C4", "F0", "e3") // below threshold
-	emitWorkerDone(bus, "w2", "C3", "F0")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w1")
+	emitWorkerSignal(log, signal.EventWorkerStarted, "w2")
+	emitWorkerError(log, "w1", "C1", "F0", "e1")
+	emitWorkerError(log, "w1", "C2", "F0", "e2")
+	emitWorkerError(log, "w2", "C4", "F0", "e3") // below threshold
+	emitWorkerDone(log, "w2", "C3", "F0")
 
 	sup.Process()
 	h := sup.Health()

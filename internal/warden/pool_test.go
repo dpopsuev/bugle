@@ -46,13 +46,13 @@ func (m *mockLauncher) Healthy(_ context.Context, id world.EntityID) bool {
 	return started && !stopped
 }
 
-func setup() (*AgentWarden, *mockLauncher, *signal.MemBus) {
+func setup() (*AgentWarden, *mockLauncher, *signal.MemLog) {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
-	bus := signal.NewMemBus()
+	log := signal.NewMemLog()
 	launcher := newMockLauncher()
-	pool := NewWarden(w, t, bus, launcher)
-	return pool, launcher, bus
+	pool := NewWarden(w, t, log, launcher)
+	return pool, launcher, log
 }
 
 func TestFork_CreatesEntity(t *testing.T) {
@@ -80,22 +80,22 @@ func TestFork_CreatesEntity(t *testing.T) {
 }
 
 func TestFork_EmitsSignal(t *testing.T) {
-	pool, _, bus := setup()
+	pool, _, log := setup()
 	ctx := context.Background()
 
 	pool.Fork(ctx, "executor", AgentConfig{Role: "executor"}, 0)
 
-	signals := bus.Since(0)
-	if len(signals) == 0 {
+	events := log.Since(0)
+	if len(events) == 0 {
 		t.Fatal("no signals emitted")
 	}
-	if signals[0].Event != signal.EventWorkerStarted {
-		t.Fatalf("event = %q, want worker_started", signals[0].Event)
+	if events[0].Kind != signal.EventWorkerStarted {
+		t.Fatalf("event = %q, want worker_started", events[0].Kind)
 	}
 }
 
 func TestKill_StopsAndDespawns(t *testing.T) {
-	pool, launcher, bus := setup()
+	pool, launcher, log := setup()
 	ctx := context.Background()
 
 	id, _ := pool.Fork(ctx, "executor", AgentConfig{}, 0)
@@ -112,10 +112,10 @@ func TestKill_StopsAndDespawns(t *testing.T) {
 	}
 
 	// Should emit worker_stopped.
-	signals := bus.Since(0)
+	events := log.Since(0)
 	found := false
-	for _, s := range signals {
-		if s.Event == signal.EventWorkerStopped {
+	for _, e := range events {
+		if e.Kind == signal.EventWorkerStopped {
 			found = true
 		}
 	}

@@ -161,14 +161,14 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
-	b := signal.NewMemBus()
-	p := warden.NewWarden(w, t, b, supervisor)
+	log := signal.NewMemLog()
+	p := warden.NewWarden(w, t, log, supervisor)
 
 	return &DefaultBroker{
 		world:     w,
 		warden:    p,
 		transport: t,
-		bus:       b,
+		bus:       log.Bus(),
 		registry:  identity.NewRegistry(),
 		hooks:     cfg.hooks,
 		driver:    cfg.driver,

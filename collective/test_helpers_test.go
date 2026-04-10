@@ -15,15 +15,15 @@ type testBrokerParts struct {
 	world     *world.World
 	warden    *warden.AgentWarden
 	transport *transport.LocalTransport
-	bus       signal.Bus
+	log       signal.EventLog
 }
 
 func newTestParts() *testBrokerParts {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
-	b := signal.NewMemBus()
-	p := warden.NewWarden(w, t, b, newMockDriver())
-	return &testBrokerParts{world: w, warden: p, transport: t, bus: b}
+	l := signal.NewMemLog()
+	p := warden.NewWarden(w, t, l, newMockDriver())
+	return &testBrokerParts{world: w, warden: p, transport: t, log: l}
 }
 
 func (tp *testBrokerParts) spawn(ctx context.Context, role string) (*agent.Solo, error) {

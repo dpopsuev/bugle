@@ -39,7 +39,7 @@ type agentEntry struct {
 type AgentWarden struct {
 	world     *world.World
 	transport *transport.LocalTransport
-	bus       signal.Bus
+	log       signal.EventLog
 	launcher  AgentSupervisor
 	mu        sync.RWMutex
 	agents    map[world.EntityID]*agentEntry   // running agents
@@ -52,11 +52,11 @@ type AgentWarden struct {
 }
 
 // New creates an AgentWarden.
-func NewWarden(w *world.World, t *transport.LocalTransport, b signal.Bus, l AgentSupervisor) *AgentWarden {
+func NewWarden(w *world.World, t *transport.LocalTransport, log signal.EventLog, l AgentSupervisor) *AgentWarden {
 	return &AgentWarden{
 		world:     w,
 		transport: t,
-		bus:       b,
+		log:       log,
 		launcher:  l,
 		agents:    make(map[world.EntityID]*agentEntry),
 		zombies:   make(map[world.EntityID]*agentEntry),
@@ -134,11 +134,10 @@ func (p *AgentWarden) Fork(ctx context.Context, role string, config AgentConfig,
 		meta[signal.MetaKeyShade] = color.Shade
 		meta[signal.MetaKeyColor] = color.Name
 	}
-	p.bus.Emit(&signal.Signal{
-		Timestamp: time.Now().Format(time.RFC3339),
-		Event:     signal.EventWorkerStarted,
-		Agent:     signal.AgentWorker,
-		Meta:      meta,
+	p.log.Emit(signal.Event{
+		Source: signal.AgentWorker,
+		Kind:   signal.EventWorkerStarted,
+		Data:   signal.Signal{Agent: signal.AgentWorker, Meta: meta},
 	})
 
 	return id, nil
@@ -189,13 +188,15 @@ func (p *AgentWarden) Kill(ctx context.Context, id world.EntityID) error {
 	world.TryAttach(p.world, id, world.Ready{Ready: false, LastSeen: time.Now(), Reason: world.ReasonTerminated})
 
 	// Emit signal.
-	p.bus.Emit(&signal.Signal{
-		Timestamp: time.Now().Format(time.RFC3339),
-		Event:     signal.EventWorkerStopped,
-		Agent:     signal.AgentWorker,
-		Meta: map[string]string{
-			signal.MetaKeyWorkerID: string(agentID),
-			"role":                 entry.Role,
+	p.log.Emit(signal.Event{
+		Source: signal.AgentWorker,
+		Kind:   signal.EventWorkerStopped,
+		Data: signal.Signal{
+			Agent: signal.AgentWorker,
+			Meta: map[string]string{
+				signal.MetaKeyWorkerID: string(agentID),
+				"role":                 entry.Role,
+			},
 		},
 	})
 
@@ -274,14 +275,16 @@ func shouldRestart(entry *agentEntry) bool {
 func (p *AgentWarden) restartAgent(ctx context.Context, entry *agentEntry) {
 	_, err := p.Fork(ctx, entry.Role, entry.Config, entry.ParentID)
 	if err != nil {
-		p.bus.Emit(&signal.Signal{
-			Timestamp: time.Now().Format(time.RFC3339),
-			Event:     signal.EventWorkerError,
-			Agent:     signal.AgentSupervisor,
-			Meta: map[string]string{
-				"role":   entry.Role,
-				"error":  fmt.Sprintf("restart failed: %v", err),
-				"reason": "restart_failure",
+		p.log.Emit(signal.Event{
+			Source: signal.AgentSupervisor,
+			Kind:   signal.EventWorkerError,
+			Data: signal.Signal{
+				Agent: signal.AgentSupervisor,
+				Meta: map[string]string{
+					"role":   entry.Role,
+					"error":  fmt.Sprintf("restart failed: %v", err),
+					"reason": "restart_failure",
+				},
 			},
 		})
 	}

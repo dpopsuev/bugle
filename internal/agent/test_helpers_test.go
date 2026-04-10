@@ -14,16 +14,16 @@ type testHarness struct {
 	world     *world.World
 	warden    *warden.AgentWarden
 	transport *transport.LocalTransport
-	bus       signal.Bus
+	log       signal.EventLog
 }
 
 func setup() *testHarness {
 	ml := &mockLauncher{started: make(map[world.EntityID]bool), stopped: make(map[world.EntityID]bool)}
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
-	b := signal.NewMemBus()
-	p := warden.NewWarden(w, t, b, ml)
-	return &testHarness{world: w, warden: p, transport: t, bus: b}
+	l := signal.NewMemLog()
+	p := warden.NewWarden(w, t, l, ml)
+	return &testHarness{world: w, warden: p, transport: t, log: l}
 }
 
 func (h *testHarness) Spawn(ctx context.Context, role string, config warden.AgentConfig) (*Solo, error) {
@@ -48,7 +48,7 @@ func (h *testHarness) SpawnUnder(ctx context.Context, parent *Solo, role string,
 
 func (h *testHarness) Pool() *warden.AgentWarden { return h.warden }
 func (h *testHarness) Count() int                { return h.warden.Count() }
-func (h *testHarness) Bus() signal.Bus           { return h.bus }
+func (h *testHarness) Log() signal.EventLog      { return h.log }
 
 func (h *testHarness) FindByRole(role string) []*Solo {
 	agentIDs := h.transport.Roles().AgentsForRole(role)

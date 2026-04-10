@@ -3,8 +3,6 @@ package signal
 import (
 	"sync"
 	"time"
-
-	"github.com/dpopsuev/battery/event"
 )
 
 // WorkerStatus describes the operational state of a worker.
@@ -46,7 +44,7 @@ type Supervisor struct {
 	mu               sync.Mutex
 	workers          map[string]*WorkerState
 	lastProcessed    int
-	log              event.EventLog
+	log              EventLog
 	silenceThreshold time.Duration
 	errorThreshold   int
 	shouldStop       bool
@@ -75,7 +73,7 @@ func WithBudgetTotal(total float64) SupervisorOption {
 }
 
 // NewSupervisor creates a health tracker that watches the given EventLog.
-func NewSupervisor(log event.EventLog, opts ...SupervisorOption) *Supervisor {
+func NewSupervisor(log EventLog, opts ...SupervisorOption) *Supervisor {
 	s := &Supervisor{
 		workers:          make(map[string]*WorkerState),
 		log:              log,
@@ -102,7 +100,14 @@ func (s *Supervisor) Process() {
 
 	for _, evt := range events {
 		s.lastProcessed++
-		wid := evt.Meta[MetaKeyWorkerID]
+
+		// Extract Signal payload for Meta access.
+		var meta map[string]string
+		if sig, ok := evt.Data.(Signal); ok {
+			meta = sig.Meta
+		}
+
+		wid := meta[MetaKeyWorkerID]
 		if wid == "" && evt.Kind != EventShouldStop && evt.Kind != EventBudgetUpdate {
 			continue
 		}
@@ -133,7 +138,7 @@ func (s *Supervisor) Process() {
 		case EventWorkerError:
 			if w, ok := s.workers[wid]; ok {
 				w.ErrorCount++
-				w.LastError = evt.Meta[MetaKeyError]
+				w.LastError = meta[MetaKeyError]
 				w.LastSeen = evt.Timestamp
 				if w.ErrorCount >= s.errorThreshold {
 					w.Status = WorkerStatusErrored
@@ -144,7 +149,7 @@ func (s *Supervisor) Process() {
 			s.shouldStop = true
 
 		case EventBudgetUpdate:
-			if v, ok := evt.Meta[MetaKeyUsed]; ok {
+			if v, ok := meta[MetaKeyUsed]; ok {
 				n, _ := parseFloat(v)
 				s.budgetUsed = n
 			}
@@ -190,7 +195,7 @@ func (s *Supervisor) Health() HealthSummary {
 // EmitShouldStop emits a should_stop event on the log, instructing workers
 // to finish their current step and exit.
 func (s *Supervisor) EmitShouldStop() {
-	s.log.Emit(event.Event{
+	s.log.Emit(Event{
 		Source: AgentSupervisor,
 		Kind:   EventShouldStop,
 	})

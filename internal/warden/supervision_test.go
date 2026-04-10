@@ -16,9 +16,9 @@ import (
 func setupSupervision() (*AgentWarden, *mockLauncher) {
 	w := world.NewWorld()
 	t := transport.NewLocalTransport()
-	bus := signal.NewMemBus()
+	log := signal.NewMemLog()
 	launcher := newMockLauncher()
-	pool := NewWarden(w, t, bus, launcher)
+	pool := NewWarden(w, t, log, launcher)
 	return pool, launcher
 }
 
