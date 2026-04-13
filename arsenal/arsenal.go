@@ -1,14 +1,29 @@
 package arsenal
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"sync"
+	"time"
 )
 
 // Arsenal combines catalog snapshots with consumer preferences for model selection.
 type Arsenal struct {
-	snapshots map[string]*Snapshot
-	active    string // resolved pin
+	snapshots   map[string]*Snapshot
+	active      string // resolved pin
+	discoverers []ModelDiscoverer
+	log         *slog.Logger
 }
+
+// WithLogger sets the structured logger for discovery instrumentation.
+func (a *Arsenal) WithLogger(l *slog.Logger) *Arsenal {
+	a.log = l
+	return a
+}
+
+// discoverTimeout is the max wall-clock time for all discoverers combined.
+const discoverTimeout = 5 * time.Second
 
 // NewArsenal loads the embedded catalog and resolves the pin.
 // Pin "" or "latest" uses the newest snapshot. Explicit pin (e.g. "2026-03")
@@ -43,6 +58,89 @@ func NewArsenal(pin string) (*Arsenal, error) {
 	}
 
 	return a, nil
+}
+
+// RegisterDiscoverer adds a live model discoverer. Call before Discover().
+func (a *Arsenal) RegisterDiscoverer(d ModelDiscoverer) {
+	if d != nil {
+		a.discoverers = append(a.discoverers, d)
+	}
+}
+
+// Discover fans out to all registered discoverers and merges results
+// into the active snapshot. Timeout: 5 seconds for all providers.
+// Non-fatal: discovery failures are collected but don't prevent startup.
+func (a *Arsenal) Discover(ctx context.Context) []error {
+	if len(a.discoverers) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, discoverTimeout)
+	defer cancel()
+
+	type result struct {
+		models []DiscoveredModel
+		err    error
+	}
+
+	results := make([]result, len(a.discoverers))
+	var wg sync.WaitGroup
+
+	for i, d := range a.discoverers {
+		wg.Add(1)
+		go func(idx int, disc ModelDiscoverer) {
+			defer wg.Done()
+			models, err := disc.Discover(ctx)
+			results[idx] = result{models, err}
+		}(i, d)
+	}
+	wg.Wait()
+
+	snap := a.snapshots[a.active]
+	var errs []error
+	start := time.Now()
+	for i, r := range results {
+		provider := a.discoverers[i].Provider()
+		if r.err != nil {
+			// ORANGE: log discovery failure.
+			errs = append(errs, fmt.Errorf("%s: %w", provider, r.err))
+			if a.log != nil {
+				a.log.WarnContext(ctx, "model discovery failed",
+					slog.String("provider", provider),
+					slog.String("error", r.err.Error()),
+				)
+			}
+			continue
+		}
+		MergeDiscovery(snap, r.models)
+
+		// YELLOW: log discovery success per provider.
+		if a.log != nil {
+			available := 0
+			for _, m := range r.models {
+				if m.Available {
+					available++
+				}
+			}
+			a.log.InfoContext(ctx, "model discovery completed",
+				slog.String("provider", provider),
+				slog.Int("total", len(r.models)),
+				slog.Int("available", available),
+			)
+		}
+	}
+	elapsed := time.Since(start)
+
+	// YELLOW: log overall discovery summary.
+	if a.log != nil && len(a.discoverers) > 0 {
+		a.log.InfoContext(ctx, "arsenal discovery finished",
+			slog.Int("providers", len(a.discoverers)),
+			slog.Int("errors", len(errs)),
+			slog.Duration("elapsed", elapsed),
+		)
+	}
+
+	return errs
 }
 
 // Pin returns the active snapshot name.
@@ -112,6 +210,13 @@ func (a *Arsenal) Select(_ string, prefs *Preferences) (ResolvedAgent, error) {
 
 			// Model filter.
 			if !prefs.Models.matches(model.ID) {
+				continue
+			}
+
+			// Availability gate — skip models marked unavailable by discovery.
+			// Available==false means discovery ran and model wasn't found.
+			// Only filter when discovery has run (at least one model has Available==true).
+			if snap.discoveryRan && !model.Available {
 				continue
 			}
 

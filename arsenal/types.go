@@ -38,6 +38,7 @@ type ModelEntry struct {
 	Benchmarks map[string]float64 `yaml:"benchmarks"`
 	Cost       CostEntry          `yaml:"cost"`
 	Traits     TraitVector        // computed at load time, not in YAML
+	Available  bool               // live discovery result (true = API confirmed, false = unavailable/unprobed)
 }
 
 // SourceModifiers describe how a source affects effective performance.

@@ -23,10 +23,11 @@ type providerFile struct {
 
 // Snapshot is a self-contained catalog at a point in time.
 type Snapshot struct {
-	Name    string
-	Models  map[string]*ModelEntry  // by model ID
-	Sources map[string]*SourceEntry // by source name
-	Mapping TraitMapping
+	Name         string
+	Models       map[string]*ModelEntry  // by model ID
+	Sources      map[string]*SourceEntry // by source name
+	Mapping      TraitMapping
+	discoveryRan bool // true after MergeDiscovery has been called
 }
 
 // loadSnapshot parses a snapshot directory from the embedded FS.
