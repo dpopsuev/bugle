@@ -393,19 +393,23 @@ func TestParentOf(t *testing.T) {
 	}
 }
 
-func TestFork_AttachesHierarchyComponent(t *testing.T) {
+func TestFork_CreatesSuperviseEdge(t *testing.T) {
 	pool, _ := setupSupervision()
 	ctx := context.Background()
 
 	parent, _ := pool.Fork(ctx, "gensec", AgentConfig{}, 0)
 	child, _ := pool.Fork(ctx, "executor", AgentConfig{}, parent)
 
-	hier, ok := world.TryGet[world.Hierarchy](pool.world, child)
-	if !ok {
-		t.Fatal("Hierarchy component should be attached")
+	// Parent should have outbound supervises edge to child.
+	children := pool.world.Neighbors(parent, world.Supervises, world.Outbound)
+	if len(children) != 1 || children[0] != child {
+		t.Fatalf("supervises edge: parent→child = %v, want [%d]", children, child)
 	}
-	if hier.Parent != parent {
-		t.Fatalf("Hierarchy.Parent = %d, want %d", hier.Parent, parent)
+
+	// Child should have inbound supervises edge from parent.
+	parents := pool.world.Neighbors(child, world.Supervises, world.Inbound)
+	if len(parents) != 1 || parents[0] != parent {
+		t.Fatalf("supervises edge: child←parent = %v, want [%d]", parents, parent)
 	}
 }
 

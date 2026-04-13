@@ -176,50 +176,31 @@ func (v *View) Unsubscribe(ch <-chan Diff) {
 	close(sub.ch)
 }
 
-// Hierarchy builds a tree of all entities that have a Hierarchy component.
-// Roots are entities whose Parent is 0 or whose Parent is not alive.
+// Hierarchy builds a tree from supervises edges (GOL-14).
+// Roots are entities with no inbound supervises edges.
 func (v *View) Hierarchy() []TreeNode {
-	ids := v.world.QueryType(world.HierarchyType)
-	if len(ids) == 0 {
+	allIDs := v.world.All()
+	if len(allIDs) == 0 {
 		return nil
 	}
 
-	// Collect parent info.
-	type entry struct {
-		id     world.EntityID
-		parent world.EntityID
-	}
-	entries := make([]entry, 0, len(ids))
-	for _, id := range ids {
-		c, ok := v.world.GetType(id, world.HierarchyType)
-		if !ok {
-			continue
-		}
-		h := c.(world.Hierarchy) //nolint:errcheck // type guaranteed by QueryType
-		entries = append(entries, entry{id: id, parent: h.Parent})
-	}
-
-	// Build parent→children map.
-	children := make(map[world.EntityID][]world.EntityID)
+	// Find roots: entities with no inbound supervises edge.
 	var roots []world.EntityID
-	for _, e := range entries {
-		if e.parent == 0 || !v.world.Alive(e.parent) {
-			roots = append(roots, e.id)
-		} else {
-			children[e.parent] = append(children[e.parent], e.id)
+	for _, id := range allIDs {
+		parents := v.world.Neighbors(id, world.Supervises, world.Inbound)
+		if len(parents) == 0 {
+			roots = append(roots, id)
 		}
 	}
 
-	// Sort roots for deterministic output.
 	sort.Slice(roots, func(i, j int) bool { return roots[i] < roots[j] })
-	for k := range children {
-		sort.Slice(children[k], func(i, j int) bool { return children[k][i] < children[k][j] })
-	}
 
 	var buildTree func(id world.EntityID) TreeNode
 	buildTree = func(id world.EntityID) TreeNode {
 		node := TreeNode{ID: id}
-		for _, childID := range children[id] {
+		children := v.world.Neighbors(id, world.Supervises, world.Outbound)
+		sort.Slice(children, func(i, j int) bool { return children[i] < children[j] })
+		for _, childID := range children {
 			node.Children = append(node.Children, buildTree(childID))
 		}
 		return node

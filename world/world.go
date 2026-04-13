@@ -39,6 +39,7 @@ type World struct {
 	components map[EntityID]map[ComponentType]Component
 	alive      map[EntityID]bool
 	diffHooks  []DiffHook
+	edges      *EdgeStore // typed directed edges between entities (GOL-14)
 }
 
 // NewWorld creates an empty ECS world.
@@ -46,6 +47,7 @@ func NewWorld() *World {
 	return &World{
 		components: make(map[EntityID]map[ComponentType]Component),
 		alive:      make(map[EntityID]bool),
+		edges:      NewEdgeStore(),
 	}
 }
 
@@ -68,12 +70,13 @@ func (w *World) Spawn() EntityID {
 	return id
 }
 
-// Despawn removes an entity and all its components.
+// Despawn removes an entity, all its components, and all its edges.
 func (w *World) Despawn(id EntityID) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.components, id)
 	delete(w.alive, id)
+	w.edges.RemoveEntity(id)
 }
 
 // Alive returns true if the entity exists.
@@ -276,4 +279,36 @@ func Query[T Component](w *World) []EntityID {
 		}
 	}
 	return ids
+}
+
+// --- Edge API (GOL-14) ---
+
+// Link creates a typed directed edge between two entities.
+func (w *World) Link(from EntityID, rel Relation, to EntityID) error {
+	return w.edges.Link(from, rel, to)
+}
+
+// Unlink removes a typed directed edge.
+func (w *World) Unlink(from EntityID, rel Relation, to EntityID) error {
+	return w.edges.Unlink(from, rel, to)
+}
+
+// Neighbors returns entity IDs connected by the given relation and direction.
+func (w *World) Neighbors(id EntityID, rel Relation, dir Direction) []EntityID {
+	return w.edges.Neighbors(id, rel, dir)
+}
+
+// WorldEdges returns all edges connected to an entity (both directions).
+func (w *World) WorldEdges(id EntityID) []Edge {
+	return w.edges.Edges(id)
+}
+
+// EdgeCount returns the total number of edges in the world.
+func (w *World) EdgeCount() int {
+	return w.edges.Count()
+}
+
+// EdgeStore returns the underlying EdgeStore for advanced queries.
+func (w *World) EdgeStore() *EdgeStore {
+	return w.edges
 }

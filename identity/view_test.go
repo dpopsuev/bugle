@@ -263,9 +263,8 @@ func TestHierarchy_BuildsTree(t *testing.T) {
 	child := w.Spawn()
 	grandchild := w.Spawn()
 
-	world.Attach(w, parent, world.Hierarchy{Parent: 0})
-	world.Attach(w, child, world.Hierarchy{Parent: parent})
-	world.Attach(w, grandchild, world.Hierarchy{Parent: child})
+	_ = w.Link(parent, world.Supervises, child)
+	_ = w.Link(child, world.Supervises, grandchild)
 
 	v := identity.NewView(w)
 	tree := v.Hierarchy()
@@ -298,10 +297,8 @@ func TestHierarchy_RootsHaveNoParent(t *testing.T) {
 	b := w.Spawn()
 	c := w.Spawn()
 
-	// a and b are roots (Parent=0), c is child of a.
-	world.Attach(w, a, world.Hierarchy{Parent: 0})
-	world.Attach(w, b, world.Hierarchy{Parent: 0})
-	world.Attach(w, c, world.Hierarchy{Parent: a})
+	// a and b are roots (no inbound supervises), c is child of a.
+	_ = w.Link(a, world.Supervises, c)
 
 	v := identity.NewView(w)
 	tree := v.Hierarchy()

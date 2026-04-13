@@ -13,6 +13,11 @@ type taskEntry struct {
 	mu   sync.Mutex
 }
 
+// RouteGuard is an optional function that validates message routing.
+// Return non-nil error to reject the message (e.g., no communicates_with edge).
+// Set via SetRouteGuard. Nil guard means all messages are allowed.
+type RouteGuard func(from, to AgentID) error
+
 // baseTransport is the shared task management core embedded by
 // LocalTransport and HTTPTransport. Handles handler registration,
 // task lifecycle, subscriptions, and role-based routing.
@@ -24,6 +29,7 @@ type baseTransport struct {
 	closed      bool
 	roles       *RoleRegistry
 	roleCounter map[string]int
+	routeGuard  RouteGuard // optional edge-aware routing (GOL-14)
 }
 
 func newBase() baseTransport {
@@ -36,6 +42,14 @@ func newBase() baseTransport {
 }
 
 func (b *baseTransport) Roles() *RoleRegistry { return b.roles }
+
+// SetRouteGuard sets an optional function that validates message routing.
+// When set, SendMessage calls it before dispatching. Non-nil error rejects.
+func (b *baseTransport) SetRouteGuard(guard RouteGuard) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.routeGuard = guard
+}
 
 func (b *baseTransport) Register(agentID AgentID, handler MsgHandler) error {
 	b.mu.Lock()
@@ -57,6 +71,7 @@ func (b *baseTransport) SendMessage(ctx context.Context, to AgentID, msg Message
 	b.mu.RLock()
 	handler, ok := b.handlers[to]
 	closed := b.closed
+	guard := b.routeGuard
 	b.mu.RUnlock()
 
 	if closed {
@@ -64,6 +79,13 @@ func (b *baseTransport) SendMessage(ctx context.Context, to AgentID, msg Message
 	}
 	if !ok {
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, to)
+	}
+
+	// Edge-aware routing guard (GOL-14).
+	if guard != nil {
+		if err := guard(msg.From, to); err != nil {
+			return nil, fmt.Errorf("route guard: %w", err)
+		}
 	}
 
 	taskID := fmt.Sprintf("task-%d", atomic.AddUint64(&b.nextID, 1))

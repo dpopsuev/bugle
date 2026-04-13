@@ -58,6 +58,8 @@ type Ready struct {
 func (Ready) ComponentType() ComponentType { return ReadyType }
 
 // Hierarchy represents a parent-child relationship.
+//
+// Deprecated: Use supervises edges via World.Link/Neighbors instead (GOL-14).
 type Hierarchy struct {
 	Parent EntityID `json:"parent"`
 }

@@ -126,16 +126,9 @@ func (p *AgentWarden) KillChildren(ctx context.Context, parentID world.EntityID)
 }
 
 // Children returns the entity IDs of all direct children of parentID.
+// Uses supervises edges from World (GOL-14).
 func (p *AgentWarden) Children(parentID world.EntityID) []world.EntityID {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	var children []world.EntityID
-	for _, entry := range p.agents {
-		if entry.ParentID == parentID {
-			children = append(children, entry.ID)
-		}
-	}
-	return children
+	return p.world.Neighbors(parentID, world.Supervises, world.Outbound)
 }
 
 // Tree returns the hierarchical process tree rooted at rootID.
@@ -193,8 +186,16 @@ func (p *AgentWarden) Reparent(childID, newParentID world.EntityID) error {
 	if !ok {
 		return fmt.Errorf("%w: %d", ErrNotFound, childID)
 	}
+	oldParent := entry.ParentID
 	entry.ParentID = newParentID
-	world.Attach(p.world, childID, world.Hierarchy{Parent: newParentID})
+
+	// Update supervises edges.
+	if oldParent > 0 {
+		_ = p.world.Unlink(oldParent, world.Supervises, childID)
+	}
+	if newParentID > 0 {
+		_ = p.world.Link(newParentID, world.Supervises, childID)
+	}
 	return nil
 }
 
@@ -204,7 +205,11 @@ func (p *AgentWarden) reparentOrphansLocked(deadParentID world.EntityID) {
 	for _, entry := range p.agents {
 		if entry.ParentID == deadParentID && entry.ID != deadParentID {
 			entry.ParentID = p.subreaper
-			world.Attach(p.world, entry.ID, world.Hierarchy{Parent: p.subreaper})
+			// Update supervises edges.
+			_ = p.world.Unlink(deadParentID, world.Supervises, entry.ID)
+			if p.subreaper > 0 {
+				_ = p.world.Link(p.subreaper, world.Supervises, entry.ID)
+			}
 		}
 	}
 }

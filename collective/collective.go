@@ -70,6 +70,8 @@ type Collective struct {
 	strategy     CollectiveStrategy
 	ingress      Gatekeeper // optional bouncer (nil = pass-through)
 	egress       Gatekeeper // optional reviewer (nil = pass-through)
+	w            *world.World      // optional: creates member_of edges (GOL-14)
+	agentIDs     []world.EntityID // optional: entity IDs for edge creation
 	mu           sync.RWMutex
 	rounds       []DebateRound
 	phase        Phase
@@ -101,6 +103,18 @@ func WithMinAvailable(n int) CollectiveOption {
 	return func(c *Collective) { c.minAvailable = n }
 }
 
+// WithWorld enables member_of edge creation in the World ECS (GOL-14).
+// Must be paired with WithAgentIDs to provide entity IDs.
+func WithWorld(w *world.World) CollectiveOption {
+	return func(c *Collective) { c.w = w }
+}
+
+// WithAgentIDs provides entity IDs for member_of edge creation (GOL-14).
+// Order must match the agents slice passed to NewCollective.
+func WithAgentIDs(ids []world.EntityID) CollectiveOption {
+	return func(c *Collective) { c.agentIDs = ids }
+}
+
 // NewCollective creates a collective from existing agent handles.
 func NewCollective(id world.EntityID, role string, strategy CollectiveStrategy, agents []troupe.Actor, opts ...CollectiveOption) *Collective {
 	c := &Collective{
@@ -113,6 +127,14 @@ func NewCollective(id world.EntityID, role string, strategy CollectiveStrategy, 
 	for _, o := range opts {
 		o(c)
 	}
+
+	// Create member_of edges if World + agent IDs are set (GOL-14).
+	if c.w != nil {
+		for _, agentID := range c.agentIDs {
+			_ = c.w.Link(agentID, world.MemberOf, id) // best-effort
+		}
+	}
+
 	return c
 }
 

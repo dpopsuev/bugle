@@ -80,7 +80,9 @@ func (p *AgentWarden) Fork(ctx context.Context, role string, config AgentConfig,
 	// 2. Attach components.
 	world.Attach(p.world, id, world.Alive{State: world.AliveRunning, Since: time.Now()})
 	world.Attach(p.world, id, world.Ready{Ready: true, LastSeen: time.Now()})
-	world.Attach(p.world, id, world.Hierarchy{Parent: parentID})
+	if parentID > 0 {
+		_ = p.world.Link(parentID, world.Supervises, id) // Edge replaces Hierarchy
+	}
 	if config.Budget > 0 {
 		world.Attach(p.world, id, world.Budget{Ceiling: config.Budget})
 	}
@@ -181,6 +183,11 @@ func (p *AgentWarden) Kill(ctx context.Context, id world.EntityID) error {
 	agentID := agentTransportID(id)
 	p.transport.Roles().Unregister(string(agentID))
 	p.transport.Unregister(agentID)
+
+	// Remove inbound supervises edge — zombie is no longer a child.
+	if entry.ParentID > 0 {
+		_ = p.world.Unlink(entry.ParentID, world.Supervises, id)
+	}
 
 	// Update liveness — BEFORE notifying Wait() callers, because reap()
 	// calls Despawn() which could race. TryAttach is safe on dead entities.
