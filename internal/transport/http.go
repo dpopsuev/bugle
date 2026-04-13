@@ -20,6 +20,7 @@ func NewHTTPTransport() *HTTPTransport {
 		mux:           http.NewServeMux(),
 	}
 	t.mux.HandleFunc("POST /a2a/send", t.handleSend)
+	t.mux.HandleFunc("GET /.well-known/agent-card.json", t.handleAgentCards)
 	return t
 }
 
@@ -65,4 +66,28 @@ func (t *HTTPTransport) handleSend(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "task did not complete", http.StatusInternalServerError)
+}
+
+// handleAgentCards serves the A2A agent card discovery endpoint.
+// Returns JSON array of AgentCards for all registered agents.
+func (t *HTTPTransport) handleAgentCards(w http.ResponseWriter, _ *http.Request) {
+	t.mu.RLock()
+	agents := make([]AgentID, 0, len(t.handlers))
+	for id := range t.handlers {
+		agents = append(agents, id)
+	}
+	t.mu.RUnlock()
+
+	cards := make([]AgentCard, 0, len(agents))
+	for _, id := range agents {
+		role := t.roles.RoleOf(string(id))
+		cards = append(cards, AgentCard{
+			ID:        string(id),
+			Role:      role,
+			Transport: "http",
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cards) //nolint:errcheck // HTTP response encoding
 }

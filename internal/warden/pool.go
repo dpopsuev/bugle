@@ -38,7 +38,7 @@ type agentEntry struct {
 // AgentWarden manages agent process lifecycles with process supervision.
 type AgentWarden struct {
 	world     *world.World
-	transport *transport.LocalTransport
+	transport transport.Transport
 	log       signal.EventLog
 	launcher  AgentSupervisor
 	mu        sync.RWMutex
@@ -52,7 +52,7 @@ type AgentWarden struct {
 }
 
 // New creates an AgentWarden.
-func NewWarden(w *world.World, t *transport.LocalTransport, log signal.EventLog, l AgentSupervisor) *AgentWarden {
+func NewWarden(w *world.World, t transport.Transport, log signal.EventLog, l AgentSupervisor) *AgentWarden {
 	return &AgentWarden{
 		world:     w,
 		transport: t,

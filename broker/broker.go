@@ -97,6 +97,7 @@ type config struct {
 	hooks        []Hook
 	pickStrategy PickStrategy
 	meter        troupe.Meter
+	transport    transport.Transport
 }
 
 // WithDriver sets the agent driver. Default: ACP (subprocess + JSON-RPC).
@@ -122,6 +123,12 @@ func WithDriverFor(provider string, d troupe.Driver) Option {
 		}
 		c.drivers[provider] = d
 	}
+}
+
+// WithTransport sets the agent transport. Default: LocalTransport (in-process).
+// Use NewHTTPTransport() for cross-process A2A communication.
+func WithTransport(t transport.Transport) Option {
+	return func(c *config) { c.transport = t }
 }
 
 // WithMeter sets the resource usage meter. Default: none.
@@ -160,7 +167,12 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 	}
 
 	w := world.NewWorld()
-	t := transport.NewLocalTransport()
+	var t transport.Transport
+	if cfg.transport != nil {
+		t = cfg.transport
+	} else {
+		t = transport.NewLocalTransport()
+	}
 	log := signal.NewMemLog()
 	p := warden.NewWarden(w, t, log, supervisor)
 
