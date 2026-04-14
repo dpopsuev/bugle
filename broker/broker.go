@@ -176,12 +176,15 @@ func newLocalBroker(opts ...Option) *DefaultBroker {
 	log := signal.NewMemLog()
 	p := warden.NewWarden(w, t, log, supervisor)
 
+	reg := identity.NewRegistry()
+	p.SetRegistry(reg)
+
 	return &DefaultBroker{
 		world:     w,
 		warden:    p,
 		transport: t,
 		bus:       log.Bus(),
-		registry:  identity.NewRegistry(),
+		registry:  reg,
 		hooks:     cfg.hooks,
 		driver:    cfg.driver,
 		adapter:   adapter,
@@ -270,6 +273,37 @@ func (b *DefaultBroker) Spawn(ctx context.Context, cfg troupe.ActorConfig) (trou
 	}
 
 	return actor, nil
+}
+
+// Discover returns live agents, optionally filtered by role.
+func (b *DefaultBroker) Discover(role string) []troupe.AgentInfo {
+	ids := world.Query[identity.Color](b.world)
+	agents := make([]troupe.AgentInfo, 0, len(ids))
+	for _, id := range ids {
+		color, _ := world.TryGet[identity.Color](b.world, id)
+		if role != "" && color.Role != role {
+			continue
+		}
+
+		healthy := false
+		if alive, ok := world.TryGet[world.Alive](b.world, id); ok {
+			healthy = alive.State == world.AliveRunning
+		}
+
+		ready := false
+		if r, ok := world.TryGet[world.Ready](b.world, id); ok {
+			ready = r.Ready
+		}
+
+		agents = append(agents, troupe.AgentInfo{
+			ID:      fmt.Sprintf("%d", id),
+			Role:    color.Role,
+			Model:   color.Collective,
+			Ready:   ready,
+			Healthy: healthy,
+		})
+	}
+	return agents
 }
 
 // Meter returns the resource usage meter (nil if none configured).

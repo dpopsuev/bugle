@@ -90,6 +90,49 @@ func TestBroker_MultiDriver_RoutesToProvider(t *testing.T) {
 	}
 }
 
+func TestDefaultBroker_Discover_Empty(t *testing.T) {
+	b := broker.New("")
+	agents := b.Discover("")
+	if len(agents) != 0 {
+		t.Errorf("Discover on empty broker: got %d, want 0", len(agents))
+	}
+}
+
+func TestDefaultBroker_Discover_WithSpawnedAgents(t *testing.T) {
+	drv := newProviderDriver()
+	b := broker.New("", broker.WithDriver(drv))
+
+	_, err := b.Spawn(context.Background(), troupe.ActorConfig{Role: "reviewer", Provider: "anthropic"})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	_, err = b.Spawn(context.Background(), troupe.ActorConfig{Role: "coder", Provider: "anthropic"})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	// All agents.
+	all := b.Discover("")
+	if len(all) != 2 {
+		t.Errorf("Discover all: got %d, want 2", len(all))
+	}
+
+	// Filter by role.
+	reviewers := b.Discover("reviewer")
+	if len(reviewers) != 1 {
+		t.Errorf("Discover reviewer: got %d, want 1", len(reviewers))
+	}
+	if len(reviewers) > 0 && reviewers[0].Role != "reviewer" {
+		t.Errorf("Discover reviewer: got role %q, want reviewer", reviewers[0].Role)
+	}
+
+	// Non-existent role.
+	none := b.Discover("nonexistent")
+	if len(none) != 0 {
+		t.Errorf("Discover nonexistent: got %d, want 0", len(none))
+	}
+}
+
 func TestBroker_MultiDriver_FallbackToDefault(t *testing.T) {
 	defaultD := newProviderDriver()
 	b := broker.New("", broker.WithDriver(defaultD))

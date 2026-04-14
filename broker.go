@@ -2,8 +2,27 @@ package troupe
 
 import "context"
 
+// AgentInfo describes a live agent in the troupe.
+// Human-facing: no protocol details, just who they are and how they're doing.
+type AgentInfo struct {
+	// ID is the unique agent identifier.
+	ID string `json:"id"`
+
+	// Role is the functional role (e.g., "investigator", "reviewer").
+	Role string `json:"role"`
+
+	// Model is the resolved model identifier.
+	Model string `json:"model,omitempty"`
+
+	// Ready reports whether the agent can accept work.
+	Ready bool `json:"ready"`
+
+	// Healthy reports whether the agent process is alive.
+	Healthy bool `json:"healthy"`
+}
+
 // Broker is the Actor Broker — it casts and hires actors for Directors.
-// Facade over arsenal (Pick), pool+acp (Spawn).
+// Facade over arsenal (Pick), pool+acp (Spawn), roster (Discover).
 type Broker interface {
 	// Pick returns actor configurations matching the given preferences.
 	// Backed by the Arsenal catalog.
@@ -11,6 +30,10 @@ type Broker interface {
 
 	// Spawn creates a running actor from the given configuration.
 	Spawn(ctx context.Context, config ActorConfig) (Actor, error)
+
+	// Discover returns live agents in the troupe, optionally filtered by role.
+	// Empty role returns all agents.
+	Discover(role string) []AgentInfo
 }
 
 // Preferences describes what kind of actor the Director needs.

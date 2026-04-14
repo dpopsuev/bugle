@@ -97,6 +97,31 @@ func (b *RemoteBroker) Spawn(ctx context.Context, config troupe.ActorConfig) (tr
 	}, nil
 }
 
+// Discover proxies to the remote broker's /discover endpoint.
+func (b *RemoteBroker) Discover(role string) []troupe.AgentInfo {
+	url := b.endpoint + "/discover"
+	if role != "" {
+		url += "?role=" + role
+	}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return nil
+	}
+
+	resp, err := b.client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var agents []troupe.AgentInfo
+	if err := json.NewDecoder(resp.Body).Decode(&agents); err != nil {
+		return nil
+	}
+	return agents
+}
+
 // ProxyActor proxies Actor calls to a remote broker over HTTP.
 type ProxyActor struct {
 	id       string
@@ -241,6 +266,13 @@ func BrokerHandler(b *DefaultBroker) http.Handler {
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]bool{"ready": actor.Ready()}) //nolint:errcheck // best-effort JSON response
+	})
+
+	mux.HandleFunc("GET /discover", func(w http.ResponseWriter, r *http.Request) {
+		role := r.URL.Query().Get("role")
+		agents := b.Discover(role)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(agents) //nolint:errcheck // best-effort JSON response
 	})
 
 	mux.HandleFunc("POST /kill/{id}", func(w http.ResponseWriter, r *http.Request) {
