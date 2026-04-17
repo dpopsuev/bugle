@@ -31,3 +31,16 @@ func (FirstMatch) Choose(_ context.Context, candidates []troupe.ActorConfig, pre
 func WithPickStrategy(s PickStrategy) Option {
 	return func(c *config) { c.pickStrategy = s }
 }
+
+// PickStrategyFrom wraps a Pick[ActorConfig] as a PickStrategy.
+func PickStrategyFrom(p troupe.Pick[troupe.ActorConfig]) PickStrategy {
+	return &pickAdapter{pick: p}
+}
+
+type pickAdapter struct {
+	pick troupe.Pick[troupe.ActorConfig]
+}
+
+func (a *pickAdapter) Choose(ctx context.Context, candidates []troupe.ActorConfig, _ troupe.Preferences) []troupe.ActorConfig {
+	return a.pick(ctx, candidates)
+}

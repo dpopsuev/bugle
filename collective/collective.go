@@ -39,6 +39,19 @@ type Selector interface {
 	Select(ctx context.Context, agents []troupe.Actor) []troupe.Actor
 }
 
+// SelectorFrom wraps a Pick[Actor] as a Selector.
+func SelectorFrom(p troupe.Pick[troupe.Actor]) Selector {
+	return &selectorAdapter{pick: p}
+}
+
+type selectorAdapter struct {
+	pick troupe.Pick[troupe.Actor]
+}
+
+func (a *selectorAdapter) Select(ctx context.Context, agents []troupe.Actor) []troupe.Actor {
+	return a.pick(ctx, agents)
+}
+
 // Executor coordinates selected agents to produce a response.
 type Executor interface {
 	Execute(ctx context.Context, prompt string, agents []troupe.Actor) (string, error)
