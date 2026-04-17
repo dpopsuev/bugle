@@ -352,3 +352,9 @@ func (b *DefaultBroker) Signal() signal.Bus { return b.bus }
 
 // World returns the underlying ECS world (for advanced consumers).
 func (b *DefaultBroker) World() *world.World { return b.world }
+
+// SpawnGate returns the composed spawn gate, or nil if none configured.
+func (b *DefaultBroker) SpawnGate() troupe.Gate { return b.spawnGate }
+
+// PerformGate returns the composed perform gate, or nil if none configured.
+func (b *DefaultBroker) PerformGate() troupe.Gate { return b.performGate }

@@ -116,6 +116,44 @@ func WithMinAvailable(n int) CollectiveOption {
 	return func(c *Collective) { c.minAvailable = n }
 }
 
+// WithParentGates prepends parent-level gates to the collective's ingress
+// and egress. The parent gate runs first — if it rejects, the collective's
+// own gate never fires. Call after WithIngress/WithEgress to compose.
+func WithParentGates(ingress, egress troupe.Gate) CollectiveOption {
+	return func(c *Collective) {
+		if ingress != nil {
+			parent := NewGateKeeper(ingress)
+			if c.ingress != nil {
+				inner := c.ingress
+				c.ingress = &composedGatekeeper{first: parent, second: inner}
+			} else {
+				c.ingress = parent
+			}
+		}
+		if egress != nil {
+			parent := NewGateKeeper(egress)
+			if c.egress != nil {
+				inner := c.egress
+				c.egress = &composedGatekeeper{first: parent, second: inner}
+			} else {
+				c.egress = parent
+			}
+		}
+	}
+}
+
+type composedGatekeeper struct {
+	first, second Gatekeeper
+}
+
+func (g *composedGatekeeper) Pass(ctx context.Context, content string) (bool, string, error) {
+	ok, reason, err := g.first.Pass(ctx, content)
+	if err != nil || !ok {
+		return ok, reason, err
+	}
+	return g.second.Pass(ctx, content)
+}
+
 // WithWorld enables member_of edge creation in the World ECS (GOL-14).
 // Must be paired with WithAgentIDs to provide entity IDs.
 func WithWorld(w *world.World) CollectiveOption {

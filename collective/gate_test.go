@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	troupe "github.com/dpopsuev/troupe"
 )
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -121,5 +123,102 @@ func TestAgentGatekeeper_EmptyResponse(t *testing.T) {
 	}
 }
 
-// Compile-time interface check.
-var _ Gatekeeper = (*AgentGatekeeper)(nil)
+// ═══════════════════════════════════════════════════════════════════════
+// Gate predicate integration
+// ═══════════════════════════════════════════════════════════════════════
+
+func TestGateKeeper_FromGate(t *testing.T) {
+	gk := NewGateKeeper(troupe.AlwaysDeny)
+	ok, reason, err := gk.Pass(context.Background(), "test")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if ok {
+		t.Fatal("AlwaysDeny gate should reject")
+	}
+	if reason == "" {
+		t.Fatal("rejection should include reason")
+	}
+}
+
+func TestWithParentGates_IngressBlocks(t *testing.T) {
+	parts := newTestParts()
+	ctx := context.Background()
+
+	agent, _ := parts.spawn(ctx, "worker")
+	agent.Listen(func(_ string) string { return "response" })
+
+	c := NewCollective(1, "test", &echoStrategy{}, []troupe.Actor{agent},
+		WithParentGates(troupe.AlwaysDeny, nil),
+	)
+
+	_, err := c.Perform(ctx, "hello")
+	if err == nil {
+		t.Fatal("parent ingress gate should have blocked")
+	}
+}
+
+func TestWithParentGates_ComposesWithOwnIngress(t *testing.T) {
+	parts := newTestParts()
+	ctx := context.Background()
+
+	agent, _ := parts.spawn(ctx, "worker")
+	agent.Listen(func(_ string) string { return "PASS: ok" })
+
+	callCount := 0
+	countingGate := troupe.Gate(func(_ context.Context, _ any) (bool, string, error) {
+		callCount++
+		return true, "", nil
+	})
+
+	gateAgent, _ := parts.spawn(ctx, "gate")
+	gateAgent.Listen(func(_ string) string { return "PASS: ok" })
+
+	c := NewCollective(1, "test", &echoStrategy{}, []troupe.Actor{agent},
+		WithIngress(&AgentGatekeeper{Agent: gateAgent}),
+		WithParentGates(countingGate, nil),
+	)
+
+	_, err := c.Perform(ctx, "hello")
+	if err != nil {
+		t.Fatalf("should pass: %v", err)
+	}
+	if callCount != 1 {
+		t.Fatalf("parent gate called %d times, want 1", callCount)
+	}
+}
+
+func TestWithParentGates_ParentRejectsBeforeChild(t *testing.T) {
+	parts := newTestParts()
+	ctx := context.Background()
+
+	agent, _ := parts.spawn(ctx, "worker")
+	agent.Listen(func(_ string) string { return "response" })
+
+	childCalled := false
+	childGate := &passGate{}
+	_ = childGate
+
+	c := NewCollective(1, "test", &echoStrategy{}, []troupe.Actor{agent},
+		WithIngress(NewGateKeeper(troupe.Gate(func(_ context.Context, _ any) (bool, string, error) {
+			childCalled = true
+			return true, "", nil
+		}))),
+		WithParentGates(troupe.AlwaysDeny, nil),
+	)
+
+	_, err := c.Perform(ctx, "hello")
+	if err == nil {
+		t.Fatal("parent gate should have rejected")
+	}
+	if childCalled {
+		t.Fatal("child gate should not have been called after parent rejection")
+	}
+}
+
+// Compile-time interface checks.
+var (
+	_ Gatekeeper = (*AgentGatekeeper)(nil)
+	_ Gatekeeper = (*GateKeeper)(nil)
+	_ Gatekeeper = (*composedGatekeeper)(nil)
+)
