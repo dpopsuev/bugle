@@ -251,6 +251,9 @@ func RunProviderContract(t *testing.T, p anyllm.Provider, model string) {
 // --- Provider-specific contract tests ---
 
 func TestProviderContract_Vertex(t *testing.T) {
+	if os.Getenv("TROUPE_TEST_LIVE_LLM") == "" {
+		t.Skip("TROUPE_TEST_LIVE_LLM not set — skipping billable API test")
+	}
 	region := os.Getenv("CLOUD_ML_REGION")
 	project := os.Getenv("ANTHROPIC_VERTEX_PROJECT_ID")
 	if region == "" || project == "" {
@@ -268,6 +271,9 @@ func TestProviderContract_Vertex(t *testing.T) {
 func TestProviderContract_Anthropic(t *testing.T) {
 	if os.Getenv("ANTHROPIC_API_KEY") == "" {
 		t.Skip("ANTHROPIC_API_KEY not set")
+	}
+	if os.Getenv("TROUPE_TEST_LIVE_LLM") == "" {
+		t.Skip("TROUPE_TEST_LIVE_LLM not set — skipping billable API test")
 	}
 
 	p, err := NewProviderByName("claude")
