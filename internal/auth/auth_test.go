@@ -4,27 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
-
-	"github.com/dpopsuev/troupe/internal/protocol"
 )
-
-func TestNoop_Authenticate(t *testing.T) {
-	n := Noop{}
-	id, err := n.Authenticate(context.Background(), "anything")
-	if err != nil {
-		t.Fatalf("Noop.Authenticate() error: %v", err)
-	}
-	if id.Subject != "anonymous" {
-		t.Errorf("subject = %q, want %q", id.Subject, "anonymous")
-	}
-}
-
-func TestNoop_Authorize(t *testing.T) {
-	n := Noop{}
-	if err := n.Authorize(protocol.Identity{}, protocol.ActionStart); err != nil {
-		t.Fatalf("Noop.Authorize() error: %v", err)
-	}
-}
 
 func TestBearer_Authenticate(t *testing.T) {
 	const envVar = "TEST_BUGLE_AUTH_TOKEN"

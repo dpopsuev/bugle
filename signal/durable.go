@@ -147,17 +147,3 @@ func (d *DurableEventLog) Path() string {
 func (d *DurableEventLog) Bus() *busAdapter {
 	return d.inner.Bus()
 }
-
-// --- Legacy DurableBus (deprecated, use DurableEventLog) ---
-
-// DurableBus is the legacy name. Use DurableEventLog for new code.
-//
-// Deprecated: use NewDurableEventLog or NewDurableJSONLines.
-type DurableBus = DurableEventLog
-
-// NewDurableBus creates a DurableEventLog backed by a JSON-Lines file.
-//
-// Deprecated: use NewDurableJSONLines.
-func NewDurableBus(path string) (*DurableEventLog, error) {
-	return NewDurableJSONLines(path)
-}

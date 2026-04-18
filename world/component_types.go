@@ -6,7 +6,6 @@ import "time"
 const (
 	AliveType     ComponentType = "alive"
 	ReadyType     ComponentType = "ready"
-	HierarchyType ComponentType = "hierarchy"
 	BudgetType    ComponentType = "budget"
 	ProgressType  ComponentType = "progress"
 	DisplayType      ComponentType = "display"
@@ -56,16 +55,6 @@ type Ready struct {
 
 // ComponentType implements Component.
 func (Ready) ComponentType() ComponentType { return ReadyType }
-
-// Hierarchy represents a parent-child relationship.
-//
-// Deprecated: Use supervises edges via World.Link/Neighbors instead (GOL-14).
-type Hierarchy struct {
-	Parent EntityID `json:"parent"`
-}
-
-// ComponentType implements Component.
-func (Hierarchy) ComponentType() ComponentType { return HierarchyType }
 
 // Budget tracks cost per entity.
 type Budget struct {
