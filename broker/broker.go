@@ -3,7 +3,6 @@ package broker
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	troupe "github.com/dpopsuev/troupe"
@@ -167,13 +166,9 @@ func WithPerformGate(g troupe.Gate) Option {
 	return func(c *config) { c.performGates = append(c.performGates, g) }
 }
 
-// New creates a Broker. If the endpoint is a remote URL (https://),
-// returns a RemoteBroker that proxies over HTTP. Otherwise, returns a
-// local DefaultBroker. Default driver: ACP.
+// New creates a local Broker. The endpoint parameter is reserved for
+// future use — pass empty string. Use A2A (GOL-29/30) for remote agents.
 func New(endpoint string, opts ...Option) troupe.Broker {
-	if strings.HasPrefix(endpoint, "http://") || strings.HasPrefix(endpoint, "https://") {
-		return newRemoteBroker(endpoint)
-	}
 	return newLocalBroker(opts...)
 }
 
