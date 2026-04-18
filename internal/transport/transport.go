@@ -28,10 +28,11 @@ type Message struct {
 
 // Task represents an in-flight message processing job.
 type Task struct {
-	ID     string    `json:"id"`
-	State  TaskState `json:"state"`
-	Result *Message  `json:"result,omitempty"`
-	Error  string    `json:"error,omitempty"`
+	ID      string    `json:"id"`
+	State   TaskState `json:"state"`
+	Result  *Message  `json:"result,omitempty"`
+	Error   string    `json:"error,omitempty"`
+	History []Message `json:"history,omitempty"`
 }
 
 // TaskState is the lifecycle state of a Task.

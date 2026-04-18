@@ -106,7 +106,7 @@ func (b *baseTransport) SendMessage(ctx context.Context, to AgentID, msg Message
 	}
 
 	taskID := fmt.Sprintf("task-%d", atomic.AddUint64(&b.nextID, 1))
-	task := &Task{ID: taskID, State: TaskSubmitted}
+	task := &Task{ID: taskID, State: TaskSubmitted, History: []Message{msg}}
 	entry := &taskEntry{task: task}
 
 	b.mu.Lock()
@@ -137,6 +137,7 @@ func (b *baseTransport) execute(ctx context.Context, handler MsgHandler, entry *
 		entry.task.Error = err.Error()
 		b.notifyLocked(entry, Event{TaskID: taskID, State: TaskFailed})
 	} else {
+		entry.task.History = append(entry.task.History, result)
 		entry.task.State = TaskCompleted
 		entry.task.Result = &result
 		b.notifyLocked(entry, Event{TaskID: taskID, State: TaskCompleted, Data: &result})
