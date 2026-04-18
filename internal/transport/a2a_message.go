@@ -9,10 +9,15 @@ import (
 func FromA2AMessage(msg a2a.Message, to AgentID) Message {
 	var content string
 	for _, part := range msg.Parts {
-		if tp, ok := part.(*a2a.TextPart); ok {
+		switch tp := part.(type) {
+		case *a2a.TextPart:
 			content = tp.Text
-			break
+		case a2a.TextPart:
+			content = tp.Text
+		default:
+			continue
 		}
+		break
 	}
 
 	perf := signal.Request

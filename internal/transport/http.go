@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"github.com/a2aproject/a2a-go/a2a"
 )
 
 // HTTPTransport is an HTTP-based A2A transport. Embeds baseTransport
@@ -15,7 +17,7 @@ type HTTPTransport struct {
 	mux *http.ServeMux
 }
 
-// NewHTTPTransport creates an HTTP-based transport.
+// NewHTTPTransport creates an HTTP-based transport with legacy endpoints.
 func NewHTTPTransport() *HTTPTransport {
 	t := &HTTPTransport{
 		baseTransport: newBase(),
@@ -24,6 +26,18 @@ func NewHTTPTransport() *HTTPTransport {
 	t.mux.HandleFunc("POST /a2a/send", t.handleSend)
 	t.mux.HandleFunc("GET /.well-known/agent.json", t.handleAgentCards)
 	t.mux.HandleFunc("GET /.well-known/agent-card.json", t.handleAgentCards) // legacy compat
+	return t
+}
+
+// NewA2ATransport creates an HTTP transport with A2A v1.0 JSON-RPC
+// endpoints in addition to the legacy /a2a/send. The card is served
+// at /.well-known/agent.json per A2A spec.
+func NewA2ATransport(card a2a.AgentCard) *HTTPTransport {
+	t := &HTTPTransport{
+		baseTransport: newBase(),
+	}
+	t.mux = A2AServerMux(&t.baseTransport, card)
+	t.mux.HandleFunc("POST /a2a/send", t.handleSend) // legacy compat
 	return t
 }
 

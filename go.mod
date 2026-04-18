@@ -17,7 +17,6 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
-	github.com/a2aproject/a2a-go v0.3.15 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -45,6 +44,7 @@ require (
 	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/api v0.197.0 // indirect
 	google.golang.org/genai v1.49.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250715232539-7130f93afb79 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250715232539-7130f93afb79 // indirect
 	google.golang.org/grpc v1.73.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
@@ -60,4 +60,7 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 )
 
-require go.uber.org/goleak v1.3.0
+require (
+	github.com/a2aproject/a2a-go v0.3.15
+	go.uber.org/goleak v1.3.0
+)
