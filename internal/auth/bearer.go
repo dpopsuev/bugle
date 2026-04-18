@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	"github.com/dpopsuev/troupe/internal/protocol"
+	
 	"github.com/dpopsuev/troupe/resilience"
 )
 
@@ -45,21 +45,21 @@ func NewBearer(envVar string, opts ...BearerOption) *Bearer {
 
 // Authenticate compares the provided token against the env var value.
 // If rate limiting is configured, blocks until a token is available.
-func (b *Bearer) Authenticate(ctx context.Context, token string) (protocol.Identity, error) {
+func (b *Bearer) Authenticate(ctx context.Context, token string) (Identity, error) {
 	if b.limiter != nil {
 		if err := b.limiter.Wait(ctx); err != nil {
-			return protocol.Identity{}, err
+			return Identity{}, err
 		}
 	}
 	if token == "" {
-		return protocol.Identity{}, ErrMissingToken
+		return Identity{}, ErrMissingToken
 	}
 	expected := os.Getenv(b.envVar)
 	if expected == "" {
-		return protocol.Identity{}, ErrMissingToken
+		return Identity{}, ErrMissingToken
 	}
 	if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) != 1 {
-		return protocol.Identity{}, ErrInvalidToken
+		return Identity{}, ErrInvalidToken
 	}
-	return protocol.Identity{Subject: "bearer:" + b.envVar}, nil
+	return Identity{Subject: "bearer:" + b.envVar}, nil
 }
