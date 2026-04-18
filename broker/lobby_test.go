@@ -3,6 +3,7 @@ package broker_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/dpopsuev/troupe"
 	"github.com/dpopsuev/troupe/broker"
@@ -188,5 +189,85 @@ func TestBroker_WithAdmission(t *testing.T) {
 
 	if w.Count() != 1 {
 		t.Fatalf("World has %d entities, want 1", w.Count())
+	}
+}
+
+// --- Heartbeat + stale detection ---
+
+func TestLobby_Heartbeat(t *testing.T) {
+	w := world.NewWorld()
+	tr := transport.NewLocalTransport()
+
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     w,
+		Transport: tr,
+	})
+
+	id, err := lobby.Admit(context.Background(), troupe.ActorConfig{Role: "worker"})
+	if err != nil {
+		t.Fatalf("Admit: %v", err)
+	}
+
+	if err := lobby.Heartbeat(id); err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+}
+
+func TestLobby_Heartbeat_UnknownEntity(t *testing.T) {
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     world.NewWorld(),
+		Transport: transport.NewLocalTransport(),
+	})
+
+	if err := lobby.Heartbeat(999); err == nil {
+		t.Fatal("heartbeat for unknown entity should error")
+	}
+}
+
+func TestLobby_EvictStale(t *testing.T) {
+	w := world.NewWorld()
+	tr := transport.NewLocalTransport()
+
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     w,
+		Transport: tr,
+	})
+
+	_, err := lobby.Admit(context.Background(), troupe.ActorConfig{Role: "stale-worker"})
+	if err != nil {
+		t.Fatalf("Admit: %v", err)
+	}
+
+	evicted := lobby.EvictStale(context.Background(), 0)
+	if evicted != 1 {
+		t.Fatalf("evicted %d, want 1", evicted)
+	}
+	if lobby.Count() != 0 {
+		t.Fatalf("lobby has %d entries, want 0", lobby.Count())
+	}
+}
+
+func TestLobby_EvictStale_HeartbeatKeepsAlive(t *testing.T) {
+	w := world.NewWorld()
+	tr := transport.NewLocalTransport()
+
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     w,
+		Transport: tr,
+	})
+
+	id, err := lobby.Admit(context.Background(), troupe.ActorConfig{Role: "active-worker"})
+	if err != nil {
+		t.Fatalf("Admit: %v", err)
+	}
+
+	_ = lobby.Heartbeat(id)
+
+	evicted := lobby.EvictStale(context.Background(), 10*time.Second)
+	if evicted != 0 {
+		t.Fatalf("evicted %d, want 0 (agent just heartbeated)", evicted)
+	}
+	if lobby.Count() != 1 {
+		t.Fatalf("lobby has %d entries, want 1", lobby.Count())
 	}
 }

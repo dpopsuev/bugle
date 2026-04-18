@@ -178,6 +178,41 @@ func (l *Lobby) Dismiss(_ context.Context, id world.EntityID) error {
 	return nil
 }
 
+// Heartbeat updates the last-seen timestamp for an admitted agent.
+func (l *Lobby) Heartbeat(id world.EntityID) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	entry, ok := l.entries[id]
+	if !ok {
+		return fmt.Errorf("heartbeat: unknown entity %d", id)
+	}
+	entry.lastSeen = time.Now()
+	return nil
+}
+
+// EvictStale dismisses agents that haven't heartbeated within ttl.
+// Returns the number of agents evicted.
+func (l *Lobby) EvictStale(ctx context.Context, ttl time.Duration) int {
+	l.mu.RLock()
+	var stale []world.EntityID
+	now := time.Now()
+	for id, entry := range l.entries {
+		if now.Sub(entry.lastSeen) > ttl {
+			stale = append(stale, id)
+		}
+	}
+	l.mu.RUnlock()
+
+	for _, id := range stale {
+		slog.WarnContext(ctx, "evicting stale agent",
+			slog.String("agent_id", fmt.Sprintf("agent-%d", id)),
+			slog.Duration("silent_for", now.Sub(l.entries[id].lastSeen)),
+		)
+		l.Dismiss(ctx, id) //nolint:errcheck
+	}
+	return len(stale)
+}
+
 // Count returns the number of admitted agents.
 func (l *Lobby) Count() int {
 	l.mu.RLock()
