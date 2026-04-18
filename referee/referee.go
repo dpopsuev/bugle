@@ -66,7 +66,8 @@ func WithRefereeLogger(l *slog.Logger) RefereeOption {
 	return func(r *Referee) { r.log = l }
 }
 
-// Subscribe wires the Referee to an EventLog. Call once at setup time.
+// Subscribe wires the Referee to an EventLog. Pass a StatusLog to
+// restrict scoring to observability events only.
 func (r *Referee) Subscribe(log signal.EventLog) {
 	log.OnEmit(r.scoreEvent)
 }

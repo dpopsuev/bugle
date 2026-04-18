@@ -15,7 +15,8 @@ type ComponentMutation struct {
 }
 
 // EmitDiffsTo registers a DiffHook that emits component mutations
-// as events to the given EventLog. Call once at composition time.
+// as events to the given EventLog. Accepts any EventLog implementation
+// including signal.StatusLog for typed bus routing.
 func (w *World) EmitDiffsTo(log signal.EventLog) {
 	w.OnDiff(func(id EntityID, ct ComponentType, kind DiffKind, _, _ Component) {
 		log.Emit(signal.Event{
