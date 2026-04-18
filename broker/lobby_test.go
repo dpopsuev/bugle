@@ -192,6 +192,59 @@ func TestBroker_WithAdmission(t *testing.T) {
 	}
 }
 
+func TestLobby_ProxyFactory_CalledForExternal(t *testing.T) {
+	w := world.NewWorld()
+	tr := transport.NewLocalTransport()
+
+	proxyCalled := false
+	proxyURL := ""
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     w,
+		Transport: tr,
+		ProxyFactory: func(callbackURL string) transport.MsgHandler {
+			proxyCalled = true
+			proxyURL = callbackURL
+			return func(_ context.Context, msg transport.Message) (transport.Message, error) {
+				return transport.Message{Content: "proxied to " + callbackURL}, nil
+			}
+		},
+	})
+
+	_, err := lobby.Admit(context.Background(), troupe.ActorConfig{
+		Role:        "remote",
+		CallbackURL: "https://remote.example.com/a2a",
+	})
+	if err != nil {
+		t.Fatalf("Admit: %v", err)
+	}
+	if !proxyCalled {
+		t.Fatal("ProxyFactory should have been called for external agent")
+	}
+	if proxyURL != "https://remote.example.com/a2a" {
+		t.Fatalf("ProxyFactory got URL %q, want https://remote.example.com/a2a", proxyURL)
+	}
+}
+
+func TestLobby_ProxyFactory_NotCalledForInternal(t *testing.T) {
+	proxyCalled := false
+	lobby := broker.NewLobby(broker.LobbyConfig{
+		World:     world.NewWorld(),
+		Transport: transport.NewLocalTransport(),
+		ProxyFactory: func(_ string) transport.MsgHandler {
+			proxyCalled = true
+			return nil
+		},
+	})
+
+	_, err := lobby.Admit(context.Background(), troupe.ActorConfig{Role: "internal"})
+	if err != nil {
+		t.Fatalf("Admit: %v", err)
+	}
+	if proxyCalled {
+		t.Fatal("ProxyFactory should NOT be called for internal agent")
+	}
+}
+
 // --- Heartbeat + stale detection ---
 
 func TestLobby_Heartbeat(t *testing.T) {

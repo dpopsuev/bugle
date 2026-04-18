@@ -19,11 +19,12 @@ var _ troupe.Admission = (*Lobby)(nil)
 // Lobby is the universal admission system for all agents.
 // Both internal spawns and external registrations go through Admit.
 type Lobby struct {
-	world      *world.World
-	transport  transport.Transport
-	controlLog signal.EventLog
-	registry   *identity.Registry
-	gate       troupe.Gate
+	world        *world.World
+	transport    transport.Transport
+	controlLog   signal.EventLog
+	registry     *identity.Registry
+	gate         troupe.Gate
+	proxyFactory ProxyFactory
 
 	mu      sync.RWMutex
 	entries map[world.EntityID]*lobbyEntry
@@ -35,13 +36,18 @@ type lobbyEntry struct {
 	lastSeen time.Time
 }
 
+// ProxyFactory builds a transport message handler for an external agent.
+// The callbackURL is the agent's A2A endpoint for forwarding messages.
+type ProxyFactory func(callbackURL string) transport.MsgHandler
+
 // LobbyConfig configures a Lobby.
 type LobbyConfig struct {
-	World      *world.World
-	Transport  transport.Transport
-	ControlLog signal.EventLog
-	Registry   *identity.Registry
-	Gates      []troupe.Gate
+	World        *world.World
+	Transport    transport.Transport
+	ControlLog   signal.EventLog
+	Registry     *identity.Registry
+	Gates        []troupe.Gate
+	ProxyFactory ProxyFactory
 }
 
 // NewLobby creates an Admission implementation.
@@ -51,12 +57,13 @@ func NewLobby(cfg LobbyConfig) *Lobby {
 		gate = troupe.ComposeGates(cfg.Gates...)
 	}
 	return &Lobby{
-		world:      cfg.World,
-		transport:  cfg.Transport,
-		controlLog: cfg.ControlLog,
-		registry:   cfg.Registry,
-		gate:       gate,
-		entries:    make(map[world.EntityID]*lobbyEntry),
+		world:        cfg.World,
+		transport:    cfg.Transport,
+		controlLog:   cfg.ControlLog,
+		registry:     cfg.Registry,
+		gate:         gate,
+		proxyFactory: cfg.ProxyFactory,
+		entries:      make(map[world.EntityID]*lobbyEntry),
 	}
 }
 
@@ -103,9 +110,15 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 
 	agentID := transport.AgentID(fmt.Sprintf("agent-%d", id))
 	if config.IsExternal() {
-		if err := l.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) {
-			return transport.Message{From: agentID, Content: "proxy: " + config.CallbackURL}, nil
-		}); err != nil {
+		var handler transport.MsgHandler
+		if l.proxyFactory != nil {
+			handler = l.proxyFactory(config.CallbackURL)
+		} else {
+			handler = func(_ context.Context, _ transport.Message) (transport.Message, error) {
+				return transport.Message{From: agentID, Content: "proxy: " + config.CallbackURL}, nil
+			}
+		}
+		if err := l.transport.Register(agentID, handler); err != nil {
 			slog.WarnContext(ctx, "admission transport register failed",
 				slog.String("role", role),
 				slog.String("agent_id", string(agentID)),
