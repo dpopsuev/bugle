@@ -3,6 +3,7 @@ package broker
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -64,9 +65,18 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 	if l.gate != nil {
 		allowed, reason, err := l.gate(ctx, config)
 		if err != nil {
+			slog.WarnContext(ctx, "admission gate error",
+				slog.String("role", config.Role),
+				slog.String("error", err.Error()),
+			)
 			return 0, fmt.Errorf("admission gate: %w", err)
 		}
 		if !allowed {
+			slog.WarnContext(ctx, "admission rejected",
+				slog.String("role", config.Role),
+				slog.String("reason", reason),
+				slog.Bool("external", config.IsExternal()),
+			)
 			l.emitControl(signal.EventVetoApplied, map[string]string{
 				"role": config.Role, "reason": reason,
 			})
@@ -96,6 +106,11 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 		if err := l.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) {
 			return transport.Message{From: agentID, Content: "proxy: " + config.CallbackURL}, nil
 		}); err != nil {
+			slog.WarnContext(ctx, "admission transport register failed",
+				slog.String("role", role),
+				slog.String("agent_id", string(agentID)),
+				slog.String("error", err.Error()),
+			)
 			l.world.Despawn(id)
 			return 0, fmt.Errorf("admission transport register: %w", err)
 		}
@@ -103,6 +118,11 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 		if err := l.transport.Register(agentID, func(_ context.Context, msg transport.Message) (transport.Message, error) {
 			return transport.Message{From: agentID, Content: "ack"}, nil
 		}); err != nil {
+			slog.WarnContext(ctx, "admission transport register failed",
+				slog.String("role", role),
+				slog.String("agent_id", string(agentID)),
+				slog.String("error", err.Error()),
+			)
 			l.world.Despawn(id)
 			return 0, fmt.Errorf("admission transport register: %w", err)
 		}
@@ -118,6 +138,13 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 		"agent_id": string(agentID),
 		"external": fmt.Sprintf("%t", config.IsExternal()),
 	})
+
+	slog.InfoContext(ctx, "agent admitted",
+		slog.String("agent_id", string(agentID)),
+		slog.String("role", role),
+		slog.Bool("external", config.IsExternal()),
+		slog.Int("lobby_count", l.Count()),
+	)
 
 	return id, nil
 }
@@ -142,6 +169,11 @@ func (l *Lobby) Dismiss(_ context.Context, id world.EntityID) error {
 		"agent_id": string(agentID),
 		"action":   "dismiss",
 	})
+
+	slog.Info("agent dismissed",
+		slog.String("agent_id", string(agentID)),
+		slog.Int("lobby_count", l.Count()),
+	)
 
 	return nil
 }
