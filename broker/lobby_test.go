@@ -102,7 +102,7 @@ func TestLobby_GateRejects(t *testing.T) {
 	}
 }
 
-func TestLobby_Dismiss(t *testing.T) {
+func TestLobby_Kick(t *testing.T) {
 	w := world.NewWorld()
 	tr := transport.NewLocalTransport()
 
@@ -116,8 +116,8 @@ func TestLobby_Dismiss(t *testing.T) {
 		t.Fatalf("Admit: %v", err)
 	}
 
-	if err := lobby.Dismiss(context.Background(), id); err != nil {
-		t.Fatalf("Dismiss: %v", err)
+	if err := lobby.Kick(context.Background(), id); err != nil {
+		t.Fatalf("Kick: %v", err)
 	}
 
 	if lobby.Count() != 0 {

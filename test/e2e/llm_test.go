@@ -24,7 +24,7 @@ const (
 	eventAdmitSuccess   = "admit_success"
 	eventLLMResponse    = "llm_response"
 	eventTransportSend  = "transport_send"
-	eventDismissSuccess = "dismiss_success"
+	eventKickSuccess = "kick_success"
 	eventLLMError       = "llm_error"
 	eventAdmitError     = "admit_error"
 )
@@ -60,7 +60,7 @@ func TestE2E_RealLLM_TwoAgents_SameAdmission(t *testing.T) {
 			{On: eventAdmitSuccess, Weight: 10},
 			{On: eventLLMResponse, Weight: 10},
 			{On: eventTransportSend, Weight: 10},
-			{On: eventDismissSuccess, Weight: 5},
+			{On: eventKickSuccess, Weight: 5},
 			{On: eventLLMError, Weight: -50},
 			{On: eventAdmitError, Weight: -50},
 		},
@@ -144,11 +144,11 @@ func TestE2E_RealLLM_TwoAgents_SameAdmission(t *testing.T) {
 	t.Logf("Agent B: %s", contentB)
 	statusLog.Emit(signal.Event{Kind: eventLLMResponse, Source: "agent-b"})
 
-	// 6. Dismiss both.
-	lobby.Dismiss(ctx, idA) //nolint:errcheck // test cleanup
-	statusLog.Emit(signal.Event{Kind: eventDismissSuccess, Source: "agent-a"})
-	lobby.Dismiss(ctx, idB) //nolint:errcheck // test cleanup
-	statusLog.Emit(signal.Event{Kind: eventDismissSuccess, Source: "agent-b"})
+	// 6. Kick both.
+	lobby.Kick(ctx, idA) //nolint:errcheck // test cleanup
+	statusLog.Emit(signal.Event{Kind: eventKickSuccess, Source: "agent-a"})
+	lobby.Kick(ctx, idB) //nolint:errcheck // test cleanup
+	statusLog.Emit(signal.Event{Kind: eventKickSuccess, Source: "agent-b"})
 
 	// 7. Referee verdict.
 	result := ref.Result()

@@ -86,15 +86,15 @@ func TestSecurity_QuotaGate_PreventsFlooding(t *testing.T) {
 	}
 }
 
-func TestSecurity_Dismiss_UnknownEntity_NoPanic(t *testing.T) {
+func TestSecurity_Kick_UnknownEntity_NoPanic(t *testing.T) {
 	lobby := broker.NewLobby(broker.LobbyConfig{
 		World:     world.NewWorld(),
 		Transport: transport.NewLocalTransport(),
 	})
 
-	err := lobby.Dismiss(context.Background(), 99999)
+	err := lobby.Kick(context.Background(), 99999)
 	if err != nil {
-		t.Logf("Dismiss unknown entity returned error (acceptable): %v", err)
+		t.Logf("Kick unknown entity returned error (acceptable): %v", err)
 	}
 }
 

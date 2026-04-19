@@ -19,7 +19,7 @@ type AdmissionTestDeps struct {
 
 // RunAdmissionContract verifies any Admission implementation satisfies
 // the behavioral contract: Admit creates entity, emits dispatch_routed.
-// Dismiss removes entity. Gate rejection emits veto_applied.
+// Kick removes entity. Gate rejection emits veto_applied.
 // Concurrent Admits are race-free.
 func RunAdmissionContract(t *testing.T, deps AdmissionTestDeps) {
 	t.Helper()
@@ -38,7 +38,7 @@ func RunAdmissionContract(t *testing.T, deps AdmissionTestDeps) {
 		if after != before+1 {
 			t.Fatalf("World count %d -> %d, want +1", before, after)
 		}
-		deps.Admission.Dismiss(ctx, id) //nolint:errcheck
+		deps.Admission.Kick(ctx, id) //nolint:errcheck // test cleanup
 	})
 
 	t.Run("Admit_EmitsDispatchRouted", func(t *testing.T) {
@@ -61,17 +61,17 @@ func RunAdmissionContract(t *testing.T, deps AdmissionTestDeps) {
 		if !found {
 			t.Fatal("Admit should emit dispatch_routed to ControlLog")
 		}
-		deps.Admission.Dismiss(ctx, id) //nolint:errcheck
+		deps.Admission.Kick(ctx, id) //nolint:errcheck // test cleanup
 	})
 
-	t.Run("Dismiss_RemovesEntity", func(t *testing.T) {
+	t.Run("Kick_RemovesEntity", func(t *testing.T) {
 		id, err := deps.Admission.Admit(ctx, troupe.ActorConfig{Role: "dismiss-test"})
 		if err != nil {
 			t.Fatalf("Admit: %v", err)
 		}
 		before := deps.WorldCount()
-		if err := deps.Admission.Dismiss(ctx, id); err != nil {
-			t.Fatalf("Dismiss: %v", err)
+		if err := deps.Admission.Kick(ctx, id); err != nil {
+			t.Fatalf("Kick: %v", err)
 		}
 		after := deps.WorldCount()
 		if after != before-1 {
@@ -115,7 +115,7 @@ func RunAdmissionContract(t *testing.T, deps AdmissionTestDeps) {
 
 		// Clean up.
 		for id := range seen {
-			deps.Admission.Dismiss(ctx, world.EntityID(id)) //nolint:errcheck
+			deps.Admission.Kick(ctx, world.EntityID(id)) //nolint:errcheck // test cleanup
 		}
 	})
 }

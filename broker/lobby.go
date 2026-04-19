@@ -14,6 +14,13 @@ import (
 	"github.com/dpopsuev/troupe/world"
 )
 
+const (
+	logKeyAgentID    = "agent_id"
+	logKeyLobbyCount = "lobby_count"
+	logKeyEntityID   = "entity_id"
+	logKeyReason     = "reason"
+)
+
 var _ troupe.Admission = (*Lobby)(nil)
 
 // Lobby is the universal admission system for all agents.
@@ -29,6 +36,7 @@ type Lobby struct {
 
 	mu      sync.RWMutex
 	entries map[world.EntityID]*lobbyEntry
+	banned  map[world.EntityID]string // id → reason
 }
 
 type lobbyEntry struct {
@@ -72,6 +80,7 @@ func NewLobby(cfg LobbyConfig) *Lobby {
 		proxyFactory:   cfg.ProxyFactory,
 		handlerFactory: cfg.HandlerFactory,
 		entries:        make(map[world.EntityID]*lobbyEntry),
+		banned:         make(map[world.EntityID]string),
 	}
 }
 
@@ -176,8 +185,8 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 	return id, nil
 }
 
-// Dismiss removes an agent from the World.
-func (l *Lobby) Dismiss(_ context.Context, id world.EntityID) error {
+// Kick removes an agent from the World.
+func (l *Lobby) Kick(ctx context.Context, id world.EntityID) error {
 	agentID := transport.AgentID(fmt.Sprintf("agent-%d", id))
 
 	l.transport.Roles().Unregister(string(agentID))
@@ -194,15 +203,47 @@ func (l *Lobby) Dismiss(_ context.Context, id world.EntityID) error {
 
 	l.emitControl(signal.EventDispatchRouted, map[string]string{
 		"agent_id": string(agentID),
-		"action":   "dismiss",
+		"action":   "kick",
 	})
 
-	slog.Info("agent dismissed",
-		slog.String("agent_id", string(agentID)),
-		slog.Int("lobby_count", l.Count()),
+	slog.InfoContext(ctx, "agent kicked",
+		slog.String(logKeyAgentID, string(agentID)),
+		slog.Int(logKeyLobbyCount, l.Count()),
 	)
 
 	return nil
+}
+
+// Ban kicks an agent and adds it to the deny list.
+func (l *Lobby) Ban(ctx context.Context, id world.EntityID, reason string) error {
+	if err := l.Kick(ctx, id); err != nil {
+		return err
+	}
+	l.mu.Lock()
+	l.banned[id] = reason
+	l.mu.Unlock()
+
+	slog.InfoContext(ctx, "agent banned",
+		slog.Uint64(logKeyEntityID, uint64(id)),
+		slog.String(logKeyReason, reason),
+	)
+	return nil
+}
+
+// Unban removes an agent from the deny list.
+func (l *Lobby) Unban(_ context.Context, id world.EntityID) error {
+	l.mu.Lock()
+	delete(l.banned, id)
+	l.mu.Unlock()
+	return nil
+}
+
+// IsBanned reports whether an agent is on the deny list.
+func (l *Lobby) IsBanned(id world.EntityID) bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	_, banned := l.banned[id]
+	return banned
 }
 
 // Heartbeat updates the last-seen timestamp for an admitted agent.
@@ -235,7 +276,7 @@ func (l *Lobby) EvictStale(ctx context.Context, ttl time.Duration) int {
 			slog.String("agent_id", fmt.Sprintf("agent-%d", id)),
 			slog.Duration("silent_for", now.Sub(l.entries[id].lastSeen)),
 		)
-		l.Dismiss(ctx, id) //nolint:errcheck
+		l.Kick(ctx, id) //nolint:errcheck // best-effort during eviction
 	}
 	return len(stale)
 }

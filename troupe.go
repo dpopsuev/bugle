@@ -2,10 +2,15 @@ package troupe
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"log/slog"
 
 	"github.com/dpopsuev/troupe/world"
+)
+
+var (
+	ErrNoAdmission = errors.New("troupe: no admission configured")
+	ErrNoBroker    = errors.New("troupe: no broker configured")
 )
 
 // Troupe is the unified Facade over Broker, Admission, and the agent
@@ -40,7 +45,7 @@ func New(opts ...TroupeOption) *Troupe {
 // Admit registers an agent into the World via Admission.
 func (t *Troupe) Admit(ctx context.Context, config ActorConfig) (world.EntityID, error) {
 	if t.admission == nil {
-		return 0, fmt.Errorf("troupe: no admission configured")
+		return 0, ErrNoAdmission
 	}
 	id, err := t.admission.Admit(ctx, config)
 	if err != nil {
@@ -57,18 +62,34 @@ func (t *Troupe) Admit(ctx context.Context, config ActorConfig) (world.EntityID,
 	return id, nil
 }
 
-// Dismiss removes an agent from the World via Admission.
-func (t *Troupe) Dismiss(ctx context.Context, id world.EntityID) error {
+// Kick removes an agent from the World via Admission.
+func (t *Troupe) Kick(ctx context.Context, id world.EntityID) error {
 	if t.admission == nil {
-		return fmt.Errorf("troupe: no admission configured")
+		return ErrNoAdmission
 	}
-	return t.admission.Dismiss(ctx, id)
+	return t.admission.Kick(ctx, id)
+}
+
+// Ban kicks an agent and prevents re-admission.
+func (t *Troupe) Ban(ctx context.Context, id world.EntityID, reason string) error {
+	if t.admission == nil {
+		return ErrNoAdmission
+	}
+	return t.admission.Ban(ctx, id, reason)
+}
+
+// Unban removes an agent from the deny list.
+func (t *Troupe) Unban(ctx context.Context, id world.EntityID) error {
+	if t.admission == nil {
+		return ErrNoAdmission
+	}
+	return t.admission.Unban(ctx, id)
 }
 
 // Spawn creates a running actor via Broker.
 func (t *Troupe) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
 	if t.broker == nil {
-		return nil, fmt.Errorf("troupe: no broker configured")
+		return nil, ErrNoBroker
 	}
 	return t.broker.Spawn(ctx, config)
 }

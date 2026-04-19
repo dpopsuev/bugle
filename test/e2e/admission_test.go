@@ -141,12 +141,12 @@ func TestE2E_TwoAgents_SameAdmission_ThreeBuses(t *testing.T) {
 		t.Fatalf("Referee score = %d after WorkLog event, want still 10 (should not see WorkLog)", result2.Score)
 	}
 
-	// 13. Dismiss both.
-	if err := lobby.Dismiss(context.Background(), internalID); err != nil {
-		t.Fatalf("Dismiss internal: %v", err)
+	// 13. Kick both.
+	if err := lobby.Kick(context.Background(), internalID); err != nil {
+		t.Fatalf("Kick internal: %v", err)
 	}
-	if err := lobby.Dismiss(context.Background(), externalID); err != nil {
-		t.Fatalf("Dismiss external: %v", err)
+	if err := lobby.Kick(context.Background(), externalID); err != nil {
+		t.Fatalf("Kick external: %v", err)
 	}
 	if lobby.Count() != 0 {
 		t.Fatalf("Lobby has %d entries after dismiss, want 0", lobby.Count())

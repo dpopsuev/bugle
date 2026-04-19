@@ -16,7 +16,14 @@ type Admission interface {
 	// and emits to ControlLog. Returns the entity ID.
 	Admit(ctx context.Context, config ActorConfig) (world.EntityID, error)
 
-	// Dismiss removes an agent from the World. Unregisters from Transport,
-	// marks entity terminated, emits to ControlLog.
-	Dismiss(ctx context.Context, id world.EntityID) error
+	// Kick forcefully removes an agent from the World. Unregisters from
+	// Transport, marks entity terminated, emits to ControlLog.
+	Kick(ctx context.Context, id world.EntityID) error
+
+	// Ban kicks an agent and adds its identity to a deny list, preventing
+	// re-admission. Returns ErrNotFound if the agent doesn't exist.
+	Ban(ctx context.Context, id world.EntityID, reason string) error
+
+	// Unban removes an agent identity from the deny list.
+	Unban(ctx context.Context, id world.EntityID) error
 }
