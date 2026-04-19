@@ -225,6 +225,14 @@ func (a *DefaultAdmin) KillAll(ctx context.Context, reason string) error {
 func (a *DefaultAdmin) buildDetail(id world.EntityID) troupe.AgentDetail {
 	d := troupe.AgentDetail{ID: id}
 
+	if a.lobby != nil {
+		a.lobby.mu.RLock()
+		if entry, ok := a.lobby.entries[id]; ok {
+			d.Role = entry.config.Role
+		}
+		a.lobby.mu.RUnlock()
+	}
+
 	if alive, ok := world.TryGet[world.Alive](a.world, id); ok {
 		d.Alive = alive.State
 		d.Since = alive.Since

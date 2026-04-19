@@ -12,6 +12,7 @@ import (
 	"github.com/dpopsuev/troupe/billing"
 	"github.com/dpopsuev/troupe/broker"
 	"github.com/dpopsuev/troupe/internal/transport"
+	"github.com/dpopsuev/troupe/resilience"
 	"github.com/dpopsuev/troupe/testkit"
 	"github.com/dpopsuev/troupe/world"
 )
@@ -187,6 +188,36 @@ func TestUnhappy_EvictStale_ReapsDisconnected(t *testing.T) {
 	if lobby.Count() != 1 {
 		t.Errorf("lobby count = %d, want 1 (stale agent evicted)", lobby.Count())
 	}
+}
+
+func TestUnhappy_RetryExhaustion_AllAttemptsFail(t *testing.T) {
+	alwaysFail := testkit.NewStubProvider()
+	alwaysFail.Error = errors.New("permanent transient")
+
+	b := broker.New("",
+		broker.WithDriver(noopDriver{}),
+		broker.WithProviderResolver(func(_ string) (anyllm.Provider, error) { return alwaysFail, nil }),
+		broker.WithRetry(resilience.RetryConfig{
+			MaxAttempts: 3,
+			BaseDelay:   1 * time.Millisecond,
+		}),
+	)
+
+	actor, err := b.Spawn(context.Background(), troupe.ActorConfig{
+		Model: "test", Provider: "test", Role: "doomed",
+	})
+	if err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+
+	_, err = actor.Perform(context.Background(), "will fail 3 times")
+	if err == nil {
+		t.Fatal("expected error after retry exhaustion")
+	}
+	if len(alwaysFail.Calls()) != 3 {
+		t.Errorf("attempts = %d, want 3 (MaxAttempts)", len(alwaysFail.Calls()))
+	}
+	t.Logf("Retry exhaustion: %v after %d attempts", err, len(alwaysFail.Calls()))
 }
 
 type blockingProvider struct {
