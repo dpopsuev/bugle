@@ -51,7 +51,7 @@ Origami (orchestration + tools)
  Troupe (infrastructure)
     |
     ├── Server: World, Broker, Admission, Signal, Transport
-    └── Library: execution/, billing/, resilience/, arsenal/, referee/
+    └── Library: providers/, billing/, resilience/, arsenal/, referee/
 ```
 
 ## Server Packages
@@ -67,7 +67,7 @@ Origami (orchestration + tools)
 
 | Package | Purpose |
 |---------|---------|
-| `execution/` | LLM provider abstraction (Anthropic, OpenAI, Gemini, Vertex, OpenRouter) |
+| `providers/` | LLM provider abstraction (Anthropic, OpenAI, Gemini, Vertex, OpenRouter) |
 | `billing/` | Token tracking and budget enforcement |
 | `resilience/` | CircuitBreaker, Retry, RateLimiter, Timeout |
 | `arsenal/` | Trait-scored model catalog and selection |

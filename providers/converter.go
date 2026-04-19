@@ -2,7 +2,7 @@
 //
 // Plain functions, no interface. The switch has a default that warns
 // on unknown roles instead of silently dropping them (TRP-BUG-2 fix).
-package execution
+package providers
 
 import (
 	"encoding/json"

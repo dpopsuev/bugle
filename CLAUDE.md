@@ -47,7 +47,7 @@ collective/    — Multi-agent primitives (Race, RoundRobin, Scatter, Scale, Dia
 ### Library packages (exportable harness components)
 
 ```
-execution/     — LLM provider abstraction (any-llm-go: Anthropic, OpenAI, Gemini, Vertex, OpenRouter)
+providers/     — LLM provider abstraction (any-llm-go: Anthropic, OpenAI, Gemini, Vertex, OpenRouter)
 billing/       — Token/cost tracking (CostBill, period management, BudgetEnforcer) — dual-homed: server + agent
 referee/       — Event-driven scoring engine (YAML Scorecards, weighted rules) — dual-homed: server + agent
 arsenal/       — Embedded model catalog (trait-scored selection, TraitVector, snapshot pinning)

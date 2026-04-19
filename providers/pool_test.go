@@ -1,4 +1,4 @@
-package execution_test
+package providers_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/troupe/execution"
+	"github.com/dpopsuev/troupe/providers"
 )
 
 // testWorkItem implements WorkItem for pool tests.
@@ -23,7 +23,7 @@ func (w *testWorkItem) Timeout() time.Duration { return 0 }
 // memQueue is a simple in-memory Queue for testing.
 type memQueue struct {
 	mu      sync.Mutex
-	items   []execution.WorkItem
+	items   []providers.WorkItem
 	results map[uint64][]byte
 	active  int
 
@@ -41,7 +41,7 @@ func newMemQueue() *memQueue {
 	}
 }
 
-func (q *memQueue) Enqueue(_ context.Context, item execution.WorkItem) error {
+func (q *memQueue) Enqueue(_ context.Context, item providers.WorkItem) error {
 	q.mu.Lock()
 	q.items = append(q.items, item)
 	q.resultCh[item.ID()] = make(chan []byte, 1)
@@ -51,7 +51,7 @@ func (q *memQueue) Enqueue(_ context.Context, item execution.WorkItem) error {
 	return nil
 }
 
-func (q *memQueue) Pull(ctx context.Context) (execution.WorkItem, error) {
+func (q *memQueue) Pull(ctx context.Context) (providers.WorkItem, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -71,7 +71,7 @@ func (q *memQueue) Pull(ctx context.Context) (execution.WorkItem, error) {
 	}
 }
 
-func (q *memQueue) PullWithHints(ctx context.Context, _ execution.WorkerHints) (execution.WorkItem, error) {
+func (q *memQueue) PullWithHints(ctx context.Context, _ providers.WorkerHints) (providers.WorkItem, error) {
 	return q.Pull(ctx)
 }
 
@@ -132,7 +132,7 @@ func TestPool_ProcessesAllItems(t *testing.T) {
 	}
 
 	// Start pool with 2 workers.
-	pool := execution.NewPool(q, echoActor, 2)
+	pool := providers.NewPool(q, echoActor, 2)
 	pool.Start(ctx)
 
 	// Wait for all 3 results.
@@ -173,7 +173,7 @@ func TestPool_ErrorSubmission(t *testing.T) {
 		t.Fatalf("enqueue: %v", err)
 	}
 
-	pool := execution.NewPool(q, failActor, 1)
+	pool := providers.NewPool(q, failActor, 1)
 	pool.Start(ctx)
 
 	result, err := q.awaitResult(ctx, 1)

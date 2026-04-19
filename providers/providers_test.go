@@ -1,10 +1,10 @@
-package execution_test
+package providers_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/dpopsuev/troupe/execution"
+	"github.com/dpopsuev/troupe/providers"
 )
 
 // Compile-time contract: stubWorkItem implements WorkItem.
@@ -14,10 +14,10 @@ func (s *stubWorkItem) ID() uint64            { return 1 }
 func (s *stubWorkItem) Input() string         { return "test prompt" }
 func (s *stubWorkItem) Timeout() time.Duration { return 0 }
 
-var _ execution.WorkItem = (*stubWorkItem)(nil)
+var _ providers.WorkItem = (*stubWorkItem)(nil)
 
 func TestWorkItem_InterfaceCompiles(t *testing.T) {
-	var item execution.WorkItem = &stubWorkItem{}
+	var item providers.WorkItem = &stubWorkItem{}
 	if item.ID() != 1 {
 		t.Fatal("expected ID 1")
 	}
@@ -30,7 +30,7 @@ func TestWorkItem_InterfaceCompiles(t *testing.T) {
 }
 
 func TestWorkerHints_ZeroValue(t *testing.T) {
-	hints := execution.WorkerHints{}
+	hints := providers.WorkerHints{}
 	if hints.Stickiness != 0 {
 		t.Fatal("zero value stickiness should be 0")
 	}

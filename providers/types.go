@@ -1,6 +1,6 @@
 // Package execution provides work distribution strategies for actors.
 // Two strategies: inline (caller drives) and queue (worker drives).
-package execution
+package providers
 
 import (
 	"context"

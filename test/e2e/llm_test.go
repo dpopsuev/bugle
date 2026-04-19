@@ -11,7 +11,7 @@ import (
 
 	"github.com/dpopsuev/troupe"
 	"github.com/dpopsuev/troupe/broker"
-	"github.com/dpopsuev/troupe/execution"
+	"github.com/dpopsuev/troupe/providers"
 	"github.com/dpopsuev/troupe/internal/transport"
 	"github.com/dpopsuev/troupe/referee"
 	"github.com/dpopsuev/troupe/signal"
@@ -58,7 +58,7 @@ func TestE2E_RealLLM_TwoVertexAgents_SameAdmission(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	provider, err := execution.NewVertexProvider(ctx, region, project)
+	provider, err := providers.NewVertexProvider(ctx, region, project)
 	if err != nil {
 		t.Fatalf("NewVertexProvider: %v", err)
 	}
