@@ -15,6 +15,7 @@ var (
 	ErrNoCandidate  = errors.New("arsenal: no model matches preferences")
 	ErrBadPin       = errors.New("arsenal: unknown snapshot pin")
 	ErrEmptyCatalog = errors.New("arsenal: no snapshots found in embedded catalog")
+	ErrDiscoveryAPI = errors.New("arsenal: discovery API error")
 )
 
 // CostEntry holds per-million-token pricing.
