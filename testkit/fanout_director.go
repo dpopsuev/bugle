@@ -15,20 +15,20 @@ type FanOutDirector struct {
 	Count  int // how many actors to fan out to
 }
 
-func (d *FanOutDirector) Direct(ctx context.Context, broker troupe.Broker) (<-chan troupe.Event, error) {
+func (d *FanOutDirector) Direct(ctx context.Context, caster troupe.Caster) (<-chan troupe.Event, error) {
 	count := d.Count
 	if count <= 0 {
 		count = 1
 	}
 
-	configs, err := broker.Pick(ctx, troupe.Preferences{Count: count})
+	configs, err := caster.Pick(ctx, troupe.Preferences{Count: count})
 	if err != nil {
 		return nil, err
 	}
 
 	actors := make([]troupe.Actor, len(configs))
 	for i, cfg := range configs {
-		a, err := broker.Spawn(ctx, cfg)
+		a, err := caster.Spawn(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}

@@ -13,6 +13,7 @@ import (
 // --- Compile-time interface checks ---
 
 var _ troupe.Broker = (*brokerpkg.DefaultBroker)(nil)
+var _ troupe.Caster = (*brokerpkg.DefaultBroker)(nil)
 var _ troupe.Actor = (*collective.Collective)(nil)
 var _ brokerpkg.PickStrategy = brokerpkg.FirstMatch{}
 var _ troupe.Meter = (*brokerpkg.InMemoryMeter)(nil)

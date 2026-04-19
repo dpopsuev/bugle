@@ -50,6 +50,7 @@ type EventDetail interface {
 
 // Director is the consumer contract for orchestration strategies.
 // Origami implements CircuitDirector. Djinn implements LocalDirector.
+// Takes Caster (Pick+Spawn) — the narrow factory interface.
 type Director interface {
-	Direct(ctx context.Context, broker Broker) (<-chan Event, error)
+	Direct(ctx context.Context, caster Caster) (<-chan Event, error)
 }

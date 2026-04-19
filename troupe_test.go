@@ -8,6 +8,8 @@ import (
 	"github.com/dpopsuev/troupe/testkit"
 )
 
+var _ troupe.Caster = (*troupe.Troupe)(nil)
+
 func TestTroupe_FullWorkflow(t *testing.T) {
 	broker := testkit.NewMockBroker(3)
 

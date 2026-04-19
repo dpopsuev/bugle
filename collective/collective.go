@@ -321,7 +321,7 @@ func (c *Collective) Phase() Phase {
 
 // Scale adjusts the number of agents to the target count.
 // Spawns new agents or kills excess agents as needed.
-func (c *Collective) Scale(ctx context.Context, target int, config troupe.ActorConfig, broker troupe.Broker) error {
+func (c *Collective) Scale(ctx context.Context, target int, config troupe.ActorConfig, caster troupe.Caster) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -340,7 +340,7 @@ func (c *Collective) Scale(ctx context.Context, target int, config troupe.ActorC
 	if target > current {
 		// Scale up — spawn new agents.
 		for range target - current {
-			a, err := broker.Spawn(ctx, troupe.ActorConfig{Model: config.Model, Role: config.Role})
+			a, err := caster.Spawn(ctx, troupe.ActorConfig{Model: config.Model, Role: config.Role})
 			if err != nil {
 				return fmt.Errorf("collective scale up: %w", err)
 			}

@@ -87,6 +87,14 @@ func (t *Troupe) Unban(ctx context.Context, id world.EntityID) error {
 	return t.admission.Unban(ctx, id)
 }
 
+// Pick returns actor configurations matching preferences via Arsenal.
+func (t *Troupe) Pick(ctx context.Context, prefs Preferences) ([]ActorConfig, error) {
+	if t.broker == nil {
+		return nil, ErrNoBroker
+	}
+	return t.broker.Pick(ctx, prefs)
+}
+
 // Spawn creates a running actor via Broker.
 func (t *Troupe) Spawn(ctx context.Context, config ActorConfig) (Actor, error) {
 	if t.broker == nil {

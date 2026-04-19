@@ -19,8 +19,8 @@ type LinearDirector struct {
 	Steps []Step
 }
 
-func (d *LinearDirector) Direct(ctx context.Context, broker troupe.Broker) (<-chan troupe.Event, error) {
-	configs, err := broker.Pick(ctx, troupe.Preferences{Count: 1})
+func (d *LinearDirector) Direct(ctx context.Context, caster troupe.Caster) (<-chan troupe.Event, error) {
+	configs, err := caster.Pick(ctx, troupe.Preferences{Count: 1})
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +28,7 @@ func (d *LinearDirector) Direct(ctx context.Context, broker troupe.Broker) (<-ch
 		return nil, ErrNoActors
 	}
 
-	actor, err := broker.Spawn(ctx, configs[0])
+	actor, err := caster.Spawn(ctx, configs[0])
 	if err != nil {
 		return nil, err
 	}

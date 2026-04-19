@@ -3,79 +3,45 @@ package troupe
 import "context"
 
 // AgentInfo describes a live agent in the troupe.
-// Human-facing: no protocol details, just who they are and how they're doing.
 type AgentInfo struct {
-	// ID is the unique agent identifier.
-	ID string `json:"id"`
-
-	// Role is the functional role (e.g., "investigator", "reviewer").
-	Role string `json:"role"`
-
-	// Model is the resolved model identifier.
-	Model string `json:"model,omitempty"`
-
-	// Ready reports whether the agent can accept work.
-	Ready bool `json:"ready"`
-
-	// Healthy reports whether the agent process is alive.
-	Healthy bool `json:"healthy"`
+	ID      string `json:"id"`
+	Role    string `json:"role"`
+	Model   string `json:"model,omitempty"`
+	Ready   bool   `json:"ready"`
+	Healthy bool   `json:"healthy"`
 }
 
-// Broker is the Actor Broker — it casts and hires actors for Directors.
-// Facade over arsenal (Pick), pool+acp (Spawn), roster (Discover).
-type Broker interface {
-	// Pick returns actor configurations matching the given preferences.
-	// Backed by the Arsenal catalog.
+// Caster selects and spawns actors. The narrow interface for Directors
+// and Collectives — they need a factory, not the full Troupe facade.
+// Troupe facade satisfies this. So does the internal Broker.
+type Caster interface {
 	Pick(ctx context.Context, prefs Preferences) ([]ActorConfig, error)
-
-	// Spawn creates a running actor from the given configuration.
 	Spawn(ctx context.Context, config ActorConfig) (Actor, error)
+}
 
-	// Discover returns agent cards for live agents, optionally filtered by role.
-	// Empty role returns all agents.
+// Broker extends Caster with agent discovery. Used internally by the
+// broker package. Consumers should use the Troupe facade or Caster.
+type Broker interface {
+	Caster
 	Discover(role string) []AgentCard
 }
 
-// Preferences describes what kind of actor the Director needs.
+// Preferences describes what kind of actor is needed.
 type Preferences struct {
-	// Role is the functional role (e.g., "investigator", "reviewer").
-	Role string `json:"role,omitempty"`
-
-	// Model requests a specific model (e.g., "sonnet", "opus").
-	// Empty = let the Broker decide.
+	Role  string `json:"role,omitempty"`
 	Model string `json:"model,omitempty"`
-
-	// Count is how many actors to pick. Default 1.
-	Count int `json:"count,omitempty"`
+	Count int    `json:"count,omitempty"`
 }
 
 // ActorConfig is the resolved configuration for spawning an actor.
-// Returned by Broker.Pick, consumed by Broker.Spawn.
 type ActorConfig struct {
-	// Model is the resolved model identifier.
-	Model string `json:"model"`
-
-	// Provider is the resolved provider (e.g., "anthropic", "openai").
-	Provider string `json:"provider,omitempty"`
-
-	// Role is the assigned role.
-	Role string `json:"role,omitempty"`
-
-	// Thinking controls reasoning depth (0.0 = shallowest, 1.0 = deepest).
-	// Arsenal uses this to select model tier.
-	Thinking float64 `json:"thinking,omitempty"`
-
-	// Domain hints what kind of work (coding, reasoning, knowledge, math, agentic).
-	// Empty = auto-detect or best generalist. Arsenal scores models by domain fit.
-	Domain string `json:"domain,omitempty"`
-
-	// Skills lists agent capabilities (e.g., "code-review", "security-audit").
-	Skills []string `json:"skills,omitempty"`
-
-	// CallbackURL is the A2A endpoint for external agents.
-	// When set, the agent is external — messages are proxied to this URL.
-	// When empty, the agent is internal — started via Driver.
-	CallbackURL string `json:"callback_url,omitempty"`
+	Model       string   `json:"model"`
+	Provider    string   `json:"provider,omitempty"`
+	Role        string   `json:"role,omitempty"`
+	Thinking    float64  `json:"thinking,omitempty"`
+	Domain      string   `json:"domain,omitempty"`
+	Skills      []string `json:"skills,omitempty"`
+	CallbackURL string   `json:"callback_url,omitempty"`
 }
 
 // IsExternal returns true if this config represents an external agent.
