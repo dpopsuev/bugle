@@ -357,5 +357,42 @@ func (c *Collective) Scale(ctx context.Context, target int, config troupe.ActorC
 	return nil
 }
 
+// Add appends an existing actor to the collective. The actor
+// participates in the strategy on the next Perform call.
+func (c *Collective) Add(actor troupe.Actor) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.maxSize > 0 && len(c.agents)+1 > c.maxSize {
+		return fmt.Errorf("%w: adding would exceed max %d", ErrMaxSizeExceeded, c.maxSize)
+	}
+	c.agents = append(c.agents, actor)
+	return nil
+}
+
+// Remove removes an actor by index from the collective and kills it.
+func (c *Collective) Remove(ctx context.Context, index int) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if index < 0 || index >= len(c.agents) {
+		return fmt.Errorf("%w: index %d out of range [0, %d)", ErrNoAgents, index, len(c.agents))
+	}
+	if c.minAvailable > 0 && len(c.agents)-1 < c.minAvailable {
+		return fmt.Errorf("%w: removing would go below minimum %d", ErrDisruptionBudget, c.minAvailable)
+	}
+
+	agent := c.agents[index]
+	c.agents = append(c.agents[:index], c.agents[index+1:]...)
+	return agent.Kill(ctx)
+}
+
+// Size returns the current number of agents in the collective.
+func (c *Collective) Size() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.agents)
+}
+
 // Compile-time check: Collective implements troupe.Actor.
 var _ troupe.Actor = (*Collective)(nil)

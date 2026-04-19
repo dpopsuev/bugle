@@ -380,3 +380,59 @@ func TestBudgetGate_NilSpentCallback(t *testing.T) {
 		t.Fatal("nil Spent should default to 0 (under budget)")
 	}
 }
+
+func TestCollective_Add(t *testing.T) {
+	tp := newTestParts()
+	a1, _ := tp.spawn(context.Background(), "agent-1")
+	a2, _ := tp.spawn(context.Background(), "agent-2")
+
+	c := NewCollective(100, "growers", &echoStrategy{}, []troupe.Actor{a1})
+	if c.Size() != 1 {
+		t.Fatalf("size = %d, want 1", c.Size())
+	}
+
+	if err := c.Add(a2); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if c.Size() != 2 {
+		t.Fatalf("size = %d, want 2 after add", c.Size())
+	}
+}
+
+func TestCollective_Add_RespectsMaxSize(t *testing.T) {
+	tp := newTestParts()
+	a1, _ := tp.spawn(context.Background(), "agent-1")
+	a2, _ := tp.spawn(context.Background(), "agent-2")
+
+	c := NewCollective(100, "capped", &echoStrategy{}, []troupe.Actor{a1}, WithMaxSize(1))
+	err := c.Add(a2)
+	if err == nil {
+		t.Fatal("expected error when exceeding max size")
+	}
+}
+
+func TestCollective_Remove(t *testing.T) {
+	tp := newTestParts()
+	a1, _ := tp.spawn(context.Background(), "agent-1")
+	a2, _ := tp.spawn(context.Background(), "agent-2")
+
+	c := NewCollective(100, "shrinkable", &echoStrategy{}, []troupe.Actor{a1, a2})
+
+	if err := c.Remove(context.Background(), 0); err != nil {
+		t.Fatalf("Remove: %v", err)
+	}
+	if c.Size() != 1 {
+		t.Fatalf("size = %d, want 1 after remove", c.Size())
+	}
+}
+
+func TestCollective_Remove_RespectsMinAvailable(t *testing.T) {
+	tp := newTestParts()
+	a1, _ := tp.spawn(context.Background(), "agent-1")
+
+	c := NewCollective(100, "guarded", &echoStrategy{}, []troupe.Actor{a1}, WithMinAvailable(1))
+	err := c.Remove(context.Background(), 0)
+	if err == nil {
+		t.Fatal("expected error when going below minimum")
+	}
+}
