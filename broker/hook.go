@@ -4,6 +4,7 @@ import (
 	"context"
 
 	troupe "github.com/dpopsuev/troupe"
+	"github.com/dpopsuev/troupe/world"
 )
 
 // Hook observes and optionally intercepts broker lifecycle events.
@@ -28,4 +29,22 @@ type PerformHook interface {
 	PrePerform(ctx context.Context, prompt string) error
 	// PostPerform is called after performing.
 	PostPerform(ctx context.Context, prompt, response string, err error)
+}
+
+// KickHook intercepts Admission.Kick calls.
+type KickHook interface {
+	Hook
+	// PreKick is called before kicking. Return non-nil error to block.
+	PreKick(ctx context.Context, id world.EntityID) error
+	// PostKick is called after kicking.
+	PostKick(ctx context.Context, id world.EntityID, err error)
+}
+
+// BanHook intercepts Admission.Ban calls.
+type BanHook interface {
+	Hook
+	// PreBan is called before banning. Return non-nil error to block.
+	PreBan(ctx context.Context, id world.EntityID, reason string) error
+	// PostBan is called after banning.
+	PostBan(ctx context.Context, id world.EntityID, reason string, err error)
 }

@@ -33,6 +33,7 @@ type Lobby struct {
 	gate           troupe.Gate
 	proxyFactory   ProxyFactory
 	handlerFactory HandlerFactory
+	hooks          []Hook
 
 	mu      sync.RWMutex
 	entries map[world.EntityID]*lobbyEntry
@@ -63,6 +64,7 @@ type LobbyConfig struct {
 	Gates          []troupe.Gate
 	ProxyFactory   ProxyFactory
 	HandlerFactory HandlerFactory
+	Hooks          []Hook
 }
 
 // NewLobby creates an Admission implementation.
@@ -79,6 +81,7 @@ func NewLobby(cfg LobbyConfig) *Lobby {
 		gate:           gate,
 		proxyFactory:   cfg.ProxyFactory,
 		handlerFactory: cfg.HandlerFactory,
+		hooks:          cfg.Hooks,
 		entries:        make(map[world.EntityID]*lobbyEntry),
 		banned:         make(map[world.EntityID]string),
 	}
@@ -185,8 +188,15 @@ func (l *Lobby) Admit(ctx context.Context, config troupe.ActorConfig) (world.Ent
 	return id, nil
 }
 
-// Kick removes an agent from the World.
+// Kick removes an agent from the World. KickHooks can block.
 func (l *Lobby) Kick(ctx context.Context, id world.EntityID) error {
+	for _, h := range l.hooks {
+		if kh, ok := h.(KickHook); ok {
+			if err := kh.PreKick(ctx, id); err != nil {
+				return fmt.Errorf("hook %s pre-kick: %w", kh.Name(), err)
+			}
+		}
+	}
 	agentID := transport.AgentID(fmt.Sprintf("agent-%d", id))
 
 	l.transport.Roles().Unregister(string(agentID))
@@ -211,11 +221,24 @@ func (l *Lobby) Kick(ctx context.Context, id world.EntityID) error {
 		slog.Int(logKeyLobbyCount, l.Count()),
 	)
 
+	for _, h := range l.hooks {
+		if kh, ok := h.(KickHook); ok {
+			kh.PostKick(ctx, id, nil)
+		}
+	}
+
 	return nil
 }
 
-// Ban kicks an agent and adds it to the deny list.
+// Ban kicks an agent and adds it to the deny list. BanHooks can block.
 func (l *Lobby) Ban(ctx context.Context, id world.EntityID, reason string) error {
+	for _, h := range l.hooks {
+		if bh, ok := h.(BanHook); ok {
+			if err := bh.PreBan(ctx, id, reason); err != nil {
+				return fmt.Errorf("hook %s pre-ban: %w", bh.Name(), err)
+			}
+		}
+	}
 	if err := l.Kick(ctx, id); err != nil {
 		return err
 	}
@@ -227,6 +250,13 @@ func (l *Lobby) Ban(ctx context.Context, id world.EntityID, reason string) error
 		slog.Uint64(logKeyEntityID, uint64(id)),
 		slog.String(logKeyReason, reason),
 	)
+
+	for _, h := range l.hooks {
+		if bh, ok := h.(BanHook); ok {
+			bh.PostBan(ctx, id, reason, nil)
+		}
+	}
+
 	return nil
 }
 
