@@ -2,6 +2,8 @@ package signal
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -11,36 +13,32 @@ import (
 
 const instrumentationName = "github.com/dpopsuev/troupe/signal"
 
-// OTelAdapter subscribes to a BusSet and emits OpenTelemetry
-// traces + metrics for every signal event. Zero changes to existing
-// emit points — the adapter observes via OnEmit callbacks.
-type OTelAdapter struct {
-	tracer  trace.Tracer
-	meter   metric.Meter
-	ctx     context.Context
-	cancel  context.CancelFunc
-	rootSpan trace.Span
+var _ EventLog = (*OTelLog)(nil)
+
+// OTelLog is an EventLog that pipes every event through OpenTelemetry.
+// Each Emit creates a span + increments metrics. Also stores events
+// in memory (strangler fig — MemLog underneath, OTel on top).
+type OTelLog struct {
+	mu     sync.Mutex
+	inner  MemLog
+	bus    string
+	tracer trace.Tracer
+	ctx    context.Context
 
 	eventCount metric.Int64Counter
 	errorCount metric.Int64Counter
-	tokenGauge metric.Int64UpDownCounter
 }
 
-// NewOTelAdapter creates an adapter that bridges BusSet events to OTel.
-// Call Close() when done to end the root span.
-func NewOTelAdapter(ctx context.Context, serviceName string) (*OTelAdapter, error) {
+// NewOTelLog creates an EventLog that pipes to OTel.
+// busName identifies this log (control, work, status) in span names.
+func NewOTelLog(ctx context.Context, busName string) (*OTelLog, error) {
 	tracer := otel.Tracer(instrumentationName)
 	meter := otel.Meter(instrumentationName)
-
-	spanCtx, rootSpan := tracer.Start(ctx, serviceName,
-		trace.WithSpanKind(trace.SpanKindInternal),
-	)
 
 	eventCount, err := meter.Int64Counter("troupe.events.total",
 		metric.WithDescription("Total signal events emitted"),
 	)
 	if err != nil {
-		rootSpan.End()
 		return nil, err
 	}
 
@@ -48,109 +46,80 @@ func NewOTelAdapter(ctx context.Context, serviceName string) (*OTelAdapter, erro
 		metric.WithDescription("Total error events"),
 	)
 	if err != nil {
-		rootSpan.End()
 		return nil, err
 	}
 
-	tokenGauge, err := meter.Int64UpDownCounter("troupe.tokens.used",
-		metric.WithDescription("Token usage across agents"),
-	)
-	if err != nil {
-		rootSpan.End()
-		return nil, err
-	}
-
-	childCtx, cancel := context.WithCancel(spanCtx)
-
-	return &OTelAdapter{
+	return &OTelLog{
+		bus:        busName,
 		tracer:     tracer,
-		meter:      meter,
-		ctx:        childCtx,
-		cancel:     cancel,
-		rootSpan:   rootSpan,
+		ctx:        ctx,
 		eventCount: eventCount,
 		errorCount: errorCount,
-		tokenGauge: tokenGauge,
 	}, nil
 }
 
-// Subscribe wires the adapter to all three buses in a BusSet.
-func (a *OTelAdapter) Subscribe(buses BusSet) {
-	buses.Control.OnEmit(a.onControl)
-	buses.Work.OnEmit(a.onWork)
-	buses.Status.OnEmit(a.onStatus)
-}
+// Emit appends the event AND creates an OTel span + metrics.
+func (l *OTelLog) Emit(e Event) int {
+	if e.Timestamp.IsZero() {
+		e.Timestamp = time.Now().UTC()
+	}
 
-func (a *OTelAdapter) onControl(e Event) {
-	_, span := a.tracer.Start(a.ctx, "troupe.control."+e.Kind,
+	_, span := l.tracer.Start(l.ctx, "troupe."+l.bus+"."+e.Kind,
 		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithTimestamp(e.Timestamp),
 	)
 	span.SetAttributes(
-		attribute.String("troupe.event.id", e.ID),
+		attribute.String("troupe.bus", l.bus),
 		attribute.String("troupe.event.kind", e.Kind),
 		attribute.String("troupe.event.source", e.Source),
-		attribute.String("troupe.bus", "control"),
 	)
+	if e.ID != "" {
+		span.SetAttributes(attribute.String("troupe.event.id", e.ID))
+	}
 	if e.TraceID != "" {
 		span.SetAttributes(attribute.String("troupe.trace_id", e.TraceID))
 	}
 	span.End()
 
-	a.eventCount.Add(a.ctx, 1,
-		metric.WithAttributes(
-			attribute.String("bus", "control"),
-			attribute.String("kind", e.Kind),
-		),
+	attrs := metric.WithAttributes(
+		attribute.String("bus", l.bus),
+		attribute.String("kind", e.Kind),
 	)
-}
+	l.eventCount.Add(l.ctx, 1, attrs)
 
-func (a *OTelAdapter) onWork(e Event) {
-	_, span := a.tracer.Start(a.ctx, "troupe.work."+e.Kind,
-		trace.WithSpanKind(trace.SpanKindInternal),
-	)
-	span.SetAttributes(
-		attribute.String("troupe.event.id", e.ID),
-		attribute.String("troupe.event.kind", e.Kind),
-		attribute.String("troupe.event.source", e.Source),
-		attribute.String("troupe.bus", "work"),
-	)
 	if e.Kind == EventWorkerError {
-		a.errorCount.Add(a.ctx, 1,
+		l.errorCount.Add(l.ctx, 1,
 			metric.WithAttributes(attribute.String("source", e.Source)),
 		)
 	}
-	span.End()
 
-	a.eventCount.Add(a.ctx, 1,
-		metric.WithAttributes(
-			attribute.String("bus", "work"),
-			attribute.String("kind", e.Kind),
-		),
-	)
+	return l.inner.Emit(e)
 }
 
-func (a *OTelAdapter) onStatus(e Event) {
-	_, span := a.tracer.Start(a.ctx, "troupe.status."+e.Kind,
-		trace.WithSpanKind(trace.SpanKindInternal),
-	)
-	span.SetAttributes(
-		attribute.String("troupe.event.id", e.ID),
-		attribute.String("troupe.event.kind", e.Kind),
-		attribute.String("troupe.event.source", e.Source),
-		attribute.String("troupe.bus", "status"),
-	)
-	span.End()
+func (l *OTelLog) Since(index int) []Event { return l.inner.Since(index) }
+func (l *OTelLog) Len() int                { return l.inner.Len() }
+func (l *OTelLog) OnEmit(fn func(Event))   { l.inner.OnEmit(fn) }
 
-	a.eventCount.Add(a.ctx, 1,
-		metric.WithAttributes(
-			attribute.String("bus", "status"),
-			attribute.String("kind", e.Kind),
-		),
-	)
-}
+// ByTraceID delegates to the inner MemLog.
+func (l *OTelLog) ByTraceID(traceID string) []Event { return l.inner.ByTraceID(traceID) }
 
-// Close ends the root span and cancels the context.
-func (a *OTelAdapter) Close() {
-	a.cancel()
-	a.rootSpan.End()
+// NewOTelBusSet creates a BusSet where every bus pipes through OTel.
+func NewOTelBusSet(ctx context.Context) (*BusSet, error) {
+	control, err := NewOTelLog(ctx, "control")
+	if err != nil {
+		return nil, err
+	}
+	work, err := NewOTelLog(ctx, "work")
+	if err != nil {
+		return nil, err
+	}
+	status, err := NewOTelLog(ctx, "status")
+	if err != nil {
+		return nil, err
+	}
+	return &BusSet{
+		Control: ControlLog{control},
+		Work:    WorkLog{work},
+		Status:  StatusLog{status},
+	}, nil
 }

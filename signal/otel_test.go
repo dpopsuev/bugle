@@ -7,49 +7,69 @@ import (
 	"github.com/dpopsuev/troupe/signal"
 )
 
-func TestOTelAdapter_SubscribesAndEmits(t *testing.T) {
-	buses := signal.NewBusSet()
-
-	adapter, err := signal.NewOTelAdapter(context.Background(), "test-service")
+func TestOTelLog_ImplementsEventLog(t *testing.T) {
+	log, err := signal.NewOTelLog(context.Background(), "test")
 	if err != nil {
-		t.Fatalf("NewOTelAdapter: %v", err)
+		t.Fatalf("NewOTelLog: %v", err)
 	}
-	defer adapter.Close()
 
-	adapter.Subscribe(buses)
-
-	buses.Control.Emit(signal.Event{
+	idx := log.Emit(signal.Event{
 		Kind:   signal.EventDispatchRouted,
 		Source: "broker",
 	})
-	buses.Work.Emit(signal.Event{
-		Kind:   signal.EventWorkerStart,
-		Source: "worker-1",
-	})
-	buses.Work.Emit(signal.Event{
-		Kind:   signal.EventWorkerError,
-		Source: "worker-1",
-	})
-	buses.Status.Emit(signal.Event{
-		Kind:   signal.EventWorkerStarted,
-		Source: "warden",
-	})
+	if idx != 0 {
+		t.Errorf("first emit index = %d, want 0", idx)
+	}
 
-	if buses.Control.Len() != 1 {
-		t.Errorf("control events = %d, want 1", buses.Control.Len())
+	if log.Len() != 1 {
+		t.Errorf("Len() = %d, want 1", log.Len())
 	}
-	if buses.Work.Len() != 2 {
-		t.Errorf("work events = %d, want 2", buses.Work.Len())
+
+	events := log.Since(0)
+	if len(events) != 1 {
+		t.Fatalf("Since(0) = %d events, want 1", len(events))
 	}
-	if buses.Status.Len() != 1 {
-		t.Errorf("status events = %d, want 1", buses.Status.Len())
+	if events[0].Kind != signal.EventDispatchRouted {
+		t.Errorf("kind = %q, want %q", events[0].Kind, signal.EventDispatchRouted)
 	}
 }
 
-func TestOTelAdapter_CloseEndsSpan(t *testing.T) {
-	adapter, err := signal.NewOTelAdapter(context.Background(), "test-close")
+func TestOTelLog_OnEmitCallbackFires(t *testing.T) {
+	log, err := signal.NewOTelLog(context.Background(), "test")
 	if err != nil {
-		t.Fatalf("NewOTelAdapter: %v", err)
+		t.Fatal(err)
 	}
-	adapter.Close()
+
+	var received signal.Event
+	log.OnEmit(func(e signal.Event) {
+		received = e
+	})
+
+	log.Emit(signal.Event{Kind: signal.EventWorkerStart, Source: "w1"})
+
+	if received.Kind != signal.EventWorkerStart {
+		t.Errorf("callback got kind = %q, want %q", received.Kind, signal.EventWorkerStart)
+	}
+}
+
+func TestOTelBusSet_AllBusesWork(t *testing.T) {
+	buses, err := signal.NewOTelBusSet(context.Background())
+	if err != nil {
+		t.Fatalf("NewOTelBusSet: %v", err)
+	}
+
+	buses.Control.Emit(signal.Event{Kind: signal.EventDispatchRouted, Source: "broker"})
+	buses.Work.Emit(signal.Event{Kind: signal.EventWorkerStart, Source: "w1"})
+	buses.Work.Emit(signal.Event{Kind: signal.EventWorkerError, Source: "w1"})
+	buses.Status.Emit(signal.Event{Kind: signal.EventWorkerStarted, Source: "warden"})
+
+	if buses.Control.Len() != 1 {
+		t.Errorf("control = %d, want 1", buses.Control.Len())
+	}
+	if buses.Work.Len() != 2 {
+		t.Errorf("work = %d, want 2", buses.Work.Len())
+	}
+	if buses.Status.Len() != 1 {
+		t.Errorf("status = %d, want 1", buses.Status.Len())
+	}
 }
